@@ -19,7 +19,7 @@ app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
   next();
 });
-
+app.use('/api/auth', require('./routes/auth'));
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ 
