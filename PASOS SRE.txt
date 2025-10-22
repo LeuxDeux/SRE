@@ -1,0 +1,23 @@
+1) Crear base de datos básica de usuarios:
+CREATE TABLE `usuarios` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `username` varchar(100) NOT NULL,
+  `password_hash` varchar(255) NOT NULL,
+  `email` varchar(255) DEFAULT NULL,
+  `role` enum('secretaria','admin') DEFAULT 'secretaria',
+  `secretaria` varchar(100) DEFAULT NULL,
+  `activo` tinyint(1) DEFAULT '1',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `username` (`username`)
+)
+2) Crear workspace
+Dividir zona de trabajo frontend-backend
+Frontend: npx create-react-app .
+Backend: npm init -y -> npm install express cors bcryptjs jsonwebtoken mysql2 dotenv socket.io
+
+3) Añadir repositorio remoto y hacer un add->commit->push
+4) Crear estructura de carpetas ordenada
+5) Crear config/database.js o sea, conexión con la base de datos, para este caso paquetes mysql2 y dotenv, forma de crear conexión siempre POOL. Exportar el modulo y probarlo de la manera que sea.
+6) Creación de server.js simple con ruta / con un solo mensaje y timestamp y un /api/health
