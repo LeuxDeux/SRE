@@ -36,6 +36,22 @@ ProxyPassReverse /api/ http://localhost:5000/
 DocumentRoot /var/www/html
 11) Creación de LoginForm.jsx con su useState para manejar credenciales, useAuth como hook para acceder al contexto de autentificacion (AuthContext) y LoginForm.css con sus estilos. handleSubmit() llama a la función login() de AuthContext y renderiza el componente
 12) Modificación de App.js temporal, muestra la pantalla principal si el usuario está logueado y renderiza los modulos en función de si es usuario normal o administrador.
-13)...IA: Ya lo he hecho y parece que todo funciona perfecto.
-Ahora lo lógico sería que vaya directamente por hacer "Registro de Eventos", lo que conllevaría a hacer una nueva tabla en la base de datos obviamente y toda su lógica.
--COMMIT NOTEBOOK
+13) Creación de nueva tabla "eventos:
+CREATE TABLE eventos (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(255) NOT NULL,
+    fecha_evento DATE NOT NULL,
+    descripcion TEXT,
+    archivo_adjunto VARCHAR(500), -- ruta del archivo
+    categoria ENUM('Académico', 'Cultural', 'Administrativo', 'Urgente') DEFAULT 'Académico',
+    
+    -- Datos internos
+    usuario_id INT NOT NULL,
+    secretaria VARCHAR(100) NOT NULL,
+    fecha_carga TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    ultima_modificacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id),
+    INDEX idx_fecha_evento (fecha_evento),
+    INDEX idx_categoria (categoria)
+);
