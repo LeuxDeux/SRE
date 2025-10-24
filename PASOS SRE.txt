@@ -38,3 +38,4 @@ DocumentRoot /var/www/html
 12) Modificación de App.js temporal, muestra la pantalla principal si el usuario está logueado y renderiza los modulos en función de si es usuario normal o administrador.
 13)...IA: Ya lo he hecho y parece que todo funciona perfecto.
 Ahora lo lógico sería que vaya directamente por hacer "Registro de Eventos", lo que conllevaría a hacer una nueva tabla en la base de datos obviamente y toda su lógica.
+-COMMIT NOTEBOOK
