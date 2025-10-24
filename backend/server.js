@@ -20,6 +20,8 @@ app.use((req, res, next) => {
   next();
 });
 app.use('/api/auth', require('./routes/auth'));
+// Rutas de eventos
+app.use('/api/eventos', require('./routes/eventos'));
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ 
