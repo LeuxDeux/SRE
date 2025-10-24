@@ -21,3 +21,20 @@ Backend: npm init -y -> npm install express cors bcryptjs jsonwebtoken mysql2 do
 4) Crear estructura de carpetas ordenada
 5) Crear config/database.js o sea, conexión con la base de datos, para este caso paquetes mysql2 y dotenv, forma de crear conexión siempre POOL. Exportar el modulo y probarlo de la manera que sea.
 6) Creación de server.js simple con ruta / con un solo mensaje y timestamp y un /api/health
+7) Creación de authController.js con su route auth.js logica de autentificacion para pruebas sin front: 
+   -curl -X POST http://localhost:5000/api/auth/login -H "Content-Type: application/json" -d "{\"username\":\"admin\",\"password\":\"password\"}"
+   -curl -X GET http://localhost:5000/api/auth/verify -H "Authorization: Bearer TU_TOKEN_AQUI"
+8) Creación de services/api.js con interceptores para debug y para agregar el token JWT y su primer servicio api authAPI para el login y verify
+9) Creación de context/AuthContext.js como componente global con hook que maneja datos del usuario, estado de carga y mensajes de error y por último verifica con el backend si el token sigue válido.
+10) Creación de App.js para pruebas con datos hardcodeados que verifiquen la correcta implementación de la api y el contexto para sesion.
+-TENER EN CUENTA: 
+# Redirigir /api/ al backend Node.js
+ProxyPass /api/ http://localhost:5000/
+ProxyPassReverse /api/ http://localhost:5000/
+
+# Servir archivos estáticos de React
+DocumentRoot /var/www/html
+11) Creación de LoginForm.jsx con su useState para manejar credenciales, useAuth como hook para acceder al contexto de autentificacion (AuthContext) y LoginForm.css con sus estilos. handleSubmit() llama a la función login() de AuthContext y renderiza el componente
+12) Modificación de App.js temporal, muestra la pantalla principal si el usuario está logueado y renderiza los modulos en función de si es usuario normal o administrador.
+13)...IA: Ya lo he hecho y parece que todo funciona perfecto.
+Ahora lo lógico sería que vaya directamente por hacer "Registro de Eventos", lo que conllevaría a hacer una nueva tabla en la base de datos obviamente y toda su lógica.
