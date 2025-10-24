@@ -59,10 +59,10 @@ export const authAPI = {
 
 // Servicios para eventos (para implementar después)
 export const eventosAPI = {
-  // crear: (eventoData) => api.post('/eventos', eventoData),
-  // obtenerTodos: () => api.get('/eventos'),
-  // actualizar: (id, eventoData) => api.put(`/eventos/${id}`, eventoData),
-  // eliminar: (id) => api.delete(`/eventos/${id}`)
+   crear: (eventoData) => api.post('/eventos', eventoData),
+   obtenerTodos: () => api.get('/eventos'),
+   actualizar: (id, eventoData) => api.put(`/eventos/${id}`, eventoData),
+   eliminar: (id) => api.delete(`/eventos/${id}`)
 };
 
 // Servicios para reservas (para implementar después)
