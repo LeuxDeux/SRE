@@ -1,179 +1,485 @@
 const pool = require('../config/database');
 
+/**
+ * FUNCIÓN AUXILIAR: detectarCambios
+ * Compara un evento antiguo con uno nuevo y detecta qué campos han cambiado
+ * @param {Object} eventoViejo - El evento antes de los cambios
+ * @param {Object} eventoNuevo - El evento con los nuevos valores
+ * @returns {Array} Lista de strings describiendo los cambios detectados
+ */
+const detectarCambios = (eventoViejo, eventoNuevo) => {
+  const cambios = [];
+
+  // Comparar nombre del evento (solo si realmente cambió)
+  if (eventoNuevo.nombre !== eventoViejo.nombre) {
+    cambios.push(`Nombre: "${eventoViejo.nombre}" → "${eventoNuevo.nombre}"`);
+  }
+
+  // CORRECCIÓN: Crear fechas en timezone local correctamente
+  const crearFechaLocal = (fechaInput) => {
+    if (!fechaInput) return null;
+    
+    // Si ya es un objeto Date, devolverlo directamente
+    if (fechaInput instanceof Date) {
+      return fechaInput;
+    }
+    
+    // Si es un string
+    if (typeof fechaInput === 'string') {
+      // Si la fecha viene de MySQL (con T o Z)
+      if (fechaInput.includes('T') || fechaInput.includes('Z')) {
+        return new Date(fechaInput);
+      } 
+      // Si la fecha viene del formulario (YYYY-MM-DD), tratarla como fecha local
+      else {
+        // Dividir la fecha y crear en timezone local
+        const [año, mes, dia] = fechaInput.split('-').map(Number);
+        return new Date(año, mes - 1, dia); // mes - 1 porque JavaScript usa 0-11
+      }
+    }
+    
+    // Si es otro tipo, intentar crear Date
+    return new Date(fechaInput);
+  };
+
+  const fechaVieja = crearFechaLocal(eventoViejo.fecha_evento);
+  const fechaNueva = crearFechaLocal(eventoNuevo.fecha_evento);
+  
+  // DEBUG adicional
+  console.log('🔍 DEBUG Fechas en detectarCambios:');
+  console.log('Tipo fecha vieja:', typeof eventoViejo.fecha_evento, eventoViejo.fecha_evento);
+  console.log('Tipo fecha nueva:', typeof eventoNuevo.fecha_evento, eventoNuevo.fecha_evento);
+  console.log('Fecha vieja procesada:', fechaVieja ? fechaVieja.toString() : 'null');
+  console.log('Fecha nueva procesada:', fechaNueva ? fechaNueva.toString() : 'null');
+  console.log('Fecha vieja local:', fechaVieja ? fechaVieja.toLocaleDateString('es-ES') : 'null');
+  console.log('Fecha nueva local:', fechaNueva ? fechaNueva.toLocaleDateString('es-ES') : 'null');
+  
+  // Comparar las fechas formateadas en local
+  if (fechaVieja && fechaNueva && 
+      fechaVieja.toLocaleDateString('es-ES') !== fechaNueva.toLocaleDateString('es-ES')) {
+    const fechaViejaFormateada = fechaVieja.toLocaleDateString('es-ES');
+    const fechaNuevaFormateada = fechaNueva.toLocaleDateString('es-ES');
+    cambios.push(`Fecha del evento: ${fechaViejaFormateada} → ${fechaNuevaFormateada}`);
+    console.log('✅ Cambio de fecha detectado:', fechaViejaFormateada, '→', fechaNuevaFormateada);
+  } else {
+    console.log('❌ No se detectó cambio de fecha');
+  }
+
+  // Comparar categoría
+  if (eventoNuevo.categoria !== eventoViejo.categoria) {
+    cambios.push(`Categoría: ${eventoViejo.categoria} → ${eventoNuevo.categoria}`);
+  }
+
+  // Comparar descripción (con casos especiales para mejor legibilidad)
+  const descVieja = eventoViejo.descripcion || '';
+  const descNueva = eventoNuevo.descripcion || '';
+  
+  if (descNueva !== descVieja) {
+    if (!descVieja && descNueva) {
+      cambios.push('Descripción: Se agregó una descripción');
+    } else if (descVieja && !descNueva) {
+      cambios.push('Descripción: Se eliminó la descripción');
+    } else {
+      cambios.push('Descripción: Se modificó la descripción');
+    }
+  }
+
+  return cambios;
+};
+
+/**
+ * FUNCIÓN AUXILIAR: registrarEnHistorial
+ * Guarda un registro en la tabla de historial_eventos para auditoría
+ * @param {Number} evento_id - ID del evento modificado
+ * @param {Number} usuario_id - ID del usuario que realizó la acción
+ * @param {String} accion - Tipo de acción ('creado', 'actualizado', 'eliminado')
+ * @param {Array} cambios - Lista de cambios realizados
+ */
+const registrarEnHistorial = async (evento_id, usuario_id, accion, cambios) => {
+  // Solo registrar si hay cambios reales o es una acción especial (crear/eliminar)
+  if (cambios.length > 0 || accion === 'creado' || accion === 'eliminado') {
+    await pool.query(
+      'INSERT INTO historial_eventos (evento_id, usuario_id, accion, cambios) VALUES (?, ?, ?, ?)',
+      [evento_id, usuario_id, accion, JSON.stringify(cambios)]
+    );
+  }
+};
+
 const eventosController = {
-  // Obtener todos los eventos
+  /**
+   * CONTROLADOR: obtenerEventos
+   * Obtiene todos los eventos de la base de datos con información del usuario creador
+   * Ruta: GET /api/eventos
+   */
   obtenerEventos: async (req, res) => {
     try {
+      // Consulta que une la tabla eventos con usuarios para obtener el nombre del creador
       const [eventos] = await pool.query(`
-        SELECT e.*, u.username as usuario_nombre 
+        SELECT e.*, u.nombre_completo as usuario_nombre 
         FROM eventos e 
         LEFT JOIN usuarios u ON e.usuario_id = u.id 
         ORDER BY e.fecha_evento DESC
       `);
-      
+
       res.json({
         success: true,
         eventos
       });
-      
+
     } catch (error) {
       console.error('Error obteniendo eventos:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         success: false,
-        error: 'Error interno del servidor' 
+        error: 'Error interno del servidor'
       });
     }
   },
 
-  // Obtener un evento por ID
+  /**
+   * CONTROLADOR: obtenerEvento
+   * Obtiene un evento específico por su ID
+   * Ruta: GET /api/eventos/:id
+   */
   obtenerEvento: async (req, res) => {
     try {
       const { id } = req.params;
-      
+
       const [eventos] = await pool.query(`
-        SELECT e.*, u.username as usuario_nombre 
+        SELECT e.*, u.nombre_completo as usuario_nombre 
         FROM eventos e 
         LEFT JOIN usuarios u ON e.usuario_id = u.id 
         WHERE e.id = ?
       `, [id]);
-      
+
+      // Verificar si el evento existe
       if (eventos.length === 0) {
-        return res.status(404).json({ 
+        return res.status(404).json({
           success: false,
-          error: 'Evento no encontrado' 
+          error: 'Evento no encontrado'
         });
       }
-      
+
       res.json({
         success: true,
         evento: eventos[0]
       });
-      
+
     } catch (error) {
       console.error('Error obteniendo evento:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         success: false,
-        error: 'Error interno del servidor' 
+        error: 'Error interno del servidor'
       });
     }
   },
 
-  // Crear nuevo evento
+  /**
+   * CONTROLADOR: crearEvento
+   * Crea un nuevo evento en la base de datos
+   * Ruta: POST /api/eventos (protegida con authMiddleware)
+   */
   crearEvento: async (req, res) => {
     try {
-      const { nombre, fecha_evento, descripcion, categoria } = req.body;
-      const usuario_id = req.user.id; // Del middleware de auth (cuando lo implementemos)
-      const secretaria = req.user.secretaria;
+      console.log('📥 Body recibido:', req.body);
+      console.log('📁 Archivo recibido:', req.file);
       
-      // Validaciones básicas
+      // Extraer datos del body y del usuario autenticado
+      const { nombre, fecha_evento, descripcion, categoria } = req.body;
+      const usuario_id = req.user.id; // Del middleware de autenticación
+      const secretaria = req.user.secretaria; // Del middleware de autenticación
+
+      // Validaciones básicas de campos requeridos
       if (!nombre || !fecha_evento) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           success: false,
-          error: 'Nombre y fecha del evento son requeridos' 
+          error: 'Nombre y fecha del evento son requeridos'
         });
       }
-      
+
+      let archivo_adjunto = null;
+      const cambiosIniciales = ['Evento creado inicialmente'];
+
+      // Manejar archivo adjunto si se subió uno
+      if (req.file) {
+        archivo_adjunto = req.file.filename;
+        cambiosIniciales.push('Con archivo adjunto');
+      }
+
+      // Registrar si tiene descripción
+      if (descripcion) {
+        cambiosIniciales.push('Con descripción');
+      }
+
+      // Insertar el nuevo evento en la base de datos
       const [result] = await pool.query(`
-        INSERT INTO eventos (nombre, fecha_evento, descripcion, categoria, usuario_id, secretaria)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `, [nombre, fecha_evento, descripcion, categoria, usuario_id, secretaria]);
-      
-      // Obtener el evento recién creado
+        INSERT INTO eventos (nombre, fecha_evento, descripcion, categoria, usuario_id, secretaria, archivo_adjunto)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `, [nombre, fecha_evento, descripcion, categoria, usuario_id, secretaria, archivo_adjunto]);
+
+      // Registrar la creación en el historial
+      await registrarEnHistorial(
+        result.insertId, // ID del evento recién creado
+        usuario_id,
+        'creado',
+        cambiosIniciales
+      );
+
+      // Obtener el evento recién creado con información completa
       const [eventos] = await pool.query(`
-        SELECT e.*, u.username as usuario_nombre 
+        SELECT e.*, u.nombre_completo as usuario_nombre 
         FROM eventos e 
         LEFT JOIN usuarios u ON e.usuario_id = u.id 
         WHERE e.id = ?
       `, [result.insertId]);
-      
+
       res.status(201).json({
         success: true,
         evento: eventos[0],
         message: 'Evento creado exitosamente'
       });
-      
+
     } catch (error) {
       console.error('Error creando evento:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         success: false,
-        error: 'Error interno del servidor' 
+        error: 'Error interno del servidor'
       });
     }
   },
 
-  // Actualizar evento
+  /**
+   * CONTROLADOR: actualizarEvento
+   * Actualiza un evento existente y registra los cambios en el historial
+   * Ruta: PUT /api/eventos/:id (protegida con authMiddleware)
+   */
   actualizarEvento: async (req, res) => {
     try {
       const { id } = req.params;
       const { nombre, fecha_evento, descripcion, categoria } = req.body;
-      
-      // Verificar que el evento existe
+
+      // Verificar que el evento existe antes de actualizar
       const [eventos] = await pool.query('SELECT * FROM eventos WHERE id = ?', [id]);
       if (eventos.length === 0) {
-        return res.status(404).json({ 
+        return res.status(404).json({
           success: false,
-          error: 'Evento no encontrado' 
+          error: 'Evento no encontrado'
         });
       }
+
+      const eventoViejo = eventos[0];
       
-      await pool.query(`
-        UPDATE eventos 
-        SET nombre = ?, fecha_evento = ?, descripcion = ?, categoria = ?, ultima_modificacion = CURRENT_TIMESTAMP
-        WHERE id = ?
-      `, [nombre, fecha_evento, descripcion, categoria, id]);
+      // DEBUG: Mostrar las fechas para ver qué está pasando
+      console.log('🔍 DEBUG Fechas DETALLADO:');
+      console.log('Fecha vieja desde BD (raw):', eventoViejo.fecha_evento);
+      console.log('Tipo fecha vieja:', typeof eventoViejo.fecha_evento);
+      console.log('Fecha nueva del form (raw):', fecha_evento);
+      console.log('Tipo fecha nueva:', typeof fecha_evento);
+
+      // Usar la nueva función para crear fechas (la misma que en detectarCambios)
+      const crearFechaLocal = (fechaInput) => {
+        if (!fechaInput) return null;
+        
+        // Si ya es un objeto Date, devolverlo directamente
+        if (fechaInput instanceof Date) {
+          return fechaInput;
+        }
+        
+        // Si es un string
+        if (typeof fechaInput === 'string') {
+          // Si la fecha viene de MySQL (con T o Z)
+          if (fechaInput.includes('T') || fechaInput.includes('Z')) {
+            return new Date(fechaInput);
+          } 
+          // Si la fecha viene del formulario (YYYY-MM-DD), tratarla como fecha local
+          else {
+            // Dividir la fecha y crear en timezone local
+            const [año, mes, dia] = fechaInput.split('-').map(Number);
+            return new Date(año, mes - 1, dia); // mes - 1 porque JavaScript usa 0-11
+          }
+        }
+        
+        // Si es otro tipo, intentar crear Date
+        return new Date(fechaInput);
+      };
+
+      const fechaVieja = crearFechaLocal(eventoViejo.fecha_evento);
+      const fechaNueva = crearFechaLocal(fecha_evento);
+
+      console.log('Fecha vieja (procesada):', fechaVieja ? fechaVieja.toString() : 'null');
+      console.log('Fecha nueva (procesada):', fechaNueva ? fechaNueva.toString() : 'null');
+      console.log('Fecha vieja (local):', fechaVieja ? fechaVieja.toLocaleDateString('es-ES') : 'null');
+      console.log('Fecha nueva (local):', fechaNueva ? fechaNueva.toLocaleDateString('es-ES') : 'null');
+      console.log('¿Son diferentes en local?', fechaVieja && fechaNueva ? 
+        fechaVieja.toLocaleDateString('es-ES') !== fechaNueva.toLocaleDateString('es-ES') : 'false');
       
-      // Obtener el evento actualizado
+      // Detectar qué campos han cambiado
+      const cambios = detectarCambios(eventoViejo, { nombre, fecha_evento, descripcion, categoria });
+
+      // DEBUG: Mostrar los cambios detectados
+      console.log('🔍 Cambios detectados:', cambios);
+
+      // Manejar archivo adjunto
+      let archivo_adjunto = eventoViejo.archivo_adjunto;
+      if (req.file) {
+        // Determinar el tipo de cambio en el archivo
+        if (archivo_adjunto) {
+          cambios.push('Archivo adjunto: Se reemplazó el archivo anterior');
+        } else {
+          cambios.push('Archivo adjunto: Se agregó un archivo');
+        }
+        archivo_adjunto = req.file.filename;
+      }
+
+      // Solo proceder si hay cambios reales
+      if (cambios.length > 0) {
+        // Registrar los cambios en el historial
+        await registrarEnHistorial(
+          id,
+          req.user.id,
+          'actualizado',
+          cambios
+        );
+
+        // Actualizar el evento en la base de datos
+        await pool.query(`
+          UPDATE eventos 
+          SET nombre = ?, fecha_evento = ?, descripcion = ?, categoria = ?, archivo_adjunto = ?, ultima_modificacion = CURRENT_TIMESTAMP
+          WHERE id = ?
+        `, [nombre, fecha_evento, descripcion, categoria, archivo_adjunto, id]);
+      }
+
+      // Obtener el evento actualizado con información completa
       const [eventosActualizados] = await pool.query(`
-        SELECT e.*, u.username as usuario_nombre 
+        SELECT e.*, u.nombre_completo as usuario_nombre 
         FROM eventos e 
         LEFT JOIN usuarios u ON e.usuario_id = u.id 
         WHERE e.id = ?
       `, [id]);
-      
+
       res.json({
         success: true,
         evento: eventosActualizados[0],
-        message: 'Evento actualizado exitosamente'
+        message: cambios.length > 0 ? 'Evento actualizado exitosamente' : 'No se realizaron cambios'
       });
-      
+
     } catch (error) {
       console.error('Error actualizando evento:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         success: false,
-        error: 'Error interno del servidor' 
+        error: 'Error interno del servidor'
       });
     }
   },
 
-  // Eliminar evento
+  /**
+   * CONTROLADOR: eliminarEvento
+   * Elimina un evento y registra la acción en el historial
+   * Ruta: DELETE /api/eventos/:id (protegida con authMiddleware)
+   */
   eliminarEvento: async (req, res) => {
     try {
       const { id } = req.params;
-      
-      // Verificar que el evento existe
+
+      // Verificar que el evento existe antes de eliminar
       const [eventos] = await pool.query('SELECT * FROM eventos WHERE id = ?', [id]);
       if (eventos.length === 0) {
-        return res.status(404).json({ 
+        return res.status(404).json({
           success: false,
-          error: 'Evento no encontrado' 
+          error: 'Evento no encontrado'
         });
       }
-      
+
+      // Registrar la eliminación en el historial ANTES de eliminar el evento
+      await registrarEnHistorial(
+        id,
+        req.user.id,
+        'eliminado',
+        ['Evento eliminado del sistema']
+      );
+
+      // Eliminar el evento de la base de datos
       await pool.query('DELETE FROM eventos WHERE id = ?', [id]);
-      
+
       res.json({
         success: true,
         message: 'Evento eliminado exitosamente'
       });
-      
+
     } catch (error) {
       console.error('Error eliminando evento:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         success: false,
-        error: 'Error interno del servidor' 
+        error: 'Error interno del servidor'
+      });
+    }
+  },
+
+  /**
+   * CONTROLADOR: obtenerHistorialEvento
+   * Obtiene el historial completo de cambios de un evento específico
+   * Ruta: GET /api/eventos/:id/historial
+   */
+  obtenerHistorialEvento: async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      // Consulta que une historial_eventos con usuarios para obtener información de quién realizó cada acción
+      const [historial] = await pool.query(`
+        SELECT he.*, u.username, u.role, u.secretaria
+        FROM historial_eventos he 
+        LEFT JOIN usuarios u ON he.usuario_id = u.id 
+        WHERE he.evento_id = ? 
+        ORDER BY he.fecha DESC
+      `, [id]);
+
+      res.json({
+        success: true,
+        historial
+      });
+
+    } catch (error) {
+      console.error('Error obteniendo historial:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Error interno del servidor'
+      });
+    }
+  },
+
+  /**
+   * CONTROLADOR: descargarArchivo
+   * Permite descargar archivos adjuntos de eventos
+   * Ruta: GET /api/eventos/archivo/:filename
+   */
+  descargarArchivo: async (req, res) => {
+    try {
+      const { filename } = req.params;
+      const path = require('path');
+      const fs = require('fs');
+
+      // Construir la ruta completa del archivo
+      const filePath = path.join(__dirname, '../uploads', filename);
+
+      // Verificar que el archivo existe físicamente en el servidor
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({
+          success: false,
+          error: 'Archivo no encontrado'
+        });
+      }
+
+      // Enviar el archivo para descarga
+      res.download(filePath);
+
+    } catch (error) {
+      console.error('Error descargando archivo:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Error interno del servidor'
       });
     }
   }
+
 };
 
 module.exports = eventosController;
