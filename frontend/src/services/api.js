@@ -27,6 +27,10 @@ api.interceptors.request.use(
 // Interceptor para AGREGAR token automáticamente (NUEVO)
 api.interceptors.request.use(
   (config) => {
+    // Si los datos son FormData, dejar que el navegador establezca el Content-Type
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
+    }
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -57,12 +61,14 @@ export const authAPI = {
   verify: () => api.get('/auth/verify')
 };
 
-// Servicios para eventos (para implementar después)
+// Servicios para eventos
 export const eventosAPI = {
    crear: (eventoData) => api.post('/eventos', eventoData),
    obtenerTodos: () => api.get('/eventos'),
+   obtenerPorId: (id) => api.get(`/eventos/${id}`),
    actualizar: (id, eventoData) => api.put(`/eventos/${id}`, eventoData),
-   eliminar: (id) => api.delete(`/eventos/${id}`)
+   eliminar: (id) => api.delete(`/eventos/${id}`),
+   obtenerHistorial: (id) => api.get(`/eventos/${id}/historial`)
 };
 
 // Servicios para reservas (para implementar después)
