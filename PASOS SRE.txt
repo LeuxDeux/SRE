@@ -55,3 +55,21 @@ CREATE TABLE eventos (
     INDEX idx_fecha_evento (fecha_evento),
     INDEX idx_categoria (categoria)
 );
+14) Creacion de controller eventosController.js para manejar metodos CRUD
+15) Creacion de route eventos.js
+16) Creacion de nueva arquitectura middleware/auth.js para usarlo en routes.
+17) Creacion de componente EventosTable.jsx y css EventosTable.css
+18) Modificaciones en App.js para visualizaciones más precisas + App.css
+19) Modificacion tabla usuarios:
+ALTER TABLE usuarios 
+ADD COLUMN nombre_completo VARCHAR(200) AFTER username; 
+Para mostrar sus nombres y no username.
+20) Creacion de componente EventoForm.jsx para registrar eventos en el sistema
+21) Modificar App.js y EventoTable.jsx con sus props y rutas apropiadas
+22) Instalación de Multer y creación de nuevo middleware/upload.js para manejar carga archivos con nuevo valor en bd archivo_adjunto VARCHAR
+23) Modificacion de eventosController.js para tomar archivo adjunto como parametro.
+24) Nuevas rutas de eventos.js con middleware para manejar archivos
+25) Cambio en services/api.js para interceptor de FormData 
+26) Creación de componente EventoDetail.jsx para mostrar detalles de cada evento y si hubo cambios en el mismo.
+27) Refactorización de eventosController.js con mejor logica y manejo de funciones.
+28) Próximo -> Categorias enum a nueva tabla para cargar categorias siendo admin
