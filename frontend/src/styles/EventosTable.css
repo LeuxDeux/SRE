@@ -1,0 +1,263 @@
+/* ===== CONTENEDOR PRINCIPAL ===== */
+.eventos-table-container {
+  background: white;
+  border-radius: 8px;
+  /* NOTA: El padding se quita aquí porque ya lo tiene el modulo-container en App.css */
+  /* Esto evita doble padding y permite más espacio para la tabla */
+}
+
+/* ===== HEADER DE LA TABLA ===== */
+.table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.table-header h2 {
+  margin: 0;
+  color: #333;
+}
+
+.refresh-button {
+  background: #667eea;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.refresh-button:hover {
+  background: #5a6fd8;
+}
+
+/* ===== CONTENEDOR RESPONSIVE (SCROLL HORIZONTAL) ===== */
+.table-responsive {
+  overflow-x: auto;
+  max-width: 100%;
+  border: 1px solid #e1e5e9;
+  border-radius: 8px;
+  background: white;
+  /* ESTO CREA EL SCROLL HORIZONTAL cuando la tabla es más ancha que el contenedor */
+}
+
+/* ===== TABLA PRINCIPAL ===== */
+.eventos-table {
+  width: 100%;
+  min-width: 1100px; /* ← ANCHO MÍNIMO: Fuerza scroll horizontal si la pantalla es pequeña */
+  border-collapse: collapse;
+  font-size: 0.82rem; /* ← TEXTO MÁS PEQUEÑO: Permite más contenido en menos espacio */
+}
+
+/* ===== CABECERAS DE COLUMNA ===== */
+.eventos-table th {
+  background: #f8f9fa;
+  padding: 0.6rem 0.5rem; /* ← PADDING REDUCIDO: Más compacto */
+  text-align: left;
+  font-weight: 600;
+  color: #333;
+  border-bottom: 2px solid #dee2e6;
+  white-space: nowrap; /* ← EVITA SALTO DE LÍNEA en textos largos */
+  font-size: 0.8rem;
+}
+
+/* ===== CELDAS DE DATOS ===== */
+.eventos-table td {
+  padding: 0.6rem 0.5rem; /* ← PADDING REDUCIDO: Más compacto */
+  border-bottom: 1px solid #dee2e6;
+  vertical-align: top;
+}
+
+.eventos-table tr:hover {
+  background-color: #f8f9fa;
+}
+
+/* ===== ANCHOS OPTIMIZADOS DE COLUMNAS ===== */
+
+/* Columna NOMBRE - Prioridad alta */
+.evento-nombre {
+  min-width: 180px;  /* ← ANCHO MÍNIMO REDUCIDO */
+  max-width: 220px;  /* ← ANCHO MÁXIMO REDUCIDO */
+  font-weight: 500;
+  color: #333;
+  position: relative;
+}
+
+/* Columna FECHA EVENTO - Compacta */
+.evento-fecha {
+  min-width: 100px;  /* ← ANCHO REDUCIDO */
+  white-space: nowrap;
+  color: #666;
+}
+
+/* Columna DESCRIPCIÓN - Texto truncado */
+.evento-descripcion {
+  max-width: 180px;  /* ← ANCHO REDUCIDO */
+  min-width: 140px;  /* ← ANCHO MÍNIMO REDUCIDO */
+  color: #666;
+  overflow: hidden;
+  text-overflow: ellipsis; /* ← PUNTOS SUSPENSIVOS si texto muy largo */
+  white-space: nowrap;     /* ← UNA SOLA LÍNEA */
+}
+
+/* Columna ARCHIVO - Muy compacta */
+.evento-archivo {
+  min-width: 90px;   /* ← ANCHO MÍNIMO REDUCIDO */
+  max-width: 110px;  /* ← ANCHO MÁXIMO REDUCIDO */
+}
+
+/* Columna FECHA CREACIÓN - Fechas compactas */
+.evento-fecha-creacion {
+  min-width: 130px;  /* ← ANCHO REDUCIDO */
+  white-space: nowrap;
+  font-size: 0.75rem; /* ← TEXTO MÁS PEQUEÑO */
+  color: #666;
+}
+
+/* Columnas USUARIO y SECRETARÍA */
+.evento-usuario,
+.evento-secretaria {
+  min-width: 110px;  /* ← ANCHO REDUCIDO */
+  color: #666;
+  white-space: nowrap;
+  font-size: 0.8rem; /* ← TEXTO MÁS PEQUEÑO */
+}
+
+/* Columna ACCIONES - Botones compactos */
+.evento-acciones {
+  min-width: 120px;  /* ← ANCHO REDUCIDO */
+  white-space: nowrap;
+}
+
+/* ===== INDICADORES DE MODIFICACIÓN ===== */
+.fila-modificada {
+  background-color: #fffaf0 !important; /* ← FONDO AMARILLO CLARO */
+  border-left: 3px solid #ffc107;       /* ← BORDE NARANJA IZQUIERDO */
+}
+
+.fila-modificada:hover {
+  background-color: #fff4e6 !important; /* ← FONDO MÁS OSCURO al hover */
+}
+
+.modificado-badge {
+  color: #ffc107;
+  margin-left: 5px;
+  font-size: 0.7rem;
+  cursor: help; /* ← CURSOR DE AYUDA al pasar mouse */
+}
+
+.modificacion-info {
+  margin-top: 2px;
+}
+
+.modificacion-info small {
+  color: #ffc107;
+  cursor: help;
+  font-weight: bold;
+}
+
+/* ===== BADGES DE CATEGORÍAS ===== */
+.badge {
+  padding: 0.2rem 0.4rem;   /* ← PADDING REDUCIDO */
+  border-radius: 10px;
+  font-size: 0.65rem;       /* ← TEXTO MÁS PEQUEÑO */
+  font-weight: 500;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.badge-academico {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.badge-cultural {
+  background: #f3e5f5;
+  color: #7b1fa2;
+}
+
+.badge-administrativo {
+  background: #e8f5e8;
+  color: #388e3c;
+}
+
+.badge-urgente {
+  background: #ffebee;
+  color: #d32f2f;
+}
+
+/* ===== BOTONES DE ACCIÓN ===== */
+.btn {
+  background: none;
+  border: none;
+  padding: 0.2rem 0.4rem;   /* ← PADDING REDUCIDO */
+  margin: 0 0.1rem;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 0.75rem;       /* ← TEXTO MÁS PEQUEÑO */
+}
+
+.btn-info { color: #17a2b8; }
+.btn-warning { color: #ffc107; }
+.btn-danger { color: #dc3545; }
+
+.btn:hover {
+  opacity: 0.8;
+}
+
+/* ===== ENLACES DE ARCHIVOS ===== */
+.archivo-link {
+  color: #667eea;
+  text-decoration: none;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.archivo-link:hover {
+  text-decoration: underline;
+}
+
+.sin-archivo {
+  color: #999;
+  font-style: italic;
+}
+
+/* ===== ESTADOS DE CARGA Y ERROR ===== */
+.loading-container,
+.error-container,
+.empty-state {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+}
+
+.retry-button {
+  background: #667eea;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 5px;
+  cursor: pointer;
+  margin-top: 1rem;
+}
+
+.retry-button:hover {
+  background: #5a6fd8;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
