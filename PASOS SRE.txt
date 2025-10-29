@@ -158,4 +158,4 @@ curl -X POST http://localhost:5000/api/eventos \
     "links": "https://forms.google.com/inscripcion, https://meet.google.com/evento",
     "observaciones": "Observaciones adicionales de prueba"
   }'
-40) 
+40) Pasos siguientes: Evitar que no admins puedan eliminar eventos, formateo, arreglar botones, testing de edicion
