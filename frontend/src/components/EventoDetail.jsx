@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { eventosAPI } from '../services/api';
+import { generarPDF } from '../utils/pdfGenerator';
 import '../styles/EventoDetail.css';
 
 const EventoDetail = ({ eventoId, onClose }) => {
@@ -7,6 +8,7 @@ const EventoDetail = ({ eventoId, onClose }) => {
   const [historial, setHistorial] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [generandoPDF, setGenerandoPDF] = useState(false);
 
   const cargarDetalles = useCallback(async () => {
     try {
@@ -37,6 +39,20 @@ const EventoDetail = ({ eventoId, onClose }) => {
       setLoading(false);
     }
   }, [eventoId]);
+
+  const handleGenerarPDF = async () => {
+    if (!evento) return;
+    
+    try {
+      setGenerandoPDF(true);
+      await generarPDF(evento);
+    } catch (error) {
+      console.error('Error generando PDF:', error);
+      alert('Error al generar el PDF');
+    } finally {
+      setGenerandoPDF(false);
+    }
+  };
 
   useEffect(() => {
     cargarDetalles();
@@ -70,26 +86,19 @@ const EventoDetail = ({ eventoId, onClose }) => {
     });
   };
 
-  const getBadgeColor = (categoria) => {
-    const colores = {
-      'Académico': 'badge-academico',
-      'Cultural': 'badge-cultural',
-      'Administrativo': 'badge-administrativo',
-      'Urgente': 'badge-urgente'
-    };
-    return colores[categoria] || 'badge-default';
+  const formatearHora = (horaString) => {
+    if (!horaString) return 'No especificada';
+    return horaString.substring(0, 5); // Formato HH:MM
   };
 
   const parsearCambios = (cambiosString) => {
     try {
       if (!cambiosString) return [];
       
-      // Si ya es un array, devolverlo directamente
       if (Array.isArray(cambiosString)) {
         return cambiosString;
       }
       
-      // Intentar parsear como JSON
       const cambios = JSON.parse(cambiosString);
       return Array.isArray(cambios) ? cambios : [cambios];
       
@@ -149,81 +158,187 @@ const EventoDetail = ({ eventoId, onClose }) => {
           ← Volver a la lista
         </button>
         <h2>📋 Detalles del Evento</h2>
-        <div style={{ width: '100px' }}></div>
+        <button 
+          onClick={handleGenerarPDF} 
+          className="btn-generar-pdf"
+          disabled={generandoPDF || !evento}
+        >
+          {generandoPDF ? '🔄 Generando PDF...' : '📄 Generar PDF'}
+        </button>
       </div>
 
       <div className="detail-content">
         {/* Información Actual del Evento */}
         <div className="info-section">
           <div className="section-header">
-            <h3>📝 Información Actual del Evento</h3>
-            <button onClick={cargarDetalles} className="btn-refresh" title="Actualizar">
-              🔄
-            </button>
+            <h3>📝 Información del Evento</h3>
+            <div className="header-actions">
+              <button onClick={cargarDetalles} className="btn-refresh" title="Actualizar">
+                🔄
+              </button>
+            </div>
           </div>
+          
           <div className="info-grid">
-            <div className="info-item">
-              <label>Nombre del Evento:</label>
-              <span className="evento-nombre">{evento.nombre}</span>
-            </div>
-            
-            <div className="info-item">
-              <label>Fecha del Evento:</label>
-              <span>{formatearFecha(evento.fecha_evento)}</span>
-            </div>
-            
-            <div className="info-item">
-              <label>Categoría:</label>
-              <span className={`badge ${getBadgeColor(evento.categoria)}`}>
-                {evento.categoria}
-              </span>
-            </div>
-            
-            <div className="info-item full-width">
-              <label>Descripción:</label>
-              <div className="descripcion-content">
-                {evento.descripcion || (
-                  <span className="texto-vacio">Sin descripción</span>
-                )}
+            {/* SECCIÓN: INFORMACIÓN BÁSICA */}
+            <div className="info-subsection">
+              <h4>📋 Información Básica</h4>
+              <div className="info-item">
+                <label>Nombre del Evento:</label>
+                <span className="evento-nombre">{evento.nombre}</span>
+              </div>
+              
+              <div className="info-item">
+                <label>Fecha del Evento:</label>
+                <span>{formatearFecha(evento.fecha_evento)}</span>
+              </div>
+              
+              <div className="info-item">
+                <label>Categoría:</label>
+                <span 
+                  className="badge" 
+                  style={{
+                    backgroundColor: evento.categoria_color || '#6c757d',
+                    color: 'white',
+                    padding: '4px 8px',
+                    borderRadius: '4px',
+                    fontSize: '12px'
+                  }}
+                >
+                  {evento.categoria_nombre || 'Sin categoría'}
+                </span>
+              </div>
+              
+              <div className="info-item full-width">
+                <label>Descripción:</label>
+                <div className="descripcion-content">
+                  {evento.descripcion || (
+                    <span className="texto-vacio">Sin descripción</span>
+                  )}
+                </div>
               </div>
             </div>
-            
-            <div className="info-item">
-              <label>Archivo Adjunto:</label>
-              <span>
-                {evento.archivo_adjunto ? (
-                  <a 
-                    href={`http://localhost:5000/api/eventos/archivo/${evento.archivo_adjunto}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="archivo-link"
-                  >
-                    📎 {evento.archivo_adjunto}
-                  </a>
-                ) : (
-                  <span className="texto-vacio">Sin archivo adjunto</span>
-                )}
-              </span>
+
+            {/* SECCIÓN: DATOS DE CONTACTO */}
+            <div className="info-subsection">
+              <h4>📞 Datos de Contacto</h4>
+              <div className="info-item">
+                <label>Correo de Contacto:</label>
+                <span>{evento.correo_contacto || <span className="texto-vacio">No especificado</span>}</span>
+              </div>
+              
+              <div className="info-item">
+                <label>Teléfono:</label>
+                <span>{evento.telefono || <span className="texto-vacio">No especificado</span>}</span>
+              </div>
             </div>
-            
-            <div className="info-item">
-              <label>Creado por:</label>
-              <span>{evento.usuario_nombre || 'Usuario no disponible'}</span>
+
+            {/* SECCIÓN: HORARIOS Y UBICACIÓN */}
+            <div className="info-subsection">
+              <h4>🕐 Horarios y Ubicación</h4>
+              <div className="info-item">
+                <label>Hora de Inicio:</label>
+                <span>{formatearHora(evento.hora_inicio)}</span>
+              </div>
+              
+              <div className="info-item">
+                <label>Hora de Finalización:</label>
+                <span>{formatearHora(evento.hora_fin)}</span>
+              </div>
+              
+              <div className="info-item">
+                <label>Lugar / Espacio:</label>
+                <span>{evento.lugar || <span className="texto-vacio">No especificado</span>}</span>
+              </div>
             </div>
-            
-            <div className="info-item">
-              <label>Secretaría:</label>
-              <span>{evento.secretaria}</span>
+
+            {/* SECCIÓN: INFORMACIÓN ADICIONAL */}
+            <div className="info-subsection">
+              <h4>🎯 Información Adicional</h4>
+              <div className="info-item">
+                <label>Público Destinatario:</label>
+                <span>{evento.publico_destinatario || <span className="texto-vacio">No especificado</span>}</span>
+              </div>
+
+              <div className="info-item full-width">
+                <label>Links Relevantes:</label>
+                <div className="links-content">
+                  {evento.links ? (
+                    <div className="links-list">
+                      {evento.links
+                        .split(/[\n,]+/) // Divide por saltos de línea O comas
+                        .map(link => link.trim())
+                        .filter(link => link.length > 0)
+                        .map((link, index) => (
+                          <div key={index} className="link-item">
+                            <a
+                              href={link.startsWith('http') ? link : `https://${link}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="archivo-link"
+                            >
+                              🔗 {link}
+                            </a>
+                          </div>
+                        ))
+                      }
+                    </div>
+                  ) : (
+                    <span className="texto-vacio">No hay links especificados</span>
+                  )}
+                </div>
+              </div>
+              
+              <div className="info-item full-width">
+                <label>Observaciones Adicionales:</label>
+                <div className="observaciones-content">
+                  {evento.observaciones || (
+                    <span className="texto-vacio">Sin observaciones adicionales</span>
+                  )}
+                </div>
+              </div>
             </div>
-            
-            <div className="info-item">
-              <label>Fecha de Creación:</label>
-              <span>{formatearFechaHora(evento.fecha_carga)}</span>
-            </div>
-            
-            <div className="info-item">
-              <label>Última Modificación:</label>
-              <span>{formatearFechaHora(evento.ultima_modificacion)}</span>
+
+            {/* SECCIÓN: ARCHIVOS Y METADATOS */}
+            <div className="info-subsection">
+              <h4>📎 Archivos y Metadatos</h4>
+              <div className="info-item">
+                <label>Archivo Adjunto:</label>
+                <span>
+                  {evento.archivo_adjunto ? (
+                    <a 
+                      href={`http://localhost:5000/api/eventos/archivo/${evento.archivo_adjunto}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="archivo-link"
+                    >
+                      📎 {evento.archivo_adjunto}
+                    </a>
+                  ) : (
+                    <span className="texto-vacio">Sin archivo adjunto</span>
+                  )}
+                </span>
+              </div>
+              
+              <div className="info-item">
+                <label>Creado por:</label>
+                <span>{evento.usuario_nombre || 'Usuario no disponible'}</span>
+              </div>
+              
+              <div className="info-item">
+                <label>Secretaría:</label>
+                <span>{evento.secretaria}</span>
+              </div>
+              
+              <div className="info-item">
+                <label>Fecha de Creación:</label>
+                <span>{formatearFechaHora(evento.fecha_carga)}</span>
+              </div>
+              
+              <div className="info-item">
+                <label>Última Modificación:</label>
+                <span>{formatearFechaHora(evento.ultima_modificacion)}</span>
+              </div>
             </div>
           </div>
         </div>
