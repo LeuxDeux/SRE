@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { eventosAPI } from '../services/api';
+import { eventosAPI, categoriasAPI } from '../services/api';
 import '../styles/EventoForm.css';
 
 const EventoForm = ({ evento, onSave, onCancel }) => {
@@ -7,11 +7,36 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
     nombre: '',
     fecha_evento: '',
     descripcion: '',
-    categoria: 'Académico'
+    categoria_id: '',
+    correo_contacto: '',
+    telefono: '',
+    hora_inicio: '',
+    hora_fin: '',
+    lugar: '',
+    publico_destinatario: '',
+    links: '',
+    observaciones: ''
   });
+  
+  const [categorias, setCategorias] = useState([]);
   const [archivo, setArchivo] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Cargar categorías al montar el componente
+  useEffect(() => {
+    const cargarCategorias = async () => {
+      try {
+        const response = await categoriasAPI.obtenerTodas();
+        setCategorias(response.data.categorias);
+      } catch (error) {
+        console.error('Error cargando categorías:', error);
+        setError('Error al cargar las categorías');
+      }
+    };
+    
+    cargarCategorias();
+  }, []);
 
   // Si estamos editando, cargar los datos del evento
   useEffect(() => {
@@ -23,7 +48,15 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
         nombre: evento.nombre || '',
         fecha_evento: fechaFormateada,
         descripcion: evento.descripcion || '',
-        categoria: evento.categoria || 'Académico'
+        categoria_id: evento.categoria_id || '',
+        correo_contacto: evento.correo_contacto || '',
+        telefono: evento.telefono || '',
+        hora_inicio: evento.hora_inicio || '',
+        hora_fin: evento.hora_fin || '',
+        lugar: evento.lugar || '',
+        publico_destinatario: evento.publico_destinatario || '',
+        links: evento.links || '',
+        observaciones: evento.observaciones || ''
       });
     }
   }, [evento]);
@@ -39,10 +72,9 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Validar tamaño (10MB máximo)
       if (file.size > 10 * 1024 * 1024) {
         setError('El archivo es demasiado grande. Máximo 10MB.');
-        e.target.value = ''; // Limpiar input
+        e.target.value = '';
         return;
       }
       
@@ -69,15 +101,29 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
       return;
     }
 
+    if (!formData.categoria_id) {
+      setError('Por favor selecciona una categoría');
+      return;
+    }
+
     setLoading(true);
     setError('');
 
     try {
       const formDataToSend = new FormData();
+
       formDataToSend.append('nombre', formData.nombre);
       formDataToSend.append('fecha_evento', formData.fecha_evento);
       formDataToSend.append('descripcion', formData.descripcion);
-      formDataToSend.append('categoria', formData.categoria);
+      formDataToSend.append('categoria_id', formData.categoria_id);
+      formDataToSend.append('correo_contacto', formData.correo_contacto);
+      formDataToSend.append('telefono', formData.telefono);
+      formDataToSend.append('hora_inicio', formData.hora_inicio);
+      formDataToSend.append('hora_fin', formData.hora_fin);
+      formDataToSend.append('lugar', formData.lugar);
+      formDataToSend.append('publico_destinatario', formData.publico_destinatario);
+      formDataToSend.append('links', formData.links);
+      formDataToSend.append('observaciones', formData.observaciones);
 
       if (archivo) {
         formDataToSend.append('archivo_adjunto', archivo);
@@ -105,12 +151,22 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
     }
   };
 
-  const categorias = ['Académico', 'Cultural', 'Administrativo', 'Urgente'];
+  // Opciones predefinidas para público destinatario
+  const opcionesPublico = [
+    'Estudiantes',
+    'Docentes', 
+    'Público General',
+    'Estudiantes y Docentes',
+    'Personal Administrativo',
+    'Egresados',
+    'Otro'
+  ];
 
   return (
     <div className="evento-form-container">
       <div className="evento-form-header">
         <h2>{evento ? '✏️ Editar Evento' : '➕ Crear Nuevo Evento'}</h2>
+        <p className="form-subtitle">Complete todos los campos requeridos (*)</p>
       </div>
 
       <form onSubmit={handleSubmit} className="evento-form">
@@ -120,84 +176,239 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
           </div>
         )}
 
-        <div className="form-group">
-          <label htmlFor="nombre">Nombre del Evento *</label>
-          <input
-            type="text"
-            id="nombre"
-            name="nombre"
-            value={formData.nombre}
-            onChange={handleChange}
-            placeholder="Ingresa el nombre del evento"
-            disabled={loading}
-            required
-          />
-        </div>
+        {/* SECCIÓN: INFORMACIÓN BÁSICA */}
+        <div className="form-section">
+          <h3>📝 Información Básica del Evento</h3>
+          
+          <div className="form-group">
+            <label htmlFor="nombre">Nombre del Evento *</label>
+            <input
+              type="text"
+              id="nombre"
+              name="nombre"
+              value={formData.nombre}
+              onChange={handleChange}
+              placeholder="Ingresa el nombre del evento"
+              disabled={loading}
+              required
+            />
+          </div>
 
-        <div className="form-group">
-          <label htmlFor="fecha_evento">Fecha del Evento *</label>
-          <input
-            type="date"
-            id="fecha_evento"
-            name="fecha_evento"
-            value={formData.fecha_evento}
-            onChange={handleChange}
-            disabled={loading}
-            min={new Date().toISOString().split('T')[0]} // No permitir fechas pasadas
-            required
-          />
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="categoria">Categoría</label>
-          <select
-            id="categoria"
-            name="categoria"
-            value={formData.categoria}
-            onChange={handleChange}
-            disabled={loading}
-          >
-            {categorias.map(cat => (
-              <option key={cat} value={cat}>{cat}</option>
-            ))}
-          </select>
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="descripcion">Descripción</label>
-          <textarea
-            id="descripcion"
-            name="descripcion"
-            value={formData.descripcion}
-            onChange={handleChange}
-            placeholder="Describe el evento..."
-            disabled={loading}
-            rows="4"
-          />
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="archivo_adjunto">Archivo Adjunto (Opcional)</label>
-          <input
-            type="file"
-            id="archivo_adjunto"
-            onChange={handleFileChange}
-            disabled={loading}
-            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-          />
-          <small className="file-hint">
-            Formatos permitidos: PDF, JPG, PNG, DOC, DOCX (Máximo 10MB)
-          </small>
-          {archivo && (
-            <div className="file-info">
-              📎 Archivo seleccionado: {archivo.name} ({(archivo.size / 1024 / 1024).toFixed(2)} MB)
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="fecha_evento">Fecha del Evento *</label>
+              <input
+                type="date"
+                id="fecha_evento"
+                name="fecha_evento"
+                value={formData.fecha_evento}
+                onChange={handleChange}
+                disabled={loading}
+                min={new Date().toISOString().split('T')[0]}
+                required
+              />
             </div>
-          )}
-          {evento?.archivo_adjunto && !archivo && (
-            <div className="file-info">
-              📎 Archivo actual: {evento.archivo_adjunto}
+
+            <div className="form-group">
+              <label htmlFor="categoria_id">Categoría *</label>
+              <select
+                id="categoria_id"
+                name="categoria_id"
+                value={formData.categoria_id}
+                onChange={handleChange}
+                disabled={loading || categorias.length === 0}
+                required
+              >
+                <option value="">Seleccionar categoría</option>
+                {categorias.map(cat => (
+                  <option key={cat.id} value={cat.id} data-color={cat.color} /*style={{ backgroundColor: cat.color, color: 'white' }}*/>
+                    {cat.nombre}
+                  </option>
+                ))}
+              </select>
+              {categorias.length === 0 && !loading && (
+                <small style={{ color: '#dc3545' }}>
+                  No hay categorías disponibles. Contacta al administrador.
+                </small>
+              )}
             </div>
-          )}
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="descripcion">Descripción Breve (3-5 líneas) *</label>
+            <textarea
+              id="descripcion"
+              name="descripcion"
+              value={formData.descripcion}
+              onChange={handleChange}
+              placeholder="Describe brevemente el evento, objetivos, actividades principales..."
+              disabled={loading}
+              rows="4"
+              required
+            />
+            <small className="field-hint">Máximo 500 caracteres</small>
+          </div>
+        </div>
+
+        {/* SECCIÓN: DATOS DE CONTACTO */}
+        <div className="form-section">
+          <h3>📞 Datos de Contacto</h3>
+          
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="correo_contacto">Correo de Contacto *</label>
+              <input
+                type="email"
+                id="correo_contacto"
+                name="correo_contacto"
+                value={formData.correo_contacto}
+                onChange={handleChange}
+                placeholder="ejemplo@universidad.edu"
+                disabled={loading}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="telefono">Teléfono (Opcional)</label>
+              <input
+                type="tel"
+                id="telefono"
+                name="telefono"
+                value={formData.telefono}
+                onChange={handleChange}
+                placeholder="+54 123 456 7890"
+                disabled={loading}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* SECCIÓN: HORARIOS Y UBICACIÓN */}
+        <div className="form-section">
+          <h3>🕐 Horarios y Ubicación</h3>
+          
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="hora_inicio">Hora de Inicio *</label>
+              <input
+                type="time"
+                id="hora_inicio"
+                name="hora_inicio"
+                value={formData.hora_inicio}
+                onChange={handleChange}
+                disabled={loading}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="hora_fin">Hora de Finalización *</label>
+              <input
+                type="time"
+                id="hora_fin"
+                name="hora_fin"
+                value={formData.hora_fin}
+                onChange={handleChange}
+                disabled={loading}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="lugar">Lugar / Espacio *</label>
+            <input
+              type="text"
+              id="lugar"
+              name="lugar"
+              value={formData.lugar}
+              onChange={handleChange}
+              placeholder="Ej: Aula Magna, Laboratorio 3, Plataforma Virtual..."
+              disabled={loading}
+              required
+            />
+          </div>
+        </div>
+
+        {/* SECCIÓN: INFORMACIÓN ADICIONAL */}
+        <div className="form-section">
+          <h3>🎯 Información Adicional</h3>
+          
+          <div className="form-group">
+            <label htmlFor="publico_destinatario">Público Destinatario *</label>
+            <select
+              id="publico_destinatario"
+              name="publico_destinatario"
+              value={formData.publico_destinatario}
+              onChange={handleChange}
+              disabled={loading}
+              required
+            >
+              <option value="">Seleccionar público destinatario</option>
+              {opcionesPublico.map(opcion => (
+                <option key={opcion} value={opcion}>
+                  {opcion}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="links">Links Relevantes (Opcional)</label>
+            <textarea
+              id="links"
+              name="links"
+              value={formData.links}
+              onChange={handleChange}
+              placeholder="Formulario de inscripción, enlace de streaming, redes sociales..."
+              disabled={loading}
+              rows="3"
+            />
+            <small className="field-hint">Separe múltiples links con comas o saltos de línea</small>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="observaciones">Observaciones Adicionales (Opcional)</label>
+            <textarea
+              id="observaciones"
+              name="observaciones"
+              value={formData.observaciones}
+              onChange={handleChange}
+              placeholder="Información adicional, requisitos, materiales necesarios..."
+              disabled={loading}
+              rows="3"
+            />
+          </div>
+        </div>
+
+        {/* SECCIÓN: ARCHIVOS ADJUNTOS */}
+        <div className="form-section">
+          <h3>📎 Material Complementario</h3>
+          
+          <div className="form-group">
+            <label htmlFor="archivo_adjunto">Archivos Adjuntos (Opcional)</label>
+            <input
+              type="file"
+              id="archivo_adjunto"
+              onChange={handleFileChange}
+              disabled={loading}
+              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+            />
+            <small className="file-hint">
+              Formatos permitidos: PDF, JPG, PNG, DOC, DOCX (Máximo 10MB)
+            </small>
+            {archivo && (
+              <div className="file-info">
+                📎 Archivo seleccionado: {archivo.name} ({(archivo.size / 1024 / 1024).toFixed(2)} MB)
+              </div>
+            )}
+            {evento?.archivo_adjunto && !archivo && (
+              <div className="file-info">
+                📎 Archivo actual: {evento.archivo_adjunto}
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="form-actions">
@@ -213,9 +424,9 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
           <button 
             type="submit" 
             className="btn-submit"
-            disabled={loading || !formData.nombre.trim() || !formData.fecha_evento}
+            disabled={loading || !formData.nombre.trim() || !formData.fecha_evento || !formData.categoria_id || !formData.descripcion.trim() || !formData.correo_contacto || !formData.hora_inicio || !formData.hora_fin || !formData.lugar.trim() || !formData.publico_destinatario}
           >
-            {loading ? '🔄 Guardando...' : (evento ? '💾 Actualizar' : '✅ Crear')}
+            {loading ? '🔄 Guardando...' : (evento ? '💾 Actualizar Evento' : '✅ Crear Evento')}
           </button>
         </div>
       </form>
