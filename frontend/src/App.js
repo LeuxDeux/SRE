@@ -4,6 +4,7 @@ import LoginForm from './components/LoginForm';
 import EventosTable from './components/EventosTable';
 import EventoForm from './components/EventoForm';
 import EventoDetail from './components/EventoDetail';
+import GestionCategorias from './components/GestionCategorias';
 import './App.css';
 
 // Componente Dashboard con navegación entre módulos
@@ -129,6 +130,22 @@ const Dashboard = () => {
             <p>Módulo de reservas en desarrollo...</p>
           </div>
         );
+
+      case 'categorias':
+        return (
+          <div className="modulo-container">
+            <div className="modulo-header">
+              <button
+                onClick={() => setModuloActivo(null)}
+                className="btn-volver"
+              >
+                ← Volver al Dashboard
+              </button>
+              <h2>🎯 Gestión de Categorías</h2>
+            </div>
+            <GestionCategorias />
+          </div>
+        );
       
       default:
         return (
@@ -168,6 +185,18 @@ const Dashboard = () => {
                   </button>
                 </div>
               )}
+              {user.role === 'admin' && (
+              <div className="module-card">
+                <h3>🎯 Categorías</h3>
+                <p>Gestionar categorías de eventos</p>
+                <button
+                  onClick={() => setModuloActivo('categorias')}
+                  className="module-button"
+                >
+                  Gestionar Categorías
+                </button>
+              </div>
+            )}
             </div>
           </div>
         );
