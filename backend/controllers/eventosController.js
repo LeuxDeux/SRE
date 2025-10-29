@@ -7,70 +7,54 @@ const pool = require('../config/database');
  * @param {Object} eventoNuevo - El evento con los nuevos valores
  * @returns {Array} Lista de strings describiendo los cambios detectados
  */
-const detectarCambios = (eventoViejo, eventoNuevo) => {
+const detectarCambios = async (eventoViejo, eventoNuevo) => {
   const cambios = [];
 
-  // Comparar nombre del evento (solo si realmente cambió)
+  // Comparar nombre
   if (eventoNuevo.nombre !== eventoViejo.nombre) {
     cambios.push(`Nombre: "${eventoViejo.nombre}" → "${eventoNuevo.nombre}"`);
   }
 
-  // CORRECCIÓN: Crear fechas en timezone local correctamente
+  // Comparar fechas
   const crearFechaLocal = (fechaInput) => {
     if (!fechaInput) return null;
+    if (fechaInput instanceof Date) return fechaInput;
     
-    // Si ya es un objeto Date, devolverlo directamente
-    if (fechaInput instanceof Date) {
-      return fechaInput;
-    }
-    
-    // Si es un string
     if (typeof fechaInput === 'string') {
-      // Si la fecha viene de MySQL (con T o Z)
       if (fechaInput.includes('T') || fechaInput.includes('Z')) {
         return new Date(fechaInput);
-      } 
-      // Si la fecha viene del formulario (YYYY-MM-DD), tratarla como fecha local
-      else {
-        // Dividir la fecha y crear en timezone local
+      } else {
         const [año, mes, dia] = fechaInput.split('-').map(Number);
-        return new Date(año, mes - 1, dia); // mes - 1 porque JavaScript usa 0-11
+        return new Date(año, mes - 1, dia);
       }
     }
     
-    // Si es otro tipo, intentar crear Date
     return new Date(fechaInput);
   };
 
   const fechaVieja = crearFechaLocal(eventoViejo.fecha_evento);
   const fechaNueva = crearFechaLocal(eventoNuevo.fecha_evento);
   
-  // DEBUG adicional
-  console.log('🔍 DEBUG Fechas en detectarCambios:');
-  console.log('Tipo fecha vieja:', typeof eventoViejo.fecha_evento, eventoViejo.fecha_evento);
-  console.log('Tipo fecha nueva:', typeof eventoNuevo.fecha_evento, eventoNuevo.fecha_evento);
-  console.log('Fecha vieja procesada:', fechaVieja ? fechaVieja.toString() : 'null');
-  console.log('Fecha nueva procesada:', fechaNueva ? fechaNueva.toString() : 'null');
-  console.log('Fecha vieja local:', fechaVieja ? fechaVieja.toLocaleDateString('es-ES') : 'null');
-  console.log('Fecha nueva local:', fechaNueva ? fechaNueva.toLocaleDateString('es-ES') : 'null');
-  
-  // Comparar las fechas formateadas en local
   if (fechaVieja && fechaNueva && 
       fechaVieja.toLocaleDateString('es-ES') !== fechaNueva.toLocaleDateString('es-ES')) {
-    const fechaViejaFormateada = fechaVieja.toLocaleDateString('es-ES');
-    const fechaNuevaFormateada = fechaNueva.toLocaleDateString('es-ES');
-    cambios.push(`Fecha del evento: ${fechaViejaFormateada} → ${fechaNuevaFormateada}`);
-    console.log('✅ Cambio de fecha detectado:', fechaViejaFormateada, '→', fechaNuevaFormateada);
-  } else {
-    console.log('❌ No se detectó cambio de fecha');
+    cambios.push(`Fecha del evento: ${fechaVieja.toLocaleDateString('es-ES')} → ${fechaNueva.toLocaleDateString('es-ES')}`);
   }
 
-  // Comparar categoría
-  if (eventoNuevo.categoria !== eventoViejo.categoria) {
-    cambios.push(`Categoría: ${eventoViejo.categoria} → ${eventoNuevo.categoria}`);
+  // Comparar categoría (NUEVO - usando IDs)
+  if (eventoNuevo.categoria_id !== eventoViejo.categoria_id) {
+    // Obtener nombres de categorías
+    const [catVieja] = eventoViejo.categoria_id ? 
+      await pool.query('SELECT nombre FROM categorias WHERE id = ?', [eventoViejo.categoria_id]) : 
+      [{ nombre: 'Sin categoría' }];
+    
+    const [catNueva] = eventoNuevo.categoria_id ? 
+      await pool.query('SELECT nombre FROM categorias WHERE id = ?', [eventoNuevo.categoria_id]) : 
+      [{ nombre: 'Sin categoría' }];
+    
+    cambios.push(`Categoría: ${catVieja[0].nombre} → ${catNueva[0].nombre}`);
   }
 
-  // Comparar descripción (con casos especiales para mejor legibilidad)
+  // Comparar descripción
   const descVieja = eventoViejo.descripcion || '';
   const descNueva = eventoNuevo.descripcion || '';
   
@@ -115,11 +99,13 @@ const eventosController = {
     try {
       // Consulta que une la tabla eventos con usuarios para obtener el nombre del creador
       const [eventos] = await pool.query(`
-        SELECT e.*, u.nombre_completo as usuario_nombre 
-        FROM eventos e 
-        LEFT JOIN usuarios u ON e.usuario_id = u.id 
-        ORDER BY e.fecha_evento DESC
-      `);
+  SELECT e.*, u.nombre_completo as usuario_nombre, 
+         c.nombre as categoria_nombre, c.color as categoria_color
+  FROM eventos e 
+  LEFT JOIN usuarios u ON e.usuario_id = u.id 
+  LEFT JOIN categorias c ON e.categoria_id = c.id
+  ORDER BY e.fecha_evento DESC
+`);
 
       res.json({
         success: true,
@@ -145,11 +131,13 @@ const eventosController = {
       const { id } = req.params;
 
       const [eventos] = await pool.query(`
-        SELECT e.*, u.nombre_completo as usuario_nombre 
-        FROM eventos e 
-        LEFT JOIN usuarios u ON e.usuario_id = u.id 
-        WHERE e.id = ?
-      `, [id]);
+  SELECT e.*, u.nombre_completo as usuario_nombre,
+         c.nombre as categoria_nombre, c.color as categoria_color
+  FROM eventos e 
+  LEFT JOIN usuarios u ON e.usuario_id = u.id 
+  LEFT JOIN categorias c ON e.categoria_id = c.id
+  WHERE e.id = ?
+`, [id]);
 
       // Verificar si el evento existe
       if (eventos.length === 0) {
@@ -184,7 +172,7 @@ const eventosController = {
       console.log('📁 Archivo recibido:', req.file);
       
       // Extraer datos del body y del usuario autenticado
-      const { nombre, fecha_evento, descripcion, categoria } = req.body;
+      const { nombre, fecha_evento, descripcion, categoria_id } = req.body;
       const usuario_id = req.user.id; // Del middleware de autenticación
       const secretaria = req.user.secretaria; // Del middleware de autenticación
 
@@ -212,9 +200,8 @@ const eventosController = {
 
       // Insertar el nuevo evento en la base de datos
       const [result] = await pool.query(`
-        INSERT INTO eventos (nombre, fecha_evento, descripcion, categoria, usuario_id, secretaria, archivo_adjunto)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `, [nombre, fecha_evento, descripcion, categoria, usuario_id, secretaria, archivo_adjunto]);
+      INSERT INTO eventos (nombre, fecha_evento, descripcion, categoria_id, usuario_id, secretaria, archivo_adjunto)
+      VALUES (?, ?, ?, ?, ?, ?, ?)`, [nombre, fecha_evento, descripcion, categoria_id, usuario_id, secretaria, archivo_adjunto]);
 
       // Registrar la creación en el historial
       await registrarEnHistorial(
@@ -226,11 +213,13 @@ const eventosController = {
 
       // Obtener el evento recién creado con información completa
       const [eventos] = await pool.query(`
-        SELECT e.*, u.nombre_completo as usuario_nombre 
-        FROM eventos e 
-        LEFT JOIN usuarios u ON e.usuario_id = u.id 
-        WHERE e.id = ?
-      `, [result.insertId]);
+  SELECT e.*, u.nombre_completo as usuario_nombre,
+         c.nombre as categoria_nombre, c.color as categoria_color
+  FROM eventos e 
+  LEFT JOIN usuarios u ON e.usuario_id = u.id 
+  LEFT JOIN categorias c ON e.categoria_id = c.id
+  WHERE e.id = ?
+`, [result.insertId]);
 
       res.status(201).json({
         success: true,
@@ -255,7 +244,7 @@ const eventosController = {
   actualizarEvento: async (req, res) => {
     try {
       const { id } = req.params;
-      const { nombre, fecha_evento, descripcion, categoria } = req.body;
+      const { nombre, fecha_evento, descripcion, categoria_id } = req.body;
 
       // Verificar que el evento existe antes de actualizar
       const [eventos] = await pool.query('SELECT * FROM eventos WHERE id = ?', [id]);
@@ -313,7 +302,12 @@ const eventosController = {
         fechaVieja.toLocaleDateString('es-ES') !== fechaNueva.toLocaleDateString('es-ES') : 'false');
       
       // Detectar qué campos han cambiado
-      const cambios = detectarCambios(eventoViejo, { nombre, fecha_evento, descripcion, categoria });
+      const cambios = await detectarCambios(eventoViejo, { 
+  nombre, 
+  fecha_evento, 
+  descripcion, 
+  categoria_id  // Cambiar categoria por categoria_id
+});
 
       // DEBUG: Mostrar los cambios detectados
       console.log('🔍 Cambios detectados:', cambios);
@@ -342,19 +336,20 @@ const eventosController = {
 
         // Actualizar el evento en la base de datos
         await pool.query(`
-          UPDATE eventos 
-          SET nombre = ?, fecha_evento = ?, descripcion = ?, categoria = ?, archivo_adjunto = ?, ultima_modificacion = CURRENT_TIMESTAMP
-          WHERE id = ?
-        `, [nombre, fecha_evento, descripcion, categoria, archivo_adjunto, id]);
+      UPDATE eventos
+      SET nombre = ?, fecha_evento = ?, descripcion = ?, categoria_id = ?, archivo_adjunto = ?, ultima_modificacion = CURRENT_TIMESTAMP
+      WHERE id = ?`, [nombre, fecha_evento, descripcion, categoria_id, archivo_adjunto, id]);
       }
 
       // Obtener el evento actualizado con información completa
       const [eventosActualizados] = await pool.query(`
-        SELECT e.*, u.nombre_completo as usuario_nombre 
-        FROM eventos e 
-        LEFT JOIN usuarios u ON e.usuario_id = u.id 
-        WHERE e.id = ?
-      `, [id]);
+  SELECT e.*, u.nombre_completo as usuario_nombre,
+         c.nombre as categoria_nombre, c.color as categoria_color
+  FROM eventos e 
+  LEFT JOIN usuarios u ON e.usuario_id = u.id 
+  LEFT JOIN categorias c ON e.categoria_id = c.id
+  WHERE e.id = ?
+`, [id]);
 
       res.json({
         success: true,
