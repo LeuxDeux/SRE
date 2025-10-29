@@ -70,14 +70,19 @@ export const eventosAPI = {
    eliminar: (id) => api.delete(`/eventos/${id}`),
    obtenerHistorial: (id) => api.get(`/eventos/${id}/historial`)
 };
-
 // Servicios para reservas (para implementar después)
 export const reservasAPI = {
   // crear: (reservaData) => api.post('/reservas', reservaData),
   // obtenerTodas: () => api.get('/reservas'),
   // eliminar: (id) => api.delete(`/reservas/${id}`)
 };
-
+export const categoriasAPI = {
+  obtenerTodas: () => api.get('/categorias'),
+  obtenerTodasAdmin: () => api.get('/categorias/todas'),
+  crear: (categoriaData) => api.post('/categorias', categoriaData),
+  actualizar: (id, categoriaData) => api.put(`/categorias/${id}`, categoriaData),
+  eliminar: (id) => api.delete(`/categorias/${id}`)
+};
 // Health check (igual que tu app)
 export const checkServerHealth = () => api.get('/health');
 
