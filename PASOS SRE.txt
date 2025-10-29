@@ -55,6 +55,25 @@ CREATE TABLE eventos (
     INDEX idx_fecha_evento (fecha_evento),
     INDEX idx_categoria (categoria)
 );
+Que luego se cambia "categoria" por una tabla propia:
+CREATE TABLE `eventos` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `nombre` varchar(255) NOT NULL,
+  `fecha_evento` date NOT NULL,
+  `descripcion` text,
+  `archivo_adjunto` varchar(500) DEFAULT NULL,
+  `categoria_id` int DEFAULT NULL,
+  `usuario_id` int NOT NULL,
+  `secretaria` varchar(100) NOT NULL,
+  `fecha_carga` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `ultima_modificacion` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `usuario_id` (`usuario_id`),
+  KEY `idx_fecha_evento` (`fecha_evento`),
+  KEY `categoria_id` (`categoria_id`),
+  CONSTRAINT `eventos_ibfk_1` FOREIGN KEY (`usuario_id`) REFERENCES `usuarios` (`id`),
+  CONSTRAINT `eventos_ibfk_2` FOREIGN KEY (`categoria_id`) REFERENCES `categorias` (`id`)
+)
 14) Creacion de controller eventosController.js para manejar metodos CRUD
 15) Creacion de route eventos.js
 16) Creacion de nueva arquitectura middleware/auth.js para usarlo en routes.
@@ -70,6 +89,73 @@ Para mostrar sus nombres y no username.
 23) Modificacion de eventosController.js para tomar archivo adjunto como parametro.
 24) Nuevas rutas de eventos.js con middleware para manejar archivos
 25) Cambio en services/api.js para interceptor de FormData 
-26) Creación de componente EventoDetail.jsx para mostrar detalles de cada evento y si hubo cambios en el mismo.
+26) Creación de componente EventoDetail.jsx para mostrar detalles de cada evento y si hubo cambios en el mismo. Y creación de tabla historial_eventos:
+CREATE TABLE `historial_eventos` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `evento_id` int NOT NULL,
+  `usuario_id` int NOT NULL,
+  `accion` enum('creado','actualizado','eliminado') DEFAULT NULL,
+  `cambios` json DEFAULT NULL,
+  `fecha` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `usuario_id` (`usuario_id`),
+  KEY `idx_evento_id` (`evento_id`),
+  KEY `idx_fecha` (`fecha`),
+  CONSTRAINT `historial_eventos_ibfk_1` FOREIGN KEY (`evento_id`) REFERENCES `eventos` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `historial_eventos_ibfk_2` FOREIGN KEY (`usuario_id`) REFERENCES `usuarios` (`id`)
+)
 27) Refactorización de eventosController.js con mejor logica y manejo de funciones.
 28) Próximo -> Categorias enum a nueva tabla para cargar categorias siendo admin
+29) Creación tabla categorias:
+CREATE TABLE categorias (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(100) UNIQUE NOT NULL,
+    color VARCHAR(7) DEFAULT '#3498db',
+    activa BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+30) Creación de categoriasController.js para manejar nuevas categorías y obtenerlas
+31) Creación de routes categorias.js
+32) Creación de componente GestionCategorias.jsx
+33) Siempre seguir orden:
+a_ Tabla en base de datos.
+b_ Controller.
+c_ Rutas.
+d_ Agregar rutas a server.js con app/server.use.
+e_ Agregar rutas de uso al servicio api
+f_ Crear componente que use esa API.
+g_ Importar componentes hacia App.js
+34) Cambios en codigo relevante a categorias para pasar a categorias_id
+35) Instalación de paquetes jspdf y html12canvas para generación de pdfs en base a EventoDetail.jsx
+36) Creación de frontend/src/utils/pdfGenerator.js
+37) Modificación de tabla eventos para añadir nuevos valores: Correo de contacto, Telefono, Hora de inicio y finalización, espacio, publico destinatario, links relevantes, observaciones adicionales.
+38) 
+ALTER TABLE eventos 
+ADD COLUMN correo_contacto VARCHAR(255),
+ADD COLUMN telefono VARCHAR(50),
+ADD COLUMN hora_inicio TIME,
+ADD COLUMN hora_fin TIME, 
+ADD COLUMN lugar VARCHAR(255),
+ADD COLUMN publico_destinatario VARCHAR(100),
+ADD COLUMN links TEXT,
+ADD COLUMN observaciones TEXT;
+39) Pruebas backend antes de hacer componentes:
+curl -X POST http://localhost:5000/api/eventos \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer TU_TOKEN_JWT_AQUI" \
+  -d '{
+    "nombre": "Evento de Prueba con Nuevos Campos",
+    "fecha_evento": "2024-12-15",
+    "descripcion": "Descripción de prueba",
+    "categoria_id": 1,
+    "correo_contacto": "test@universidad.edu",
+    "telefono": "+54 123456789",
+    "hora_inicio": "09:00:00",
+    "hora_fin": "13:00:00",
+    "lugar": "Aula Magna",
+    "publico_destinatario": "Estudiantes y Docentes",
+    "links": "https://forms.google.com/inscripcion, https://meet.google.com/evento",
+    "observaciones": "Observaciones adicionales de prueba"
+  }'
+40) 
