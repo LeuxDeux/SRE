@@ -40,7 +40,7 @@ const detectarCambios = async (eventoViejo, eventoNuevo) => {
     cambios.push(`Fecha del evento: ${fechaVieja.toLocaleDateString('es-ES')} → ${fechaNueva.toLocaleDateString('es-ES')}`);
   }
 
-  // Comparar categoría (NUEVO - usando IDs)
+  // Comparar categoría
   if (eventoNuevo.categoria_id !== eventoViejo.categoria_id) {
     // Obtener nombres de categorías
     const [catVieja] = eventoViejo.categoria_id ? 
@@ -65,6 +65,94 @@ const detectarCambios = async (eventoViejo, eventoNuevo) => {
       cambios.push('Descripción: Se eliminó la descripción');
     } else {
       cambios.push('Descripción: Se modificó la descripción');
+    }
+  }
+
+  // NUEVO: Comparar correo de contacto
+  if (eventoNuevo.correo_contacto !== eventoViejo.correo_contacto) {
+    if (!eventoViejo.correo_contacto && eventoNuevo.correo_contacto) {
+      cambios.push('Correo de contacto: Se agregó un correo');
+    } else if (eventoViejo.correo_contacto && !eventoNuevo.correo_contacto) {
+      cambios.push('Correo de contacto: Se eliminó el correo');
+    } else {
+      cambios.push(`Correo de contacto: "${eventoViejo.correo_contacto}" → "${eventoNuevo.correo_contacto}"`);
+    }
+  }
+
+  // NUEVO: Comparar teléfono
+  if (eventoNuevo.telefono !== eventoViejo.telefono) {
+    if (!eventoViejo.telefono && eventoNuevo.telefono) {
+      cambios.push('Teléfono: Se agregó un teléfono');
+    } else if (eventoViejo.telefono && !eventoNuevo.telefono) {
+      cambios.push('Teléfono: Se eliminó el teléfono');
+    } else {
+      cambios.push(`Teléfono: "${eventoViejo.telefono}" → "${eventoNuevo.telefono}"`);
+    }
+  }
+
+  // NUEVO: Comparar hora inicio
+  if (eventoNuevo.hora_inicio !== eventoViejo.hora_inicio) {
+    if (!eventoViejo.hora_inicio && eventoNuevo.hora_inicio) {
+      cambios.push('Hora de inicio: Se agregó una hora');
+    } else if (eventoViejo.hora_inicio && !eventoNuevo.hora_inicio) {
+      cambios.push('Hora de inicio: Se eliminó la hora');
+    } else {
+      cambios.push(`Hora de inicio: ${eventoViejo.hora_inicio} → ${eventoNuevo.hora_inicio}`);
+    }
+  }
+
+  // NUEVO: Comparar hora fin
+  if (eventoNuevo.hora_fin !== eventoViejo.hora_fin) {
+    if (!eventoViejo.hora_fin && eventoNuevo.hora_fin) {
+      cambios.push('Hora de finalización: Se agregó una hora');
+    } else if (eventoViejo.hora_fin && !eventoNuevo.hora_fin) {
+      cambios.push('Hora de finalización: Se eliminó la hora');
+    } else {
+      cambios.push(`Hora de finalización: ${eventoViejo.hora_fin} → ${eventoNuevo.hora_fin}`);
+    }
+  }
+
+  // NUEVO: Comparar lugar
+  if (eventoNuevo.lugar !== eventoViejo.lugar) {
+    if (!eventoViejo.lugar && eventoNuevo.lugar) {
+      cambios.push('Lugar: Se agregó un lugar');
+    } else if (eventoViejo.lugar && !eventoNuevo.lugar) {
+      cambios.push('Lugar: Se eliminó el lugar');
+    } else {
+      cambios.push(`Lugar: "${eventoViejo.lugar}" → "${eventoNuevo.lugar}"`);
+    }
+  }
+
+  // NUEVO: Comparar público destinatario
+  if (eventoNuevo.publico_destinatario !== eventoViejo.publico_destinatario) {
+    if (!eventoViejo.publico_destinatario && eventoNuevo.publico_destinatario) {
+      cambios.push('Público destinatario: Se agregó un público destinatario');
+    } else if (eventoViejo.publico_destinatario && !eventoNuevo.publico_destinatario) {
+      cambios.push('Público destinatario: Se eliminó el público destinatario');
+    } else {
+      cambios.push(`Público destinatario: "${eventoViejo.publico_destinatario}" → "${eventoNuevo.publico_destinatario}"`);
+    }
+  }
+
+  // NUEVO: Comparar links
+  if (eventoNuevo.links !== eventoViejo.links) {
+    if (!eventoViejo.links && eventoNuevo.links) {
+      cambios.push('Links relevantes: Se agregaron links');
+    } else if (eventoViejo.links && !eventoNuevo.links) {
+      cambios.push('Links relevantes: Se eliminaron los links');
+    } else {
+      cambios.push('Links relevantes: Se modificaron los links');
+    }
+  }
+
+  // NUEVO: Comparar observaciones
+  if (eventoNuevo.observaciones !== eventoViejo.observaciones) {
+    if (!eventoViejo.observaciones && eventoNuevo.observaciones) {
+      cambios.push('Observaciones: Se agregaron observaciones');
+    } else if (eventoViejo.observaciones && !eventoNuevo.observaciones) {
+      cambios.push('Observaciones: Se eliminaron las observaciones');
+    } else {
+      cambios.push('Observaciones: Se modificaron las observaciones');
     }
   }
 
@@ -99,13 +187,13 @@ const eventosController = {
     try {
       // Consulta que une la tabla eventos con usuarios para obtener el nombre del creador
       const [eventos] = await pool.query(`
-  SELECT e.*, u.nombre_completo as usuario_nombre, 
-         c.nombre as categoria_nombre, c.color as categoria_color
-  FROM eventos e 
-  LEFT JOIN usuarios u ON e.usuario_id = u.id 
-  LEFT JOIN categorias c ON e.categoria_id = c.id
-  ORDER BY e.fecha_evento DESC
-`);
+        SELECT e.*, u.nombre_completo as usuario_nombre, 
+               c.nombre as categoria_nombre, c.color as categoria_color
+        FROM eventos e 
+        LEFT JOIN usuarios u ON e.usuario_id = u.id 
+        LEFT JOIN categorias c ON e.categoria_id = c.id
+        ORDER BY e.fecha_evento DESC
+      `);
 
       res.json({
         success: true,
@@ -131,13 +219,13 @@ const eventosController = {
       const { id } = req.params;
 
       const [eventos] = await pool.query(`
-  SELECT e.*, u.nombre_completo as usuario_nombre,
-         c.nombre as categoria_nombre, c.color as categoria_color
-  FROM eventos e 
-  LEFT JOIN usuarios u ON e.usuario_id = u.id 
-  LEFT JOIN categorias c ON e.categoria_id = c.id
-  WHERE e.id = ?
-`, [id]);
+        SELECT e.*, u.nombre_completo as usuario_nombre,
+               c.nombre as categoria_nombre, c.color as categoria_color
+        FROM eventos e 
+        LEFT JOIN usuarios u ON e.usuario_id = u.id 
+        LEFT JOIN categorias c ON e.categoria_id = c.id
+        WHERE e.id = ?
+      `, [id]);
 
       // Verificar si el evento existe
       if (eventos.length === 0) {
@@ -172,7 +260,22 @@ const eventosController = {
       console.log('📁 Archivo recibido:', req.file);
       
       // Extraer datos del body y del usuario autenticado
-      const { nombre, fecha_evento, descripcion, categoria_id } = req.body;
+      const { 
+        nombre, 
+        fecha_evento, 
+        descripcion, 
+        categoria_id,
+        // NUEVOS CAMPOS
+        correo_contacto,
+        telefono,
+        hora_inicio,
+        hora_fin,
+        lugar,
+        publico_destinatario,
+        links,
+        observaciones
+      } = req.body;
+      
       const usuario_id = req.user.id; // Del middleware de autenticación
       const secretaria = req.user.secretaria; // Del middleware de autenticación
 
@@ -198,10 +301,26 @@ const eventosController = {
         cambiosIniciales.push('Con descripción');
       }
 
-      // Insertar el nuevo evento en la base de datos
+      // Registrar nuevos campos si están presentes
+      if (correo_contacto) cambiosIniciales.push('Con correo de contacto');
+      if (telefono) cambiosIniciales.push('Con teléfono');
+      if (hora_inicio) cambiosIniciales.push('Con hora de inicio');
+      if (hora_fin) cambiosIniciales.push('Con hora de finalización');
+      if (lugar) cambiosIniciales.push('Con lugar especificado');
+      if (publico_destinatario) cambiosIniciales.push('Con público destinatario');
+      if (links) cambiosIniciales.push('Con links relevantes');
+      if (observaciones) cambiosIniciales.push('Con observaciones adicionales');
+
+      // Insertar el nuevo evento en la base de datos (CON NUEVOS CAMPOS)
       const [result] = await pool.query(`
-      INSERT INTO eventos (nombre, fecha_evento, descripcion, categoria_id, usuario_id, secretaria, archivo_adjunto)
-      VALUES (?, ?, ?, ?, ?, ?, ?)`, [nombre, fecha_evento, descripcion, categoria_id, usuario_id, secretaria, archivo_adjunto]);
+        INSERT INTO eventos (
+          nombre, fecha_evento, descripcion, categoria_id, usuario_id, secretaria, archivo_adjunto,
+          correo_contacto, telefono, hora_inicio, hora_fin, lugar, publico_destinatario, links, observaciones
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [
+        nombre, fecha_evento, descripcion, categoria_id, usuario_id, secretaria, archivo_adjunto,
+        correo_contacto, telefono, hora_inicio, hora_fin, lugar, publico_destinatario, links, observaciones
+      ]);
 
       // Registrar la creación en el historial
       await registrarEnHistorial(
@@ -213,13 +332,13 @@ const eventosController = {
 
       // Obtener el evento recién creado con información completa
       const [eventos] = await pool.query(`
-  SELECT e.*, u.nombre_completo as usuario_nombre,
-         c.nombre as categoria_nombre, c.color as categoria_color
-  FROM eventos e 
-  LEFT JOIN usuarios u ON e.usuario_id = u.id 
-  LEFT JOIN categorias c ON e.categoria_id = c.id
-  WHERE e.id = ?
-`, [result.insertId]);
+        SELECT e.*, u.nombre_completo as usuario_nombre,
+               c.nombre as categoria_nombre, c.color as categoria_color
+        FROM eventos e 
+        LEFT JOIN usuarios u ON e.usuario_id = u.id 
+        LEFT JOIN categorias c ON e.categoria_id = c.id
+        WHERE e.id = ?
+      `, [result.insertId]);
 
       res.status(201).json({
         success: true,
@@ -244,7 +363,21 @@ const eventosController = {
   actualizarEvento: async (req, res) => {
     try {
       const { id } = req.params;
-      const { nombre, fecha_evento, descripcion, categoria_id } = req.body;
+      const { 
+        nombre, 
+        fecha_evento, 
+        descripcion, 
+        categoria_id,
+        // NUEVOS CAMPOS
+        correo_contacto,
+        telefono,
+        hora_inicio,
+        hora_fin,
+        lugar,
+        publico_destinatario,
+        links,
+        observaciones
+      } = req.body;
 
       // Verificar que el evento existe antes de actualizar
       const [eventos] = await pool.query('SELECT * FROM eventos WHERE id = ?', [id]);
@@ -257,57 +390,21 @@ const eventosController = {
 
       const eventoViejo = eventos[0];
       
-      // DEBUG: Mostrar las fechas para ver qué está pasando
-      console.log('🔍 DEBUG Fechas DETALLADO:');
-      console.log('Fecha vieja desde BD (raw):', eventoViejo.fecha_evento);
-      console.log('Tipo fecha vieja:', typeof eventoViejo.fecha_evento);
-      console.log('Fecha nueva del form (raw):', fecha_evento);
-      console.log('Tipo fecha nueva:', typeof fecha_evento);
-
-      // Usar la nueva función para crear fechas (la misma que en detectarCambios)
-      const crearFechaLocal = (fechaInput) => {
-        if (!fechaInput) return null;
-        
-        // Si ya es un objeto Date, devolverlo directamente
-        if (fechaInput instanceof Date) {
-          return fechaInput;
-        }
-        
-        // Si es un string
-        if (typeof fechaInput === 'string') {
-          // Si la fecha viene de MySQL (con T o Z)
-          if (fechaInput.includes('T') || fechaInput.includes('Z')) {
-            return new Date(fechaInput);
-          } 
-          // Si la fecha viene del formulario (YYYY-MM-DD), tratarla como fecha local
-          else {
-            // Dividir la fecha y crear en timezone local
-            const [año, mes, dia] = fechaInput.split('-').map(Number);
-            return new Date(año, mes - 1, dia); // mes - 1 porque JavaScript usa 0-11
-          }
-        }
-        
-        // Si es otro tipo, intentar crear Date
-        return new Date(fechaInput);
-      };
-
-      const fechaVieja = crearFechaLocal(eventoViejo.fecha_evento);
-      const fechaNueva = crearFechaLocal(fecha_evento);
-
-      console.log('Fecha vieja (procesada):', fechaVieja ? fechaVieja.toString() : 'null');
-      console.log('Fecha nueva (procesada):', fechaNueva ? fechaNueva.toString() : 'null');
-      console.log('Fecha vieja (local):', fechaVieja ? fechaVieja.toLocaleDateString('es-ES') : 'null');
-      console.log('Fecha nueva (local):', fechaNueva ? fechaNueva.toLocaleDateString('es-ES') : 'null');
-      console.log('¿Son diferentes en local?', fechaVieja && fechaNueva ? 
-        fechaVieja.toLocaleDateString('es-ES') !== fechaNueva.toLocaleDateString('es-ES') : 'false');
-      
-      // Detectar qué campos han cambiado
+      // Detectar qué campos han cambiado (INCLUYENDO NUEVOS CAMPOS)
       const cambios = await detectarCambios(eventoViejo, { 
-  nombre, 
-  fecha_evento, 
-  descripcion, 
-  categoria_id  // Cambiar categoria por categoria_id
-});
+        nombre, 
+        fecha_evento, 
+        descripcion, 
+        categoria_id,
+        correo_contacto,
+        telefono,
+        hora_inicio,
+        hora_fin,
+        lugar,
+        publico_destinatario,
+        links,
+        observaciones
+      });
 
       // DEBUG: Mostrar los cambios detectados
       console.log('🔍 Cambios detectados:', cambios);
@@ -334,22 +431,41 @@ const eventosController = {
           cambios
         );
 
-        // Actualizar el evento en la base de datos
+        // Actualizar el evento en la base de datos (CON NUEVOS CAMPOS)
         await pool.query(`
-      UPDATE eventos
-      SET nombre = ?, fecha_evento = ?, descripcion = ?, categoria_id = ?, archivo_adjunto = ?, ultima_modificacion = CURRENT_TIMESTAMP
-      WHERE id = ?`, [nombre, fecha_evento, descripcion, categoria_id, archivo_adjunto, id]);
+          UPDATE eventos
+          SET 
+            nombre = ?, 
+            fecha_evento = ?, 
+            descripcion = ?, 
+            categoria_id = ?, 
+            archivo_adjunto = ?,
+            correo_contacto = ?,
+            telefono = ?,
+            hora_inicio = ?,
+            hora_fin = ?,
+            lugar = ?,
+            publico_destinatario = ?,
+            links = ?,
+            observaciones = ?,
+            ultima_modificacion = CURRENT_TIMESTAMP
+          WHERE id = ?
+        `, [
+          nombre, fecha_evento, descripcion, categoria_id, archivo_adjunto,
+          correo_contacto, telefono, hora_inicio, hora_fin, lugar, 
+          publico_destinatario, links, observaciones, id
+        ]);
       }
 
       // Obtener el evento actualizado con información completa
       const [eventosActualizados] = await pool.query(`
-  SELECT e.*, u.nombre_completo as usuario_nombre,
-         c.nombre as categoria_nombre, c.color as categoria_color
-  FROM eventos e 
-  LEFT JOIN usuarios u ON e.usuario_id = u.id 
-  LEFT JOIN categorias c ON e.categoria_id = c.id
-  WHERE e.id = ?
-`, [id]);
+        SELECT e.*, u.nombre_completo as usuario_nombre,
+               c.nombre as categoria_nombre, c.color as categoria_color
+        FROM eventos e 
+        LEFT JOIN usuarios u ON e.usuario_id = u.id 
+        LEFT JOIN categorias c ON e.categoria_id = c.id
+        WHERE e.id = ?
+      `, [id]);
 
       res.json({
         success: true,
