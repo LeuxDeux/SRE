@@ -22,6 +22,8 @@ app.use((req, res, next) => {
 app.use('/api/auth', require('./routes/auth'));
 // Rutas de eventos
 app.use('/api/eventos', require('./routes/eventos'));
+
+app.use('/api/categorias', require('./routes/categorias'));
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ 
