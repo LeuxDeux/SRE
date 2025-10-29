@@ -1,137 +1,134 @@
-.evento-form-container {
-  background: white;
+/* Nuevos estilos para el formulario ampliado */
+.form-section {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
   border-radius: 8px;
-  padding: 1.5rem;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  max-width: 600px;
-  margin: 0 auto;
+  padding: 20px;
+  margin-bottom: 20px;
 }
 
-.evento-form-header {
-  margin-bottom: 1.5rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid #e1e5e9;
+.form-section h3 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  color: #2c3e50;
+  border-bottom: 2px solid #3498db;
+  padding-bottom: 8px;
 }
 
-.evento-form-header h2 {
-  margin: 0;
-  color: #333;
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
 }
 
-.evento-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
+.field-hint {
+  color: #6c757d;
+  font-size: 12px;
+  margin-top: 5px;
+  display: block;
 }
 
-.form-group {
-  display: flex;
-  flex-direction: column;
+/* Responsive */
+@media (max-width: 768px) {
+  .form-row {
+    grid-template-columns: 1fr;
+  }
 }
 
-.form-group label {
-  margin-bottom: 0.5rem;
-  color: #333;
-  font-weight: 500;
-}
-
-.form-group input,
-.form-group select,
-.form-group textarea {
+/* Estilos para select de categorías con colores - MEJORADO */
+select {
   padding: 0.75rem;
   border: 2px solid #e1e5e9;
   border-radius: 5px;
   font-size: 1rem;
   transition: border-color 0.3s;
   font-family: inherit;
+  background-color: white;
+  cursor: pointer;
+  min-height: 48px; /* Misma altura que otros inputs */
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23666' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
 }
 
-.form-group input:focus,
-.form-group select:focus,
-.form-group textarea:focus {
+select:focus {
   outline: none;
   border-color: #667eea;
 }
 
-.form-group input:disabled,
-.form-group select:disabled,
-.form-group textarea:disabled {
+select:disabled {
   background-color: #f5f5f5;
   cursor: not-allowed;
+  opacity: 0.7;
 }
 
-.form-group textarea {
-  resize: vertical;
-  min-height: 100px;
+/* Estilos específicos para el select de categorías */
+#categoria_id {
+  min-height: 48px;
+  line-height: 1.5;
 }
 
-.error-message {
-  background-color: #fee;
-  color: #c33;
-  padding: 0.75rem;
-  border-radius: 5px;
-  border: 1px solid #fcc;
-  text-align: center;
-}
-
-.form-actions {
-  display: flex;
-  gap: 1rem;
-  justify-content: flex-end;
-  margin-top: 1rem;
-}
-
-.btn-cancel,
-.btn-submit {
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 5px;
-  font-size: 1rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.btn-cancel {
-  background: #6c757d;
-  color: white;
-}
-
-.btn-cancel:hover:not(:disabled) {
-  background: #5a6268;
-}
-
-.btn-submit {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-}
-
-.btn-submit:hover:not(:disabled) {
-  opacity: 0.9;
-  transform: translateY(-1px);
-}
-
-.btn-cancel:disabled,
-.btn-submit:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-}
-
-/*ESTILOS ARCHIVOS*/
-.file-hint {
-  color: #666;
-  font-size: 0.8rem;
-  margin-top: 0.25rem;
-  display: block;
-}
-
-.file-info {
-  background: #f8f9fa;
-  padding: 0.5rem;
+/* Opciones del select */
+select option {
+  padding: 12px 15px !important;
+  margin: 4px 0 !important;
   border-radius: 4px;
-  margin-top: 0.5rem;
-  font-size: 0.9rem;
-  color: #495057;
-  border-left: 3px solid #667eea;
+  font-weight: 500;
+  font-size: 1rem;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+}
+
+/* Indicadores de color para las opciones */
+select option[data-color] {
+  position: relative;
+  padding-left: 40px !important;
+}
+
+select option[data-color]::before {
+  content: "";
+  position: absolute;
+  left: 15px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid white;
+  box-shadow: 0 0 3px rgba(0,0,0,0.3);
+}
+
+/* Colores dinámicos - puedes agregar más según necesites */
+
+select option[data-color="#3498db"]::before { background-color: #3498db; }
+select option[data-color="#e74c3c"]::before { background-color: #e74c3c; }
+select option[data-color="#2ecc71"]::before { background-color: #2ecc71; }
+select option[data-color="#f39c12"]::before { background-color: #f39c12; }
+select option[data-color="#9b59b6"]::before { background-color: #9b59b6; }
+select option[data-color="#1abc9c"]::before { background-color: #1abc9c; }
+select option[data-color="#34495e"]::before { background-color: #34495e; }
+select option[data-color="#e67e22"]::before { background-color: #e67e22; }
+select option[data-color="#16a085"]::before { background-color: #16a085; }
+select option[data-color="#8e44ad"]::before { background-color: #8e44ad; }
+
+/* Para navegadores Webkit (Chrome, Safari) */
+select::-webkit-scrollbar {
+  width: 8px;
+}
+
+select::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+select::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+select::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
 }
