@@ -47,15 +47,10 @@ const EventosTable = ({ onEditEvento, onViewDetails, onNuevoEvento }) => {
     return new Date(fechaString).toLocaleString('es-ES');
   };
 
-  const getBadgeColor = (categoria) => {
-    const colores = {
-      'Académico': 'badge-academico',
-      'Cultural': 'badge-cultural',
-      'Administrativo': 'badge-administrativo',
-      'Urgente': 'badge-urgente'
-    };
-    return colores[categoria] || 'badge-default';
-  };
+  const getBadgeColor = (categoriaColor) => {
+  // Usar el color que viene del backend
+  return categoriaColor ? 'badge-custom' : 'badge-default';
+};
 
   const fueModificado = (evento) => {
     return evento.ultima_modificacion !== evento.fecha_carga;
@@ -126,8 +121,14 @@ const EventosTable = ({ onEditEvento, onViewDetails, onNuevoEvento }) => {
                   </td>
                   <td className="evento-fecha">{formatearFecha(evento.fecha_evento)}</td>
                   <td>
-                    <span className={`badge ${getBadgeColor(evento.categoria)}`}>
-                      {evento.categoria}
+                    <span
+                      className={`badge ${getBadgeColor(evento.categoria_color)}`}
+                      style={{
+                        backgroundColor: evento.categoria_color || '#6c757d',
+                        color: 'white'
+                      }}
+                    >
+                      {evento.categoria_nombre || 'Sin categoría'}
                     </span>
                   </td>
                   <td className="evento-descripcion">
