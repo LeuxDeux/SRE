@@ -119,7 +119,7 @@ const GestionCategorias = ({ onClose }) => {
   return (
     <div className="gestion-categorias">
       <div className="header">
-        <button onClick={onClose} className="btn-volver">← Volver</button>
+        {/*<button onClick={onClose} className="btn-volver">← Volver</button>*/}
         <h2>🎯 Gestión de Categorías</h2>
         {user.role === 'admin' && (
           <button 
