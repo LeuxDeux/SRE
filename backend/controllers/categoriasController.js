@@ -63,7 +63,7 @@ const categoriasController = {
         });
       }
 
-      const { nombre, color } = req.body;
+      const { nombre, color, prioridad, dias_antelacion } = req.body;
 
       if (!nombre) {
         return res.status(400).json({
@@ -73,9 +73,9 @@ const categoriasController = {
       }
 
       const [result] = await pool.query(`
-        INSERT INTO categorias (nombre, color) 
-        VALUES (?, ?)
-      `, [nombre, color || '#3498db']);
+        INSERT INTO categorias (nombre, color, prioridad, dias_antelacion) 
+        VALUES (?, ?, ?, ?)
+      `, [nombre, color || '#3498db', prioridad || 'media', dias_antelacion || 15]);
 
       const [categorias] = await pool.query(`
         SELECT * FROM categorias WHERE id = ?
@@ -114,13 +114,13 @@ const categoriasController = {
       }
 
       const { id } = req.params;
-      const { nombre, color, activa } = req.body;
+      const { nombre, color, prioridad, dias_antelacion, activa } = req.body;
 
       const [result] = await pool.query(`
         UPDATE categorias 
-        SET nombre = ?, color = ?, activa = ?, updated_at = CURRENT_TIMESTAMP
+        SET nombre = ?, color = ?, prioridad = ?, dias_antelacion = ?, activa = ?, updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
-      `, [nombre, color, activa, id]);
+      `, [nombre, color, prioridad, dias_antelacion, activa, id]);
 
       if (result.affectedRows === 0) {
         return res.status(404).json({
