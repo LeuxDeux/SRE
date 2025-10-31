@@ -159,3 +159,11 @@ curl -X POST http://localhost:5000/api/eventos \
     "observaciones": "Observaciones adicionales de prueba"
   }'
 40) Pasos siguientes: Evitar que no admins puedan eliminar eventos, formateo, arreglar botones, testing de edicion
+41) Cambios en tabla categorias para definir prioridad por categoria y cantidad de días con la que se deberá cargar un evento referenciado.
+ALTER TABLE categorias 
+ADD COLUMN prioridad ENUM('alta', 'media', 'baja') DEFAULT 'media',
+ADD COLUMN dias_antelacion INT DEFAULT 15;
+Actualizar categoriasController.js
+Actualizar EventoForm.jsx
+Actualizar GestionCategorias.jsx
+
