@@ -337,3 +337,48 @@
     flex-direction: column;
   }
 }
+
+
+/* Estilos para prioridad y días de antelación */
+.categoria-prioridad {
+  text-align: center;
+}
+
+.prioridad-badge {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.prioridad-alta {
+  background-color: #fee;
+  color: #c33;
+  border: 1px solid #fcc;
+}
+
+.prioridad-media {
+  background-color: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeaa7;
+}
+
+.prioridad-baja {
+  background-color: #e8f5e8;
+  color: #2d5016;
+  border: 1px solid #c8e6c9;
+}
+
+.categoria-dias {
+  text-align: center;
+}
+
+.dias-badge {
+  background-color: #e3f2fd;
+  color: #1565c0;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid #bbdefb;
+}
