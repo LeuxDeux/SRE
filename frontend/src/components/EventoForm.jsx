@@ -17,11 +17,12 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
     links: '',
     observaciones: ''
   });
-  
+
   const [categorias, setCategorias] = useState([]);
   const [archivo, setArchivo] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [categoriaSeleccionada, setCategoriaSeleccionada] = useState(null);
 
   // Cargar categorías al montar el componente
   useEffect(() => {
@@ -34,7 +35,7 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
         setError('Error al cargar las categorías');
       }
     };
-    
+
     cargarCategorias();
   }, []);
 
@@ -43,7 +44,7 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
     if (evento) {
       // Formatear fecha para el input date
       const fechaFormateada = new Date(evento.fecha_evento).toISOString().split('T')[0];
-      
+
       setFormData({
         nombre: evento.nombre || '',
         fecha_evento: fechaFormateada,
@@ -68,7 +69,29 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
       [name]: value
     }));
   };
+  // Nueva función para manejar cambio de categoría
+  const handleCategoriaChange = (e) => {
+    const categoriaId = e.target.value;
+    setFormData(prev => ({ ...prev, categoria_id: categoriaId }));
 
+    // Encontrar la categoría seleccionada para obtener sus reglas
+    const cat = categorias.find(c => c.id === parseInt(categoriaId));
+    setCategoriaSeleccionada(cat);
+  };
+
+  // Calcular fecha mínima basada en la categoría
+  const calcularFechaMinima = () => {
+    const hoy = new Date();
+    if (categoriaSeleccionada && categoriaSeleccionada.dias_antelacion) {
+      const fechaMin = new Date(hoy);
+      fechaMin.setDate(hoy.getDate() + categoriaSeleccionada.dias_antelacion);
+      return fechaMin.toISOString().split('T')[0];
+    }
+    // Por defecto 15 días si no hay categoría seleccionada
+    const fechaMinDefault = new Date(hoy);
+    fechaMinDefault.setDate(hoy.getDate() + 15);
+    return fechaMinDefault.toISOString().split('T')[0];
+  };
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -77,11 +100,11 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
         e.target.value = '';
         return;
       }
-      
+
       // Validar tipo de archivo
       const allowedTypes = ['.pdf', '.jpg', '.jpeg', '.png', '.doc', '.docx'];
       const fileExt = '.' + file.name.split('.').pop().toLowerCase();
-      
+
       if (!allowedTypes.includes(fileExt)) {
         setError('Tipo de archivo no permitido. Solo PDF, imágenes y documentos.');
         e.target.value = ''; // Limpiar input
@@ -95,7 +118,7 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!formData.nombre.trim() || !formData.fecha_evento) {
       setError('Nombre y fecha del evento son requeridos');
       return;
@@ -130,7 +153,7 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
       }
 
       let response;
-      
+
       if (evento) {
         // Actualizar evento existente
         response = await eventosAPI.actualizar(evento.id, formDataToSend);
@@ -142,7 +165,7 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
       if (response.data.success) {
         onSave(response.data.evento);
       }
-      
+
     } catch (error) {
       console.error('Error guardando evento:', error);
       setError(error.response?.data?.error || 'Error al guardar el evento');
@@ -154,7 +177,7 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
   // Opciones predefinidas para público destinatario
   const opcionesPublico = [
     'Estudiantes',
-    'Docentes', 
+    'Docentes',
     'Público General',
     'Estudiantes y Docentes',
     'Personal Administrativo',
@@ -179,7 +202,7 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
         {/* SECCIÓN: INFORMACIÓN BÁSICA */}
         <div className="form-section">
           <h3>📝 Información Básica del Evento</h3>
-          
+
           <div className="form-group">
             <label htmlFor="nombre">Nombre del Evento *</label>
             <input
@@ -204,9 +227,22 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
                 value={formData.fecha_evento}
                 onChange={handleChange}
                 disabled={loading}
-                min={new Date().toISOString().split('T')[0]}
+                min={calcularFechaMinima()}
                 required
               />
+              {categoriaSeleccionada && (
+                <div className="categoria-info">
+                  <small>
+                    <strong>Prioridad:</strong>
+                    <span className={`prioridad-${categoriaSeleccionada.prioridad}`}>
+                      {categoriaSeleccionada.prioridad === 'alta' ? 'Alta 🚨' :
+                        categoriaSeleccionada.prioridad === 'media' ? 'Media ⚠️' : 'Baja ✅'}
+                    </span>
+                    {' | '}
+                    <strong>Antelación mínima:</strong> {categoriaSeleccionada.dias_antelacion} días
+                  </small>
+                </div>
+              )}
             </div>
 
             <div className="form-group">
@@ -215,14 +251,21 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
                 id="categoria_id"
                 name="categoria_id"
                 value={formData.categoria_id}
-                onChange={handleChange}
+                onChange={handleCategoriaChange}
                 disabled={loading || categorias.length === 0}
                 required
               >
                 <option value="">Seleccionar categoría</option>
                 {categorias.map(cat => (
-                  <option key={cat.id} value={cat.id} data-color={cat.color} /*style={{ backgroundColor: cat.color, color: 'white' }}*/>
-                    {cat.nombre}
+                  <option
+                    key={cat.id}
+                    value={cat.id}
+                    data-color={cat.color}
+                    data-prioridad={cat.prioridad}
+                    data-dias={cat.dias_antelacion}
+                  >
+                    {cat.nombre} {cat.prioridad === 'alta' ? '🚨' : cat.prioridad === 'media' ? '⚠️' : '✅'}
+                    ({cat.dias_antelacion} días)
                   </option>
                 ))}
               </select>
@@ -253,7 +296,7 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
         {/* SECCIÓN: DATOS DE CONTACTO */}
         <div className="form-section">
           <h3>📞 Datos de Contacto</h3>
-          
+
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="correo_contacto">Correo de Contacto *</label>
@@ -287,7 +330,7 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
         {/* SECCIÓN: HORARIOS Y UBICACIÓN */}
         <div className="form-section">
           <h3>🕐 Horarios y Ubicación</h3>
-          
+
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="hora_inicio">Hora de Inicio *</label>
@@ -334,7 +377,7 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
         {/* SECCIÓN: INFORMACIÓN ADICIONAL */}
         <div className="form-section">
           <h3>🎯 Información Adicional</h3>
-          
+
           <div className="form-group">
             <label htmlFor="publico_destinatario">Público Destinatario *</label>
             <select
@@ -385,7 +428,7 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
         {/* SECCIÓN: ARCHIVOS ADJUNTOS */}
         <div className="form-section">
           <h3>📎 Material Complementario</h3>
-          
+
           <div className="form-group">
             <label htmlFor="archivo_adjunto">Archivos Adjuntos (Opcional)</label>
             <input
@@ -412,17 +455,17 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
         </div>
 
         <div className="form-actions">
-          <button 
-            type="button" 
+          <button
+            type="button"
             onClick={onCancel}
             className="btn-cancel"
             disabled={loading}
           >
             Cancelar
           </button>
-          
-          <button 
-            type="submit" 
+
+          <button
+            type="submit"
             className="btn-submit"
             disabled={loading || !formData.nombre.trim() || !formData.fecha_evento || !formData.categoria_id || !formData.descripcion.trim() || !formData.correo_contacto || !formData.hora_inicio || !formData.hora_fin || !formData.lugar.trim() || !formData.publico_destinatario}
           >
