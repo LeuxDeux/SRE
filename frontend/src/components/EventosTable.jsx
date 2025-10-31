@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { eventosAPI } from '../services/api';
 import '../styles/EventosTable.css';
+import { useAuth } from '../context/AuthContext';
 
 const EventosTable = ({ onEditEvento, onViewDetails, onNuevoEvento }) => {
   const [eventos, setEventos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const { user } = useAuth(); // ✅ Agregar useAuth
 
   useEffect(() => {
     cargarEventos();
@@ -26,6 +28,12 @@ const EventosTable = ({ onEditEvento, onViewDetails, onNuevoEvento }) => {
   };
 
   const handleEliminar = async (id, nombre) => {
+    // ✅ Verificar si es admin
+    if (user.role !== 'admin') {
+      alert('❌ Solo los administradores pueden eliminar eventos');
+      return;
+    }
+
     if (!window.confirm(`¿Estás seguro de eliminar el evento "${nombre}"?`)) {
       return;
     }
@@ -48,9 +56,9 @@ const EventosTable = ({ onEditEvento, onViewDetails, onNuevoEvento }) => {
   };
 
   const getBadgeColor = (categoriaColor) => {
-  // Usar el color que viene del backend
-  return categoriaColor ? 'badge-custom' : 'badge-default';
-};
+    // Usar el color que viene del backend
+    return categoriaColor ? 'badge-custom' : 'badge-default';
+  };
 
   const fueModificado = (evento) => {
     return evento.ultima_modificacion !== evento.fecha_carga;
@@ -176,13 +184,16 @@ const EventosTable = ({ onEditEvento, onViewDetails, onNuevoEvento }) => {
                     >
                       ✏️
                     </button>
-                    <button 
-                      onClick={() => handleEliminar(evento.id, evento.nombre)}
-                      className="btn btn-danger"
-                      title="Eliminar evento"
-                    >
-                      🗑️
-                    </button>
+                    {/* ✅ Solo mostrar botón eliminar para admins */}
+                    {user.role === 'admin' && (
+                      <button 
+                        onClick={() => handleEliminar(evento.id, evento.nombre)}
+                        className="btn btn-danger"
+                        title="Eliminar evento"
+                      >
+                        🗑️
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
