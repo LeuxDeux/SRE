@@ -132,3 +132,43 @@ select::-webkit-scrollbar-thumb {
 select::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
 }
+
+/* Estilos para información de categoría */
+.categoria-info {
+  background: #e8f4fd;
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin-top: 8px;
+  border-left: 3px solid #3498db;
+}
+
+.prioridad-alta {
+  color: #e74c3c;
+  font-weight: bold;
+}
+
+.prioridad-media {
+  color: #f39c12;
+  font-weight: bold;
+}
+
+.prioridad-baja {
+  color: #27ae60;
+  font-weight: bold;
+}
+
+/* Mejoras visuales para el select de categorías */
+select option[data-prioridad="alta"] {
+  font-weight: bold;
+  color: #e74c3c;
+}
+
+select option[data-prioridad="media"] {
+  font-weight: bold;
+  color: #f39c12;
+}
+
+select option[data-prioridad="baja"] {
+  font-weight: bold;
+  color: #27ae60;
+}
