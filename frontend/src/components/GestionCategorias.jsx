@@ -214,6 +214,8 @@ const GestionCategorias = ({ onClose }) => {
             <tr>
               <th>Nombre</th>
               <th>Color</th>
+              <th>Prioridad</th>
+              <th>Días Antelación</th>
               <th>Estado</th>
               <th>Fecha Creación</th>
               {user.role === 'admin' && <th>Acciones</th>}
@@ -237,6 +239,17 @@ const GestionCategorias = ({ onClose }) => {
                     />
                     <span className="color-value">{categoria.color}</span>
                   </div>
+                </td>
+                <td className="categoria-prioridad">
+                  <span className={`prioridad-badge prioridad-${categoria.prioridad}`}>
+                    {categoria.prioridad === 'alta' ? '🚨 Alta' :
+                      categoria.prioridad === 'media' ? '⚠️ Media' : '✅ Baja'}
+                  </span>
+                </td>
+                <td className="categoria-dias">
+                  <span className="dias-badge">
+                    {categoria.dias_antelacion} días
+                  </span>
                 </td>
                 <td className="categoria-estado">
                   <span className={`estado-badge ${categoria.activa ? 'activa' : 'inactiva'}`}>
