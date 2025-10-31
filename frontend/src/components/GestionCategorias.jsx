@@ -10,7 +10,9 @@ const GestionCategorias = ({ onClose }) => {
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
     nombre: '',
-    color: '#3498db'
+    color: '#3498db',
+    prioridad: 'media',
+    dias_antelacion: 15
   });
   const [editando, setEditando] = useState(null);
 
@@ -65,7 +67,9 @@ const GestionCategorias = ({ onClose }) => {
     setEditando(categoria);
     setFormData({
       nombre: categoria.nombre,
-      color: categoria.color
+      color: categoria.color,
+      prioridad: categoria.prioridad,
+      dias_antelacion: categoria.dias_antelacion
     });
     setShowForm(true);
   };
@@ -161,10 +165,35 @@ const GestionCategorias = ({ onClose }) => {
                 <input
                   type="color"
                   value={formData.color}
-                  onChange={(e) => setFormData({...formData, color: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, color: e.target.value })}
                 />
                 <span className="color-hex">{formData.color}</span>
               </div>
+            </div>
+            <div className="form-group">
+              <label>Prioridad:</label>
+              <select
+                value={formData.prioridad}
+                onChange={(e) => setFormData({ ...formData, prioridad: e.target.value })}
+                required
+              >
+                <option value="baja">Baja ✅</option>
+                <option value="media">Media ⚠️</option>
+                <option value="alta">Alta 🚨</option>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label>Días de antelación mínima:</label>
+              <input
+                type="number"
+                min="1"
+                max="365"
+                value={formData.dias_antelacion}
+                onChange={(e) => setFormData({ ...formData, dias_antelacion: parseInt(e.target.value) })}
+                required
+              />
+              <small className="field-hint">Días mínimos de anticipación para eventos de esta categoría</small>
             </div>
 
             <div className="form-actions">
