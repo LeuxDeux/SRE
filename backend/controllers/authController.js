@@ -14,11 +14,15 @@ const authController = {
 
       console.log(`🔐 Intento de login para usuario: ${username}`);
 
-      // 1. Buscar usuario en la base de datos
-      const [users] = await pool.query(
-        'SELECT * FROM usuarios WHERE username = ? AND activo = 1', 
-        [username]
-      );
+      // 1. Buscar usuario en la base de datos CON JOIN
+      const [users] = await pool.query(`
+        SELECT 
+          u.*,
+          s.nombre as secretaria_nombre
+        FROM usuarios u
+        LEFT JOIN secretarias s ON u.secretaria_id = s.id
+        WHERE u.username = ? AND u.activo = 1
+      `, [username]);
 
       if (users.length === 0) {
         console.log('❌ Usuario no encontrado:', username);
@@ -37,13 +41,13 @@ const authController = {
 
       console.log('✅ Contraseña válida para:', username);
 
-      // 3. Generar JWT token
+      // 3. Generar JWT token (usar secretaria_nombre en el token)
       const token = jwt.sign(
         { 
           id: user.id, 
           username: user.username, 
           role: user.role,
-          secretaria: user.secretaria 
+          secretaria: user.secretaria_nombre || 'Administración' // Usar el nombre de la secretaría
         },
         process.env.JWT_SECRET,
         { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
@@ -60,7 +64,7 @@ const authController = {
           username: user.username,
           email: user.email,
           role: user.role,
-          secretaria: user.secretaria
+          secretaria: user.secretaria_nombre || 'Administración' // Usar el nombre de la secretaría
         }
       });
 
@@ -98,11 +102,19 @@ const authController = {
       // 2. Verificar y decodificar token JWT
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       
-      // 3. Verificar que el usuario aún existe en la BD y está activo
-      const [users] = await pool.query(
-        'SELECT id, username, email, role, secretaria FROM usuarios WHERE id = ? AND activo = 1', 
-        [decoded.id]
-      );
+      // 3. Verificar que el usuario aún existe en la BD CON JOIN
+      const [users] = await pool.query(`
+        SELECT 
+          u.id, 
+          u.username, 
+          u.email, 
+          u.role, 
+          u.secretaria_id,
+          s.nombre as secretaria_nombre
+        FROM usuarios u
+        LEFT JOIN secretarias s ON u.secretaria_id = s.id
+        WHERE u.id = ? AND u.activo = 1
+      `, [decoded.id]);
 
       if (users.length === 0) {
         console.log('❌ Usuario no encontrado en BD para token válido');
@@ -123,7 +135,7 @@ const authController = {
           username: user.username,
           email: user.email,
           role: user.role,
-          secretaria: user.secretaria
+          secretaria: user.secretaria_nombre || 'Administración' // Usar el nombre de la secretaría
         }
       });
 
