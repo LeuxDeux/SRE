@@ -83,6 +83,17 @@ export const categoriasAPI = {
   actualizar: (id, categoriaData) => api.put(`/categorias/${id}`, categoriaData),
   eliminar: (id) => api.delete(`/categorias/${id}`)
 };
+
+export const usersAPI = {
+  obtenerTodos: () => api.get('/users'),
+  crear: (userData) => api.post('/users', userData),
+  actualizar: (id, userData) => api.put(`/users/${id}`, userData),
+  resetearPassword: (id, passwordData) => api.put(`/users/${id}/reset-password`, passwordData)
+};
+
+export const secretariasAPI = {
+  obtenerTodas: () => api.get('/secretarias')
+};
 // Health check (igual que tu app)
 export const checkServerHealth = () => api.get('/health');
 
