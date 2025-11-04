@@ -5,6 +5,7 @@ import EventosTable from './components/EventosTable';
 import EventoForm from './components/EventoForm';
 import EventoDetail from './components/EventoDetail';
 import GestionCategorias from './components/GestionCategorias';
+import GestionUsuarios from './components/GestionUsuarios';
 import './App.css';
 
 // Componente Dashboard con navegación entre módulos
@@ -90,20 +91,20 @@ const Dashboard = () => {
         return (
           <div className="modulo-container">
             <div className="modulo-header">
-              <button 
+              <button
                 onClick={() => {
                   setModuloActivo(null);
                   setVistaEventos('lista');
                   setEventoEditando(null);
                   setEventoDetalleId(null);
-                }} 
+                }}
                 className="btn-volver"
               >
                 ← Volver al Dashboard
               </button>
               <h2>📅 Gestión de Eventos</h2>
               {vistaEventos === 'lista' && (
-                <button 
+                <button
                   onClick={handleNuevoEvento}
                   className="btn-nuevo-evento"
                 >
@@ -114,13 +115,13 @@ const Dashboard = () => {
             {renderModuloEventos()}
           </div>
         );
-      
+
       case 'reservas':
         return (
           <div className="modulo-container">
             <div className="modulo-header">
-              <button 
-                onClick={() => setModuloActivo(null)} 
+              <button
+                onClick={() => setModuloActivo(null)}
                 className="btn-volver"
               >
                 ← Volver al Dashboard
@@ -146,49 +147,68 @@ const Dashboard = () => {
             <GestionCategorias />
           </div>
         );
-      
+
+      case 'usuarios':
+        return (
+          <div className="modulo-container">
+            <div className="modulo-header">
+              <button
+                onClick={() => setModuloActivo(null)}
+                className="btn-volver"
+              >
+                ← Volver al Dashboard
+              </button>
+              <h2>👥 Gestión de Usuarios</h2>
+            </div>
+            <GestionUsuarios onClose={() => setModuloActivo(null)} />
+          </div>
+        );
+
       default:
         return (
           <div className="welcome-message">
             <h2>¡Bienvenido al Sistema!</h2>
             <p>Selecciona un módulo para comenzar:</p>
-            
+
             <div className="modules-grid">
               <div className="module-card">
                 <h3>📅 Registro de Eventos</h3>
                 <p>Gestiona los eventos universitarios</p>
-                <button 
+                <button
                   onClick={() => setModuloActivo('eventos')}
                   className="module-button"
                 >
                   Acceder al Módulo
                 </button>
               </div>
-              
+
               <div className="module-card">
                 <h3>🏢 Reserva de Espacios</h3>
                 <p>Reserva aulas y laboratorios</p>
-                <button 
+                <button
                   onClick={() => setModuloActivo('reservas')}
                   className="module-button"
                 >
                   Acceder al Módulo
                 </button>
               </div>
-              
+
               {user.role === 'admin' && (
                 <div className="module-card">
                   <h3>👥 Administración</h3>
                   <p>Gestiona usuarios del sistema</p>
-                  <button disabled className="module-button">
-                    Próximamente
+                  <button
+                    onClick={() => setModuloActivo('usuarios')}
+                    className="module-button"
+                  >
+                    Gestionar Usuarios
                   </button>
                 </div>
               )}
               {user.role === 'admin' && (
-              <div className="module-card">
-                <h3>🎯 Categorías</h3>
-                <p>Gestionar categorías de eventos</p>
+                <div className="module-card">
+                  <h3>🎯 Categorías</h3>
+                  <p>Gestionar categorías de eventos</p>
                 <button
                   onClick={() => setModuloActivo('categorias')}
                   className="module-button"
