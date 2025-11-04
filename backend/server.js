@@ -24,6 +24,10 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/eventos', require('./routes/eventos'));
 
 app.use('/api/categorias', require('./routes/categorias'));
+
+app.use('/api/users', require('./routes/users'));
+
+app.use('/api/secretarias', require('./routes/secretarias'));
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ 
