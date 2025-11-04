@@ -536,11 +536,17 @@ const eventosController = {
 
       // Consulta que une historial_eventos con usuarios para obtener información de quién realizó cada acción
       const [historial] = await pool.query(`
-        SELECT he.*, u.username, u.role, u.secretaria
-        FROM historial_eventos he 
-        LEFT JOIN usuarios u ON he.usuario_id = u.id 
-        WHERE he.evento_id = ? 
-        ORDER BY he.fecha DESC
+        SELECT 
+        he.*, 
+        u.username, 
+        u.role, 
+        u.secretaria_id,
+        s.nombre as secretaria
+      FROM historial_eventos he 
+      LEFT JOIN usuarios u ON he.usuario_id = u.id 
+      LEFT JOIN secretarias s ON u.secretaria_id = s.id
+      WHERE he.evento_id = ? 
+      ORDER BY he.fecha DESC
       `, [id]);
 
       res.json({
