@@ -92,7 +92,6 @@ const LoginForm = () => {
           <ul>
             <li><strong>admin</strong> / password (Administrador)</li>
             <li><strong>maria.garcia</strong> / password (Secretaría Académica)</li>
-            <li><strong>juan.lopez</strong> / password (Secretaría de Alumnos)</li>
           </ul>
         </div>
       </div>
