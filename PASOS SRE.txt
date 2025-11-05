@@ -166,4 +166,37 @@ ADD COLUMN dias_antelacion INT DEFAULT 15;
 Actualizar categoriasController.js
 Actualizar EventoForm.jsx
 Actualizar GestionCategorias.jsx
+-
+-
+-
+-
+-
+-
+Pasos Deploy: 
+a) Copiar estructura de base de datos e insertarlo en el VPS de manera que sea.
+b) Clonar repositorio
+c) Crear conf de virtual host con apache2: sudo nano /etc/apache2/sites-available/sre.conf
+d) Controlar apache2:
+-Activar sitio: sudo a2ensite sre.conf
+-Reiniciar apache: sudo systemctl restart apache2
+-Verificar actividad de sitios: sudo apache2ctl -S
+e) Instalar dependencias frontend y backend con npm install en cada directorio correspondiente.
+f) Crear archivos .env 
+g) Prueba backend con codigo hardcodeado:
+_
+node -e "
+const db = require('./config/database.js');
+db.execute('SELECT 1 + 1 AS result')
+  .then(([rows]) => { console.log('Conexión BD exitosa:', rows); process.exit(0); })
+  .catch(err => { console.error('Error BD:', err); process.exit(1); })
+"
+h) Crear servicio de ejecución de backend de la manera que sea, en este caso screen para probar
+i) Prueba de url configurada en Apache con /api/health
+j) Prueba de url con curl -I "url"
+k) Creación de directorio para build: sudo mkdir -p /var/www/html/sre
+l) Copiar build a la url del sitio: sudo cp -r build/* /var/www/html/sre/
+m) Ajustar permisos de apache:
+sudo chown -R www-data:www-data /var/www/html/sre
+sudo chmod -R 755 /var/www/html/sre
+sudo systemctl reload apache2
 
