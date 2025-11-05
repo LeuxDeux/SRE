@@ -188,8 +188,9 @@ const Dashboard = () => {
                 <button
                   onClick={() => setModuloActivo('reservas')}
                   className="module-button"
+                  disabled
                 >
-                  Acceder al Módulo
+                  En desarrollo...
                 </button>
               </div>
 
