@@ -165,13 +165,33 @@ ADD COLUMN prioridad ENUM('alta', 'media', 'baja') DEFAULT 'media',
 ADD COLUMN dias_antelacion INT DEFAULT 15;
 Actualizar categoriasController.js
 Actualizar EventoForm.jsx
-Actualizar GestionCategorias.jsx
--
--
--
--
--
--
+Actualizar GestionCategorias.jsx para mostrar la prioridad
+42) Restringir eliminacion de eventos solo a admins en EventosTable.jsx y proteger ruta en eventosController.js
+43) Crear modulo de Gestion de Usuarios para admins: 
+Ampliar Tabla:
+ALTER TABLE usuarios 
+ADD COLUMN telefono VARCHAR(20) AFTER email,
+ADD COLUMN fecha_ultimo_login TIMESTAMP NULL AFTER updated_at,
+ADD COLUMN reset_token VARCHAR(255) NULL AFTER fecha_ultimo_login;
+Creación de usersController.js y añadir sus rutas a routes, server.js y a la api.js
+44) Creación del componente GestionUsuarios.jsx, su css y actualizar App.js
+45) Cambio en GestionUsuarios.jsx de secretarias hardcodeadas por nueva tabla secretarias y sus claves foraneas con tabla usuarios:
+CREATE TABLE secretarias (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  nombre VARCHAR(100) UNIQUE NOT NULL,
+  descripcion TEXT,
+  activa BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+ALTER TABLE usuarios 
+CHANGE COLUMN secretaria secretaria_id INT NULL,
+ADD CONSTRAINT fk_usuario_secretaria 
+FOREIGN KEY (secretaria_id) REFERENCES secretarias(id);
+46) Creación de secretariasController.js, route tanto archivo como en server.js y api.js. Y actualizar componentes que usaban datos hardcodeados.
+47) Actualizacion de todos los controllers y componentes que usaban "secretaria" como string por "secretaria_id" como int con clave foranea y JOIN en sus querys
+48) Empezar con deploy de prueba en Lightsail antes de comenzar con nuevo modulo de RESERVA DE ESPACIOS
 Pasos Deploy: 
 a) Copiar estructura de base de datos e insertarlo en el VPS de manera que sea.
 b) Clonar repositorio
