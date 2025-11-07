@@ -220,3 +220,23 @@ sudo chown -R www-data:www-data /var/www/html/sre
 sudo chmod -R 755 /var/www/html/sre
 sudo systemctl reload apache2
 
+Cosas a Realizar:
+#Cambiar Archivos y Metadatos -: Archivos Adjuntos y Recursos
+#Generar PDF btn solo admin
+#Registro de Eventos a Comunicar
+#Acceder al modulo -: acceder
+#Agregar fecha inicio/fecha de finalizacion de evento
+#Datos de Contacto en agregar evento -: "Datos de Contacto de persona a cargo"
+#Lugar/Espacio -: En vez de string/input que sea un select
+#Informacion Adicional Si es OTRO-: Especificar
+#Si no se pudo crear formulario que avise que no se pudo
+#Por cada evento generado se genere el pdf automaticamente y se envie a un correo determinado
+#Guardar Descripcion, Links y Observaciones
+
+SISTEMA RESERVA
+Usuario debe poder seleccionar un espacio para su reserva, entre multiples resultados que se deberán poder cargar, seleccionar fecha y hora y mostrar en calendario.
+Depende de que espacio se seleccione cargar recursos, y según que recursos enviar correo a cierto departamento.
+Los administradores deben poder cargar los recursos por cada espacio.
+Nuevo tipo de usuario para solo Reservar espacios, ya que serán muchos más.
+Que no se puedan cruzar eventos en el mismo espacio, y franja horaria.
+Buscar framework calendario.
