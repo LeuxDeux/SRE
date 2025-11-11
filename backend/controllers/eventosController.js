@@ -155,7 +155,19 @@ const detectarCambios = async (eventoViejo, eventoNuevo) => {
       cambios.push('Observaciones: Se modificaron las observaciones');
     }
   }
-
+  if (eventoNuevo.fecha_fin !== eventoViejo.fecha_fin) {
+  const finVieja = crearFechaLocal(eventoViejo.fecha_fin);
+  const finNueva = crearFechaLocal(eventoNuevo.fecha_fin);
+  
+  if (finVieja && finNueva && 
+      finVieja.toLocaleDateString('es-ES') !== finNueva.toLocaleDateString('es-ES')) {
+    cambios.push(`Fecha fin: ${finVieja.toLocaleDateString('es-ES')} → ${finNueva.toLocaleDateString('es-ES')}`);
+  } else if (!finVieja && finNueva) {
+    cambios.push('Fecha fin: Se agregó fecha de finalización');
+  } else if (finVieja && !finNueva) {
+    cambios.push('Fecha fin: Se eliminó fecha de finalización');
+  }
+}
   return cambios;
 };
 
@@ -263,6 +275,7 @@ const eventosController = {
       const { 
         nombre, 
         fecha_evento, 
+        fecha_fin,
         descripcion, 
         categoria_id,
         // NUEVOS CAMPOS
@@ -314,11 +327,11 @@ const eventosController = {
       // Insertar el nuevo evento en la base de datos (CON NUEVOS CAMPOS)
       const [result] = await pool.query(`
         INSERT INTO eventos (
-          nombre, fecha_evento, descripcion, categoria_id, usuario_id, secretaria, archivo_adjunto,
+          nombre, fecha_evento, fecha_fin, descripcion, categoria_id, usuario_id, secretaria, archivo_adjunto,
           correo_contacto, telefono, hora_inicio, hora_fin, lugar, publico_destinatario, links, observaciones
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `, [
-        nombre, fecha_evento, descripcion, categoria_id, usuario_id, secretaria, archivo_adjunto,
+        nombre, fecha_evento, fecha_fin, descripcion, categoria_id, usuario_id, secretaria, archivo_adjunto,
         correo_contacto, telefono, hora_inicio, hora_fin, lugar, publico_destinatario, links, observaciones
       ]);
 
@@ -436,7 +449,8 @@ const eventosController = {
           UPDATE eventos
           SET 
             nombre = ?, 
-            fecha_evento = ?, 
+            fecha_evento = ?,
+            fecha_fin = ?,
             descripcion = ?, 
             categoria_id = ?, 
             archivo_adjunto = ?,
@@ -451,7 +465,7 @@ const eventosController = {
             ultima_modificacion = CURRENT_TIMESTAMP
           WHERE id = ?
         `, [
-          nombre, fecha_evento, descripcion, categoria_id, archivo_adjunto,
+          nombre, fecha_evento, fecha_fin, descripcion, categoria_id, archivo_adjunto,
           correo_contacto, telefono, hora_inicio, hora_fin, lugar, 
           publico_destinatario, links, observaciones, id
         ]);
