@@ -220,16 +220,20 @@ sudo chown -R www-data:www-data /var/www/html/sre
 sudo chmod -R 755 /var/www/html/sre
 sudo systemctl reload apache2
 
-Cosas a Realizar:
-#Cambiar Archivos y Metadatos -: Archivos Adjuntos y Recursos
+49) Cosas a Realizar:
+--#Agregar fecha inicio/fecha de finalizacion de evento:
+ALTER TABLE eventos ADD COLUMN fecha_fin DATE AFTER fecha_evento;
+
+--#Lugar/Espacio -: En vez de string/input que sea un select
+Cambiando codigo en componente EventoForm.jsx
+
+--#Informacion Adicional Si es OTRO-: Especificar
+Cambiando codigo en componente EventoForm.jsx
+
+--#Si no se pudo crear formulario que avise que no se pudo
+Agregar nuevos estados y switch con validaciones en tiempo real de campos en EventoForm.jsx
+
 #Generar PDF btn solo admin
-#Registro de Eventos a Comunicar
-#Acceder al modulo -: acceder
-#Agregar fecha inicio/fecha de finalizacion de evento
-#Datos de Contacto en agregar evento -: "Datos de Contacto de persona a cargo"
-#Lugar/Espacio -: En vez de string/input que sea un select
-#Informacion Adicional Si es OTRO-: Especificar
-#Si no se pudo crear formulario que avise que no se pudo
 #Por cada evento generado se genere el pdf automaticamente y se envie a un correo determinado
 #Guardar Descripcion, Links y Observaciones
 
