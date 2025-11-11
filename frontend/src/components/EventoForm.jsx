@@ -6,6 +6,7 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
   const [formData, setFormData] = useState({
     nombre: '',
     fecha_evento: '',
+    fecha_fin: '',
     descripcion: '',
     categoria_id: '',
     correo_contacto: '',
@@ -13,7 +14,9 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
     hora_inicio: '',
     hora_fin: '',
     lugar: '',
+    lugarPersonalizado: '',
     publico_destinatario: '',
+    publicoDestinatarioPersonalizado: '',
     links: '',
     observaciones: ''
   });
@@ -23,6 +26,68 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false); // ← NUEVO: modal
+  const [fieldErrors, setFieldErrors] = useState({});
+
+  const validateField = (name, value) => {
+    const errors = { ...fieldErrors };
+
+    switch (name) {
+      case 'nombre':
+        if (!value.trim()) errors.nombre = 'El nombre es requerido';
+        else if (value.trim().length < 5) errors.nombre = 'Mínimo 5 caracteres';
+        else delete errors.nombre;
+        break;
+
+      case 'fecha_evento':
+        if (!value) errors.fecha_evento = 'La fecha es requerida';
+        else delete errors.fecha_evento;
+        break;
+
+      case 'correo_contacto':
+        if (!value) errors.correo_contacto = 'El correo es requerido';
+        else if (!/\S+@\S+\.\S+/.test(value)) errors.correo_contacto = 'Correo inválido';
+        else delete errors.correo_contacto;
+        break;
+
+      case 'descripcion':
+        if (!value.trim()) errors.descripcion = 'La descripción es requerida';
+        else if (value.trim().length < 10) errors.descripcion = 'Mínimo 10 caracteres';
+        else delete errors.descripcion;
+        break;
+
+      case 'categoria_id':
+        if (!value) errors.categoria_id = 'La categoría es requerida';
+        else delete errors.categoria_id;
+        break;
+
+      case 'hora_inicio':
+        if (!value) errors.hora_inicio = 'La hora de inicio es requerida';
+        else delete errors.hora_inicio;
+        break;
+
+      case 'hora_fin':
+        if (!value) errors.hora_fin = 'La hora de fin es requerida';
+        else delete errors.hora_fin;
+        break;
+
+      case 'lugar':
+        if (!value) errors.lugar = 'El lugar es requerido';
+        else delete errors.lugar;
+        break;
+
+      case 'publico_destinatario':
+        if (!value) errors.publico_destinatario = 'El público destinatario es requerido';
+        else delete errors.publico_destinatario;
+        break;
+
+      default:
+        // Para campos que no necesitan validación especial
+        break;
+    }
+
+    setFieldErrors(errors);
+  };
 
   // Cargar categorías al montar el componente
   useEffect(() => {
@@ -42,12 +107,13 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
   // Si estamos editando, cargar los datos del evento
   useEffect(() => {
     if (evento) {
-      // Formatear fecha para el input date
       const fechaFormateada = new Date(evento.fecha_evento).toISOString().split('T')[0];
+      const fechaFinFormateada = evento.fecha_fin ? new Date(evento.fecha_fin).toISOString().split('T')[0] : '';
 
       setFormData({
         nombre: evento.nombre || '',
         fecha_evento: fechaFormateada,
+        fecha_fin: fechaFinFormateada,
         descripcion: evento.descripcion || '',
         categoria_id: evento.categoria_id || '',
         correo_contacto: evento.correo_contacto || '',
@@ -68,18 +134,19 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
       ...prev,
       [name]: value
     }));
+    validateField(name, value);
   };
-  // Nueva función para manejar cambio de categoría
+
   const handleCategoriaChange = (e) => {
     const categoriaId = e.target.value;
     setFormData(prev => ({ ...prev, categoria_id: categoriaId }));
 
-    // Encontrar la categoría seleccionada para obtener sus reglas
     const cat = categorias.find(c => c.id === parseInt(categoriaId));
     setCategoriaSeleccionada(cat);
+
+    validateField('categoria_id', categoriaId);
   };
 
-  // Calcular fecha mínima basada en la categoría
   const calcularFechaMinima = () => {
     const hoy = new Date();
     if (categoriaSeleccionada && categoriaSeleccionada.dias_antelacion) {
@@ -87,11 +154,11 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
       fechaMin.setDate(hoy.getDate() + categoriaSeleccionada.dias_antelacion);
       return fechaMin.toISOString().split('T')[0];
     }
-    // Por defecto 15 días si no hay categoría seleccionada
     const fechaMinDefault = new Date(hoy);
     fechaMinDefault.setDate(hoy.getDate() + 15);
     return fechaMinDefault.toISOString().split('T')[0];
   };
+
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -101,31 +168,53 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
         return;
       }
 
-      // Validar tipo de archivo
       const allowedTypes = ['.pdf', '.jpg', '.jpeg', '.png', '.doc', '.docx'];
       const fileExt = '.' + file.name.split('.').pop().toLowerCase();
 
       if (!allowedTypes.includes(fileExt)) {
         setError('Tipo de archivo no permitido. Solo PDF, imágenes y documentos.');
-        e.target.value = ''; // Limpiar input
+        e.target.value = '';
         return;
       }
       
       setArchivo(file);
-      setError(''); // Limpiar error si todo está bien
+      setError('');
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.nombre.trim() || !formData.fecha_evento) {
-      setError('Nombre y fecha del evento son requeridos');
+    // Validación completa antes de enviar
+    const errors = {};
+    if (!formData.nombre.trim()) errors.nombre = 'El nombre es requerido';
+    if (!formData.fecha_evento) errors.fecha_evento = 'La fecha es requerida';
+    if (!formData.categoria_id) errors.categoria_id = 'La categoría es requerida';
+    if (!formData.descripcion.trim()) errors.descripcion = 'La descripción es requerida';
+    if (!formData.correo_contacto) errors.correo_contacto = 'El correo es requerido';
+    if (!formData.hora_inicio) errors.hora_inicio = 'La hora de inicio es requerida';
+    if (!formData.hora_fin) errors.hora_fin = 'La hora de fin es requerida';
+    if (!formData.lugar) errors.lugar = 'El lugar es requerido';
+    if (!formData.publico_destinatario) errors.publico_destinatario = 'El público destinatario es requerido';
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setError('Por favor completa todos los campos requeridos');
       return;
     }
 
-    if (!formData.categoria_id) {
-      setError('Por favor selecciona una categoría');
+    if (formData.fecha_fin && formData.fecha_fin < formData.fecha_evento) {
+      setError('La fecha de fin no puede ser anterior a la fecha de inicio');
+      return;
+    }
+
+    if (formData.lugar === 'otro' && !formData.lugarPersonalizado?.trim()) {
+      setError('Por favor especifica el lugar personalizado');
+      return;
+    }
+
+    if (formData.publico_destinatario === 'otro' && !formData.publicoDestinatarioPersonalizado?.trim()) {
+      setError('Por favor especifica el público destinatario');
       return;
     }
 
@@ -135,16 +224,22 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
     try {
       const formDataToSend = new FormData();
 
+      const lugarFinal = formData.lugar === 'otro' ? formData.lugarPersonalizado : formData.lugar;
+      const publicoFinal = formData.publico_destinatario === 'otro' 
+        ? formData.publicoDestinatarioPersonalizado 
+        : formData.publico_destinatario;
+
       formDataToSend.append('nombre', formData.nombre);
       formDataToSend.append('fecha_evento', formData.fecha_evento);
+      formDataToSend.append('fecha_fin', formData.fecha_fin);
       formDataToSend.append('descripcion', formData.descripcion);
       formDataToSend.append('categoria_id', formData.categoria_id);
       formDataToSend.append('correo_contacto', formData.correo_contacto);
       formDataToSend.append('telefono', formData.telefono);
       formDataToSend.append('hora_inicio', formData.hora_inicio);
       formDataToSend.append('hora_fin', formData.hora_fin);
-      formDataToSend.append('lugar', formData.lugar);
-      formDataToSend.append('publico_destinatario', formData.publico_destinatario);
+      formDataToSend.append('lugar', lugarFinal);
+      formDataToSend.append('publico_destinatario', publicoFinal);
       formDataToSend.append('links', formData.links);
       formDataToSend.append('observaciones', formData.observaciones);
 
@@ -155,15 +250,17 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
       let response;
 
       if (evento) {
-        // Actualizar evento existente
         response = await eventosAPI.actualizar(evento.id, formDataToSend);
       } else {
-        // Crear nuevo evento
         response = await eventosAPI.crear(formDataToSend);
       }
 
       if (response.data.success) {
-        onSave(response.data.evento);
+        setShowSuccessModal(true); // ← Mostrar modal
+        setTimeout(() => {
+          setShowSuccessModal(false);
+          onSave(response.data.evento);
+        }, 2000);
       }
 
     } catch (error) {
@@ -174,15 +271,13 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
     }
   };
 
-  // Opciones predefinidas para público destinatario
   const opcionesPublico = [
     'Estudiantes',
     'Docentes',
     'Público General',
     'Estudiantes y Docentes',
     'Personal Administrativo',
-    'Egresados',
-    'Otro'
+    'Egresados'
   ];
 
   return (
@@ -203,7 +298,7 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
         <div className="form-section">
           <h3>📝 Información Básica del Evento</h3>
 
-          <div className="form-group">
+          <div className={`form-group ${fieldErrors.nombre ? 'error' : ''}`}>
             <label htmlFor="nombre">Nombre del Evento *</label>
             <input
               type="text"
@@ -215,11 +310,12 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
               disabled={loading}
               required
             />
+            {fieldErrors.nombre && <span className="field-error">{fieldErrors.nombre}</span>}
           </div>
 
           <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="fecha_evento">Fecha del Evento *</label>
+            <div className={`form-group ${fieldErrors.fecha_evento ? 'error' : ''}`}>
+              <label htmlFor="fecha_evento">Fecha de Inicio *</label>
               <input
                 type="date"
                 id="fecha_evento"
@@ -230,6 +326,7 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
                 min={calcularFechaMinima()}
                 required
               />
+              {fieldErrors.fecha_evento && <span className="field-error">{fieldErrors.fecha_evento}</span>}
               {categoriaSeleccionada && (
                 <div className="categoria-info">
                   <small>
@@ -246,6 +343,24 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
             </div>
 
             <div className="form-group">
+              <label htmlFor="fecha_fin">Fecha de Fin (Opcional)</label>
+              <input
+                type="date"
+                id="fecha_fin"
+                name="fecha_fin"
+                value={formData.fecha_fin}
+                onChange={handleChange}
+                disabled={loading}
+                min={formData.fecha_evento || calcularFechaMinima()}
+              />
+              <small className="field-hint">
+                Solo si el evento dura más de un día
+              </small>
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className={`form-group ${fieldErrors.categoria_id ? 'error' : ''}`}>
               <label htmlFor="categoria_id">Categoría *</label>
               <select
                 id="categoria_id"
@@ -269,6 +384,7 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
                   </option>
                 ))}
               </select>
+              {fieldErrors.categoria_id && <span className="field-error">{fieldErrors.categoria_id}</span>}
               {categorias.length === 0 && !loading && (
                 <small style={{ color: '#dc3545' }}>
                   No hay categorías disponibles. Contacta al administrador.
@@ -277,7 +393,7 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
             </div>
           </div>
 
-          <div className="form-group">
+          <div className={`form-group ${fieldErrors.descripcion ? 'error' : ''}`}>
             <label htmlFor="descripcion">Descripción Breve (3-5 líneas) *</label>
             <textarea
               id="descripcion"
@@ -289,6 +405,7 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
               rows="4"
               required
             />
+            {fieldErrors.descripcion && <span className="field-error">{fieldErrors.descripcion}</span>}
             <small className="field-hint">Máximo 500 caracteres</small>
           </div>
         </div>
@@ -298,7 +415,7 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
           <h3>📞 Datos de Contacto</h3>
 
           <div className="form-row">
-            <div className="form-group">
+            <div className={`form-group ${fieldErrors.correo_contacto ? 'error' : ''}`}>
               <label htmlFor="correo_contacto">Correo de Contacto *</label>
               <input
                 type="email"
@@ -310,6 +427,7 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
                 disabled={loading}
                 required
               />
+              {fieldErrors.correo_contacto && <span className="field-error">{fieldErrors.correo_contacto}</span>}
             </div>
 
             <div className="form-group">
@@ -332,7 +450,7 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
           <h3>🕐 Horarios y Ubicación</h3>
 
           <div className="form-row">
-            <div className="form-group">
+            <div className={`form-group ${fieldErrors.hora_inicio ? 'error' : ''}`}>
               <label htmlFor="hora_inicio">Hora de Inicio *</label>
               <input
                 type="time"
@@ -343,9 +461,10 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
                 disabled={loading}
                 required
               />
+              {fieldErrors.hora_inicio && <span className="field-error">{fieldErrors.hora_inicio}</span>}
             </div>
 
-            <div className="form-group">
+            <div className={`form-group ${fieldErrors.hora_fin ? 'error' : ''}`}>
               <label htmlFor="hora_fin">Hora de Finalización *</label>
               <input
                 type="time"
@@ -356,21 +475,44 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
                 disabled={loading}
                 required
               />
+              {fieldErrors.hora_fin && <span className="field-error">{fieldErrors.hora_fin}</span>}
             </div>
           </div>
 
-          <div className="form-group">
+          <div className={`form-group ${fieldErrors.lugar ? 'error' : ''}`}>
             <label htmlFor="lugar">Lugar / Espacio *</label>
-            <input
-              type="text"
+            <select
               id="lugar"
               name="lugar"
               value={formData.lugar}
               onChange={handleChange}
-              placeholder="Ej: Aula Magna, Laboratorio 3, Plataforma Virtual..."
               disabled={loading}
               required
-            />
+            >
+              <option value="">Seleccionar lugar</option>
+              <option value="Aula Magna">Aula Magna</option>
+              <option value="Salón de Actos">Salón de Actos</option>
+              <option value="Laboratorio 1">Laboratorio 1</option>
+              <option value="Laboratorio 2">Laboratorio 2</option>
+              <option value="Laboratorio 3">Laboratorio 3</option>
+              <option value="Sala de Conferencias">Sala de Conferencias</option>
+              <option value="Plataforma Virtual">Plataforma Virtual</option>
+              <option value="Patio Central">Patio Central</option>
+              <option value="Biblioteca">Biblioteca</option>
+              <option value="otro">Otro...</option>
+            </select>
+            {fieldErrors.lugar && <span className="field-error">{fieldErrors.lugar}</span>}
+
+            {formData.lugar === 'otro' && (
+              <input
+                type="text"
+                placeholder="Especificar lugar personalizado"
+                value={formData.lugarPersonalizado || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, lugarPersonalizado: e.target.value }))}
+                disabled={loading}
+                required
+              />
+            )}
           </div>
         </div>
 
@@ -378,7 +520,7 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
         <div className="form-section">
           <h3>🎯 Información Adicional</h3>
 
-          <div className="form-group">
+          <div className={`form-group ${fieldErrors.publico_destinatario ? 'error' : ''}`}>
             <label htmlFor="publico_destinatario">Público Destinatario *</label>
             <select
               id="publico_destinatario"
@@ -394,7 +536,20 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
                   {opcion}
                 </option>
               ))}
+              <option value="otro">Otro...</option>
             </select>
+            {fieldErrors.publico_destinatario && <span className="field-error">{fieldErrors.publico_destinatario}</span>}
+
+            {formData.publico_destinatario === 'otro' && (
+              <input
+                type="text"
+                placeholder="Especificar público destinatario personalizado"
+                value={formData.publicoDestinatarioPersonalizado || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, publicoDestinatarioPersonalizado: e.target.value }))}
+                disabled={loading}
+                required
+              />
+            )}
           </div>
 
           <div className="form-group">
@@ -467,12 +622,24 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
           <button
             type="submit"
             className="btn-submit"
-            disabled={loading || !formData.nombre.trim() || !formData.fecha_evento || !formData.categoria_id || !formData.descripcion.trim() || !formData.correo_contacto || !formData.hora_inicio || !formData.hora_fin || !formData.lugar.trim() || !formData.publico_destinatario}
+            disabled={loading}
           >
             {loading ? '🔄 Guardando...' : (evento ? '💾 Actualizar Evento' : '✅ Crear Evento')}
           </button>
         </div>
       </form>
+
+      {/* MODAL SIMPLE DE ÉXITO */}
+      {showSuccessModal && (
+        <div className="modal-overlay">
+          <div className="success-modal">
+            <div className="modal-icon">✅</div>
+            <h3>¡Éxito!</h3>
+            <p>Evento {evento ? 'actualizado' : 'creado'} correctamente</p>
+            <p className="modal-subtext">Redirigiendo...</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
