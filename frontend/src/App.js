@@ -172,13 +172,13 @@ const Dashboard = () => {
 
             <div className="modules-grid">
               <div className="module-card">
-                <h3>📅 Registro de Eventos</h3>
+                <h3>📅 Registro de Eventos a Comunicar</h3>
                 <p>Gestiona los eventos universitarios</p>
                 <button
                   onClick={() => setModuloActivo('eventos')}
                   className="module-button"
                 >
-                  Acceder al Módulo
+                  Acceder
                 </button>
               </div>
 
