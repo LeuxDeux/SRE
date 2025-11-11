@@ -187,15 +187,29 @@ const EventoDetail = ({ eventoId, onClose }) => {
                 <label>Nombre del Evento:</label>
                 <span className="evento-nombre">{evento.nombre}</span>
               </div>
-              
+
+              {/* FECHA DEL EVENTO */}
               <div className="info-item">
-                <label>Fecha del Evento:</label>
+                <label>
+                  {evento.fecha_fin && evento.fecha_fin !== evento.fecha_evento
+                    ? 'Fecha de Inicio del Evento:'
+                    : 'Fecha del Evento:'
+                  }
+                </label>
                 <span>{formatearFecha(evento.fecha_evento)}</span>
               </div>
-              
+
+              {/* FECHA DE FIN - SOLO SI EXISTE Y ES DIFERENTE */}
+              {evento.fecha_fin && evento.fecha_fin !== evento.fecha_evento && (
+                <div className="info-item">
+                  <label>Fecha de Fin del Evento:</label>
+                  <span>{formatearFecha(evento.fecha_fin)}</span>
+                </div>
+              )}
+
               <div className="info-item">
                 <label>Categoría:</label>
-                <span 
+                <span
                   className="badge" 
                   style={{
                     backgroundColor: evento.categoria_color || '#6c757d',
@@ -221,7 +235,7 @@ const EventoDetail = ({ eventoId, onClose }) => {
 
             {/* SECCIÓN: DATOS DE CONTACTO */}
             <div className="info-subsection">
-              <h4>📞 Datos de Contacto</h4>
+              <h4>📞 Datos de Contacto de Persona a Cargo</h4>
               <div className="info-item">
                 <label>Correo de Contacto:</label>
                 <span>{evento.correo_contacto || <span className="texto-vacio">No especificado</span>}</span>
@@ -301,7 +315,7 @@ const EventoDetail = ({ eventoId, onClose }) => {
 
             {/* SECCIÓN: ARCHIVOS Y METADATOS */}
             <div className="info-subsection">
-              <h4>📎 Archivos y Metadatos</h4>
+              <h4>📎 Archivos Adjuntos y Recursos</h4>
               <div className="info-item">
                 <label>Archivo Adjunto:</label>
                 <span>
