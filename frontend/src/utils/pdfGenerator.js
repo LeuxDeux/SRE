@@ -92,8 +92,11 @@ export const generarPDF = (evento) => {
       yPosition += 15;
 
       // Campos del evento con líneas
-      const fechaEvento = evento.fecha_evento ? 
-        new Date(evento.fecha_evento).toLocaleDateString('es-ES') : '______';
+      const fechaEvento = evento.fecha_evento ?
+        (evento.fecha_fin && evento.fecha_fin !== evento.fecha_evento
+          ? `${new Date(evento.fecha_evento).toLocaleDateString('es-ES')} al ${new Date(evento.fecha_fin).toLocaleDateString('es-ES')}`
+          : new Date(evento.fecha_evento).toLocaleDateString('es-ES')
+        ) : '______';
 
       const datosEvento = [
         { label: 'Título del evento: ', value: evento.nombre, multiline: false },
