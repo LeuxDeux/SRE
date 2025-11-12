@@ -108,6 +108,44 @@ const EventoDetail = ({ eventoId, onClose }) => {
     }
   };
 
+  // ← NUEVA FUNCIÓN: Extraer valor anterior/nuevo por campo
+  const obtenerValorCambio = (campo, valoresViejos, valoresNuevos) => {
+    try {
+      const viejos = typeof valoresViejos === 'string' ? JSON.parse(valoresViejos) : valoresViejos;
+      const nuevos = typeof valoresNuevos === 'string' ? JSON.parse(valoresNuevos) : valoresNuevos;
+      
+      return {
+        anterior: viejos?.[campo] || 'N/A',
+        actual: nuevos?.[campo] || 'N/A'
+      };
+    } catch (error) {
+      console.warn('Error extrayendo valores:', error);
+      return { anterior: 'N/A', actual: 'N/A' };
+    }
+  };
+
+  // ← NUEVA FUNCIÓN: Detectar si es un campo que necesita mostrar valores detallados
+  const esCampoDetallado = (cambio) => {
+    const camposDetallados = ['Descripción', 'Observaciones', 'Links'];
+    return camposDetallados.some(campo => cambio.includes(campo));
+  };
+
+  // ← NUEVA FUNCIÓN: Extraer el nombre del campo del texto de cambio
+  const extraerNombroCampo = (cambio) => {
+    const mapa = {
+      'Descripción': 'descripcion',
+      'Observaciones': 'observaciones',
+      'Links': 'links'
+    };
+    
+    for (const [texto, campo] of Object.entries(mapa)) {
+      if (cambio.includes(texto)) {
+        return campo;
+      }
+    }
+    return null;
+  };
+
   const getIconoAccion = (accion) => {
     const iconos = {
       'creado': '🆕',
@@ -357,7 +395,7 @@ const EventoDetail = ({ eventoId, onClose }) => {
           </div>
         </div>
 
-        {/* Historial de Cambios */}
+        {/* Historial de Cambios - MODIFICADO */}
         <div className="historial-section">
           <div className="section-header">
             <h3>🕐 Historial de Cambios</h3>
@@ -393,11 +431,47 @@ const EventoDetail = ({ eventoId, onClose }) => {
                       <div className="cambios-list">
                         <div className="cambios-title">Cambios realizados:</div>
                         <ul className="cambios-items">
-                          {cambios.map((cambio, index) => (
-                            <li key={index} className="cambio-item">
-                              {cambio}
-                            </li>
-                          ))}
+                          {cambios.map((cambio, index) => {
+                            // Verificar si es un campo que necesita mostrar valores detallados
+                            const isDetallado = esCampoDetallado(cambio);
+                            
+                            if (isDetallado && registro.valores_viejos && registro.valores_nuevos) {
+                              const nombreCampo = extraerNombroCampo(cambio);
+                              const valores = obtenerValorCambio(nombreCampo, registro.valores_viejos, registro.valores_nuevos);
+                              
+                              return (
+                                <li key={index} className="cambio-item cambio-detallado">
+                                  <div className="cambio-titulo">{cambio}</div>
+                                  <div className="cambio-comparacion">
+                                    <div className="valor-anterior">
+                                      <strong>Antes:</strong>
+                                      <p className="valor-texto">
+                                        {valores.anterior && valores.anterior !== 'N/A' 
+                                          ? valores.anterior 
+                                          : '(vacío)'}
+                                      </p>
+                                    </div>
+                                    <div className="flecha">→</div>
+                                    <div className="valor-nuevo">
+                                      <strong>Después:</strong>
+                                      <p className="valor-texto">
+                                        {valores.actual && valores.actual !== 'N/A' 
+                                          ? valores.actual 
+                                          : '(vacío)'}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </li>
+                              );
+                            }
+                            
+                            // Si no es un campo detallado, mostrar como antes
+                            return (
+                              <li key={index} className="cambio-item">
+                                {cambio}
+                              </li>
+                            );
+                          })}
                         </ul>
                       </div>
                     )}
