@@ -9,7 +9,28 @@ const pool = require('../config/database');
  */
 const detectarCambios = async (eventoViejo, eventoNuevo) => {
   const cambios = [];
+  const valoresViejos = {};
+  const valoresNuevos = {};
 
+  const campos = [
+    'nombre', 'descripcion', 'links', 'observaciones',
+    'correo_contacto', 'telefono', 'lugar', 'publico_destinatario',
+    'fecha_evento', 'fecha_fin', 'hora_inicio', 'hora_fin', 'categoria_id'
+  ];
+
+  // Primero: Recorrer todos los campos para guardar valores completos
+  for (const campo of campos) {
+    const valorViejo = eventoViejo[campo];
+    const valorNuevo = eventoNuevo[campo];
+
+    // Solo registrar si hay cambio real
+    if (valorNuevo !== valorViejo) {
+      valoresViejos[campo] = valorViejo;
+      valoresNuevos[campo] = valorNuevo;
+    }
+  }
+
+  // Segundo: Mantener tu lógica actual de cambios detallados
   // Comparar nombre
   if (eventoNuevo.nombre !== eventoViejo.nombre) {
     cambios.push(`Nombre: "${eventoViejo.nombre}" → "${eventoNuevo.nombre}"`);
@@ -19,7 +40,7 @@ const detectarCambios = async (eventoViejo, eventoNuevo) => {
   const crearFechaLocal = (fechaInput) => {
     if (!fechaInput) return null;
     if (fechaInput instanceof Date) return fechaInput;
-    
+
     if (typeof fechaInput === 'string') {
       if (fechaInput.includes('T') || fechaInput.includes('Z')) {
         return new Date(fechaInput);
@@ -28,36 +49,52 @@ const detectarCambios = async (eventoViejo, eventoNuevo) => {
         return new Date(año, mes - 1, dia);
       }
     }
-    
+
     return new Date(fechaInput);
   };
 
   const fechaVieja = crearFechaLocal(eventoViejo.fecha_evento);
   const fechaNueva = crearFechaLocal(eventoNuevo.fecha_evento);
-  
-  if (fechaVieja && fechaNueva && 
-      fechaVieja.toLocaleDateString('es-ES') !== fechaNueva.toLocaleDateString('es-ES')) {
+
+  if (fechaVieja && fechaNueva &&
+    fechaVieja.toLocaleDateString('es-ES') !== fechaNueva.toLocaleDateString('es-ES')) {
     cambios.push(`Fecha del evento: ${fechaVieja.toLocaleDateString('es-ES')} → ${fechaNueva.toLocaleDateString('es-ES')}`);
   }
 
-  // Comparar categoría
-  if (eventoNuevo.categoria_id !== eventoViejo.categoria_id) {
-    // Obtener nombres de categorías
-    const [catVieja] = eventoViejo.categoria_id ? 
-      await pool.query('SELECT nombre FROM categorias WHERE id = ?', [eventoViejo.categoria_id]) : 
-      [{ nombre: 'Sin categoría' }];
-    
-    const [catNueva] = eventoNuevo.categoria_id ? 
-      await pool.query('SELECT nombre FROM categorias WHERE id = ?', [eventoNuevo.categoria_id]) : 
-      [{ nombre: 'Sin categoría' }];
-    
-    cambios.push(`Categoría: ${catVieja[0].nombre} → ${catNueva[0].nombre}`);
+  // Comparar categoría - CONVERTIR A NÚMERO PARA EVITAR FALSOS POSITIVOS
+  const catViejaId = Number(eventoViejo.categoria_id);
+  const catNuevaId = Number(eventoNuevo.categoria_id);
+
+  if (catNuevaId !== catViejaId) {
+    // Solo proceder si hay un cambio real
+    let nombreCatVieja = 'Sin categoría';
+    let nombreCatNueva = 'Sin categoría';
+
+    if (catViejaId) {
+      try {
+        const [catViejaResult] = await pool.query('SELECT nombre FROM categorias WHERE id = ?', [catViejaId]);
+        nombreCatVieja = catViejaResult?.[0]?.nombre || 'Sin categoría';
+      } catch (error) {
+        console.warn('Error obteniendo categoría vieja:', error);
+      }
+    }
+
+    if (catNuevaId) {
+      try {
+        const [catNuevaResult] = await pool.query('SELECT nombre FROM categorias WHERE id = ?', [catNuevaId]);
+        nombreCatNueva = catNuevaResult?.[0]?.nombre || 'Sin categoría';
+      } catch (error) {
+        console.warn('Error obteniendo categoría nueva:', error);
+      }
+    }
+
+    cambios.push(`Categoría: "${nombreCatVieja}" → "${nombreCatNueva}"`);
   }
 
   // Comparar descripción
   const descVieja = eventoViejo.descripcion || '';
   const descNueva = eventoNuevo.descripcion || '';
-  
+
   if (descNueva !== descVieja) {
     if (!descVieja && descNueva) {
       cambios.push('Descripción: Se agregó una descripción');
@@ -68,7 +105,7 @@ const detectarCambios = async (eventoViejo, eventoNuevo) => {
     }
   }
 
-  // NUEVO: Comparar correo de contacto
+  // Comparar correo de contacto
   if (eventoNuevo.correo_contacto !== eventoViejo.correo_contacto) {
     if (!eventoViejo.correo_contacto && eventoNuevo.correo_contacto) {
       cambios.push('Correo de contacto: Se agregó un correo');
@@ -79,7 +116,7 @@ const detectarCambios = async (eventoViejo, eventoNuevo) => {
     }
   }
 
-  // NUEVO: Comparar teléfono
+  // Comparar teléfono
   if (eventoNuevo.telefono !== eventoViejo.telefono) {
     if (!eventoViejo.telefono && eventoNuevo.telefono) {
       cambios.push('Teléfono: Se agregó un teléfono');
@@ -90,7 +127,7 @@ const detectarCambios = async (eventoViejo, eventoNuevo) => {
     }
   }
 
-  // NUEVO: Comparar hora inicio
+  // Comparar hora inicio
   if (eventoNuevo.hora_inicio !== eventoViejo.hora_inicio) {
     if (!eventoViejo.hora_inicio && eventoNuevo.hora_inicio) {
       cambios.push('Hora de inicio: Se agregó una hora');
@@ -101,7 +138,7 @@ const detectarCambios = async (eventoViejo, eventoNuevo) => {
     }
   }
 
-  // NUEVO: Comparar hora fin
+  // Comparar hora fin
   if (eventoNuevo.hora_fin !== eventoViejo.hora_fin) {
     if (!eventoViejo.hora_fin && eventoNuevo.hora_fin) {
       cambios.push('Hora de finalización: Se agregó una hora');
@@ -112,7 +149,7 @@ const detectarCambios = async (eventoViejo, eventoNuevo) => {
     }
   }
 
-  // NUEVO: Comparar lugar
+  // Comparar lugar
   if (eventoNuevo.lugar !== eventoViejo.lugar) {
     if (!eventoViejo.lugar && eventoNuevo.lugar) {
       cambios.push('Lugar: Se agregó un lugar');
@@ -123,7 +160,7 @@ const detectarCambios = async (eventoViejo, eventoNuevo) => {
     }
   }
 
-  // NUEVO: Comparar público destinatario
+  // Comparar público destinatario
   if (eventoNuevo.publico_destinatario !== eventoViejo.publico_destinatario) {
     if (!eventoViejo.publico_destinatario && eventoNuevo.publico_destinatario) {
       cambios.push('Público destinatario: Se agregó un público destinatario');
@@ -134,7 +171,7 @@ const detectarCambios = async (eventoViejo, eventoNuevo) => {
     }
   }
 
-  // NUEVO: Comparar links
+  // Comparar links
   if (eventoNuevo.links !== eventoViejo.links) {
     if (!eventoViejo.links && eventoNuevo.links) {
       cambios.push('Links relevantes: Se agregaron links');
@@ -145,7 +182,7 @@ const detectarCambios = async (eventoViejo, eventoNuevo) => {
     }
   }
 
-  // NUEVO: Comparar observaciones
+  // Comparar observaciones
   if (eventoNuevo.observaciones !== eventoViejo.observaciones) {
     if (!eventoViejo.observaciones && eventoNuevo.observaciones) {
       cambios.push('Observaciones: Se agregaron observaciones');
@@ -155,20 +192,28 @@ const detectarCambios = async (eventoViejo, eventoNuevo) => {
       cambios.push('Observaciones: Se modificaron las observaciones');
     }
   }
+
+  // Comparar fecha fin
   if (eventoNuevo.fecha_fin !== eventoViejo.fecha_fin) {
-  const finVieja = crearFechaLocal(eventoViejo.fecha_fin);
-  const finNueva = crearFechaLocal(eventoNuevo.fecha_fin);
-  
-  if (finVieja && finNueva && 
+    const finVieja = crearFechaLocal(eventoViejo.fecha_fin);
+    const finNueva = crearFechaLocal(eventoNuevo.fecha_fin);
+
+    if (finVieja && finNueva &&
       finVieja.toLocaleDateString('es-ES') !== finNueva.toLocaleDateString('es-ES')) {
-    cambios.push(`Fecha fin: ${finVieja.toLocaleDateString('es-ES')} → ${finNueva.toLocaleDateString('es-ES')}`);
-  } else if (!finVieja && finNueva) {
-    cambios.push('Fecha fin: Se agregó fecha de finalización');
-  } else if (finVieja && !finNueva) {
-    cambios.push('Fecha fin: Se eliminó fecha de finalización');
+      cambios.push(`Fecha fin: ${finVieja.toLocaleDateString('es-ES')} → ${finNueva.toLocaleDateString('es-ES')}`);
+    } else if (!finVieja && finNueva) {
+      cambios.push('Fecha fin: Se agregó fecha de finalización');
+    } else if (finVieja && !finNueva) {
+      cambios.push('Fecha fin: Se eliminó fecha de finalización');
+    }
   }
-}
-  return cambios;
+
+  // Tercero: Retornar ambos tipos de información
+  return {
+    cambiosDetallados: cambios,
+    valoresViejos: Object.keys(valoresViejos).length > 0 ? valoresViejos : null,
+    valoresNuevos: Object.keys(valoresNuevos).length > 0 ? valoresNuevos : null
+  };
 };
 
 /**
@@ -179,12 +224,18 @@ const detectarCambios = async (eventoViejo, eventoNuevo) => {
  * @param {String} accion - Tipo de acción ('creado', 'actualizado', 'eliminado')
  * @param {Array} cambios - Lista de cambios realizados
  */
-const registrarEnHistorial = async (evento_id, usuario_id, accion, cambios) => {
-  // Solo registrar si hay cambios reales o es una acción especial (crear/eliminar)
-  if (cambios.length > 0 || accion === 'creado' || accion === 'eliminado') {
+const registrarEnHistorial = async (evento_id, usuario_id, accion, cambiosDetallados, valoresViejos = null, valoresNuevos = null) => {
+  if (Array.isArray(cambiosDetallados) && cambiosDetallados.length > 0 || accion === 'creado' || accion === 'eliminado') {
     await pool.query(
-      'INSERT INTO historial_eventos (evento_id, usuario_id, accion, cambios) VALUES (?, ?, ?, ?)',
-      [evento_id, usuario_id, accion, JSON.stringify(cambios)]
+      'INSERT INTO historial_eventos (evento_id, usuario_id, accion, cambios, valores_viejos, valores_nuevos) VALUES (?, ?, ?, ?, ?, ?)',
+      [
+        evento_id,
+        usuario_id,
+        accion,
+        JSON.stringify(cambiosDetallados), 
+        valoresViejos ? JSON.stringify(valoresViejos) : null,
+        valoresNuevos ? JSON.stringify(valoresNuevos) : null
+      ]
     );
   }
 };
@@ -270,15 +321,14 @@ const eventosController = {
     try {
       console.log('📥 Body recibido:', req.body);
       console.log('📁 Archivo recibido:', req.file);
-      
+
       // Extraer datos del body y del usuario autenticado
-      const { 
-        nombre, 
-        fecha_evento, 
+      const {
+        nombre,
+        fecha_evento,
         fecha_fin,
-        descripcion, 
+        descripcion,
         categoria_id,
-        // NUEVOS CAMPOS
         correo_contacto,
         telefono,
         hora_inicio,
@@ -288,9 +338,10 @@ const eventosController = {
         links,
         observaciones
       } = req.body;
-      
+
       const usuario_id = req.user.id; // Del middleware de autenticación
       const secretaria = req.user.secretaria; // Del middleware de autenticación
+      const fechaFinValue = fecha_fin && fecha_fin.toString().trim() ? fecha_fin : null;
 
       // Validaciones básicas de campos requeridos
       if (!nombre || !fecha_evento) {
@@ -331,7 +382,7 @@ const eventosController = {
           correo_contacto, telefono, hora_inicio, hora_fin, lugar, publico_destinatario, links, observaciones
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `, [
-        nombre, fecha_evento, fecha_fin, descripcion, categoria_id, usuario_id, secretaria, archivo_adjunto,
+        nombre, fecha_evento, fechaFinValue, descripcion, categoria_id, usuario_id, secretaria, archivo_adjunto,
         correo_contacto, telefono, hora_inicio, hora_fin, lugar, publico_destinatario, links, observaciones
       ]);
 
@@ -340,7 +391,13 @@ const eventosController = {
         result.insertId, // ID del evento recién creado
         usuario_id,
         'creado',
-        cambiosIniciales
+        cambiosIniciales,
+        null,
+        {
+          nombre, fecha_evento, fechaFinValue, descripcion, categoria_id,
+          correo_contacto, telefono, hora_inicio, hora_fin, lugar,
+          publico_destinatario, links, observaciones
+        }
       );
 
       // Obtener el evento recién creado con información completa
@@ -376,10 +433,11 @@ const eventosController = {
   actualizarEvento: async (req, res) => {
     try {
       const { id } = req.params;
-      const { 
-        nombre, 
-        fecha_evento, 
-        descripcion, 
+      const {
+        nombre,
+        fecha_evento,
+        fecha_fin,
+        descripcion,
         categoria_id,
         // NUEVOS CAMPOS
         correo_contacto,
@@ -391,7 +449,7 @@ const eventosController = {
         links,
         observaciones
       } = req.body;
-
+      const fechaFinValue = fecha_fin && fecha_fin.toString().trim() ? fecha_fin : null;
       // Verificar que el evento existe antes de actualizar
       const [eventos] = await pool.query('SELECT * FROM eventos WHERE id = ?', [id]);
       if (eventos.length === 0) {
@@ -402,12 +460,13 @@ const eventosController = {
       }
 
       const eventoViejo = eventos[0];
-      
+
       // Detectar qué campos han cambiado (INCLUYENDO NUEVOS CAMPOS)
-      const cambios = await detectarCambios(eventoViejo, { 
-        nombre, 
-        fecha_evento, 
-        descripcion, 
+      const { cambiosDetallados, valoresViejos, valoresNuevos } = await detectarCambios(eventoViejo, {
+        nombre,
+        fecha_evento,
+        fecha_fin: fechaFinValue,
+        descripcion,
         categoria_id,
         correo_contacto,
         telefono,
@@ -420,28 +479,30 @@ const eventosController = {
       });
 
       // DEBUG: Mostrar los cambios detectados
-      console.log('🔍 Cambios detectados:', cambios);
+      console.log('🔍 Cambios detectados:', cambiosDetallados);
 
       // Manejar archivo adjunto
       let archivo_adjunto = eventoViejo.archivo_adjunto;
       if (req.file) {
         // Determinar el tipo de cambio en el archivo
         if (archivo_adjunto) {
-          cambios.push('Archivo adjunto: Se reemplazó el archivo anterior');
+          cambiosDetallados.push('Archivo adjunto: Se reemplazó el archivo anterior');
         } else {
-          cambios.push('Archivo adjunto: Se agregó un archivo');
+          cambiosDetallados.push('Archivo adjunto: Se agregó un archivo');
         }
         archivo_adjunto = req.file.filename;
       }
 
       // Solo proceder si hay cambios reales
-      if (cambios.length > 0) {
+      if (cambiosDetallados.length > 0) {
         // Registrar los cambios en el historial
         await registrarEnHistorial(
           id,
           req.user.id,
           'actualizado',
-          cambios
+          cambiosDetallados,
+          valoresViejos,
+          valoresNuevos
         );
 
         // Actualizar el evento en la base de datos (CON NUEVOS CAMPOS)
@@ -465,8 +526,8 @@ const eventosController = {
             ultima_modificacion = CURRENT_TIMESTAMP
           WHERE id = ?
         `, [
-          nombre, fecha_evento, fecha_fin, descripcion, categoria_id, archivo_adjunto,
-          correo_contacto, telefono, hora_inicio, hora_fin, lugar, 
+          nombre, fecha_evento, fechaFinValue, descripcion, categoria_id, archivo_adjunto,
+          correo_contacto, telefono, hora_inicio, hora_fin, lugar,
           publico_destinatario, links, observaciones, id
         ]);
       }
@@ -484,7 +545,7 @@ const eventosController = {
       res.json({
         success: true,
         evento: eventosActualizados[0],
-        message: cambios.length > 0 ? 'Evento actualizado exitosamente' : 'No se realizaron cambios'
+        message: cambiosDetallados.length > 0 ? 'Evento actualizado exitosamente' : 'No se realizaron cambios'
       });
 
     } catch (error) {
