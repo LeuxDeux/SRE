@@ -233,9 +233,15 @@ Cambiando codigo en componente EventoForm.jsx
 --#Si no se pudo crear formulario que avise que no se pudo
 Agregar nuevos estados y switch con validaciones en tiempo real de campos en EventoForm.jsx
 
+--#Guardar Descripcion, Links y Observaciones
+ALTER TABLE historial_eventos 
+ADD COLUMN valores_viejos JSON,
+ADD COLUMN valores_nuevos JSON;
+
+
 #Generar PDF btn solo admin
 #Por cada evento generado se genere el pdf automaticamente y se envie a un correo determinado
-#Guardar Descripcion, Links y Observaciones
+
 
 SISTEMA RESERVA
 Usuario debe poder seleccionar un espacio para su reserva, entre multiples resultados que se deberán poder cargar, seleccionar fecha y hora y mostrar en calendario.
