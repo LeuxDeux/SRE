@@ -108,7 +108,7 @@ const EventoDetail = ({ eventoId, onClose }) => {
     }
   };
 
-  // ← NUEVA FUNCIÓN: Extraer valor anterior/nuevo por campo
+  //Extraer valor anterior/nuevo por campo
   const obtenerValorCambio = (campo, valoresViejos, valoresNuevos) => {
     try {
       const viejos = typeof valoresViejos === 'string' ? JSON.parse(valoresViejos) : valoresViejos;
@@ -124,13 +124,13 @@ const EventoDetail = ({ eventoId, onClose }) => {
     }
   };
 
-  // ← NUEVA FUNCIÓN: Detectar si es un campo que necesita mostrar valores detallados
+  //Detectar si es un campo que necesita mostrar valores detallados
   const esCampoDetallado = (cambio) => {
     const camposDetallados = ['Descripción', 'Observaciones', 'Links'];
     return camposDetallados.some(campo => cambio.includes(campo));
   };
 
-  // ← NUEVA FUNCIÓN: Extraer el nombre del campo del texto de cambio
+  //Extraer el nombre del campo del texto de cambio
   const extraerNombroCampo = (cambio) => {
     const mapa = {
       'Descripción': 'descripcion',
