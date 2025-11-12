@@ -121,12 +121,19 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
         hora_inicio: evento.hora_inicio || '',
         hora_fin: evento.hora_fin || '',
         lugar: evento.lugar || '',
+        lugarPersonalizado: evento.lugar === 'otro' ? evento.lugar : '',
         publico_destinatario: evento.publico_destinatario || '',
+        publicoDestinatarioPersonalizado: evento.publico_destinatario === 'otro' ? evento.publico_destinatario : '',
         links: evento.links || '',
         observaciones: evento.observaciones || ''
       });
+      // También cargar la categoría seleccionada si existe
+      if (evento.categoria_id && categorias.length > 0) {
+        const cat = categorias.find(c => c.id === parseInt(evento.categoria_id));
+        setCategoriaSeleccionada(cat);
+      }
     }
-  }, [evento]);
+  }, [evento, categorias]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -147,16 +154,24 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
     validateField('categoria_id', categoriaId);
   };
 
-  const calcularFechaMinima = () => {
+    const calcularFechaMinima = () => {
     const hoy = new Date();
-    if (categoriaSeleccionada && categoriaSeleccionada.dias_antelacion) {
-      const fechaMin = new Date(hoy);
-      fechaMin.setDate(hoy.getDate() + categoriaSeleccionada.dias_antelacion);
-      return fechaMin.toISOString().split('T')[0];
+    
+    // Siempre habrá categoría seleccionada, pero validar por seguridad
+    if (!categoriaSeleccionada || !categoriaSeleccionada.dias_antelacion) {
+      return hoy.toISOString().split('T')[0];
     }
-    const fechaMinDefault = new Date(hoy);
-    fechaMinDefault.setDate(hoy.getDate() + 15);
-    return fechaMinDefault.toISOString().split('T')[0];
+
+    // Si dias_antelacion = 1 → permitir desde hoy (sin sumar días)
+    // Si dias_antelacion = 2 → permitir desde mañana (hoy + 1)
+    // Si dias_antelacion = 3 → permitir desde pasado mañana (hoy + 2)
+    // Fórmula: restar 1 al dias_antelacion
+    const diasADelantado = Math.max(0, categoriaSeleccionada.dias_antelacion - 1);
+    
+    const fechaMin = new Date(hoy);
+    fechaMin.setDate(hoy.getDate() + diasADelantado);
+    
+    return fechaMin.toISOString().split('T')[0];
   };
 
   const handleFileChange = (e) => {
@@ -176,7 +191,7 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
         e.target.value = '';
         return;
       }
-      
+
       setArchivo(file);
       setError('');
     }
@@ -224,14 +239,27 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
     try {
       const formDataToSend = new FormData();
 
-      const lugarFinal = formData.lugar === 'otro' ? formData.lugarPersonalizado : formData.lugar;
-      const publicoFinal = formData.publico_destinatario === 'otro' 
-        ? formData.publicoDestinatarioPersonalizado 
-        : formData.publico_destinatario;
+      let lugarFinal = formData.lugar;
+      if (formData.lugar === 'otro' && formData.lugarPersonalizado) {
+        lugarFinal = formData.lugarPersonalizado;
+      } else if (!lugaresPredefinidos.includes(formData.lugar)) {
+        // Si el valor no está en la lista predefinida, es un valor personalizado
+        lugarFinal = formData.lugar;
+      }
+      // Procesar público destinatario
+      let publicoFinal = formData.publico_destinatario;
+      if (formData.publico_destinatario === 'otro' && formData.publicoDestinatarioPersonalizado) {
+        publicoFinal = formData.publicoDestinatarioPersonalizado;
+      } else if (!opcionesPublico.includes(formData.publico_destinatario)) {
+        // Si el valor no está en la lista predefinida, es un valor personalizado
+        publicoFinal = formData.publico_destinatario;
+      }
 
       formDataToSend.append('nombre', formData.nombre);
       formDataToSend.append('fecha_evento', formData.fecha_evento);
-      formDataToSend.append('fecha_fin', formData.fecha_fin);
+      if (formData.fecha_fin && formData.fecha_fin.trim()) {
+        formDataToSend.append('fecha_fin', formData.fecha_fin);
+      }
       formDataToSend.append('descripcion', formData.descripcion);
       formDataToSend.append('categoria_id', formData.categoria_id);
       formDataToSend.append('correo_contacto', formData.correo_contacto);
@@ -278,6 +306,17 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
     'Estudiantes y Docentes',
     'Personal Administrativo',
     'Egresados'
+  ];
+  const lugaresPredefinidos = [
+    'Aula Magna',
+    'Salón de Actos',
+    'Laboratorio 1',
+    'Laboratorio 2',
+    'Laboratorio 3',
+    'Sala de Conferencias',
+    'Plataforma Virtual',
+    'Patio Central',
+    'Biblioteca'
   ];
 
   return (
@@ -478,13 +517,12 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
               {fieldErrors.hora_fin && <span className="field-error">{fieldErrors.hora_fin}</span>}
             </div>
           </div>
-
           <div className={`form-group ${fieldErrors.lugar ? 'error' : ''}`}>
             <label htmlFor="lugar">Lugar / Espacio *</label>
             <select
               id="lugar"
               name="lugar"
-              value={formData.lugar}
+              value={formData.lugar === 'otro' || !['Aula Magna', 'Salón de Actos', 'Laboratorio 1', 'Laboratorio 2', 'Laboratorio 3', 'Sala de Conferencias', 'Plataforma Virtual', 'Patio Central', 'Biblioteca', 'otro'].includes(formData.lugar) ? 'otro' : formData.lugar}
               onChange={handleChange}
               disabled={loading}
               required
@@ -503,80 +541,92 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
             </select>
             {fieldErrors.lugar && <span className="field-error">{fieldErrors.lugar}</span>}
 
-            {formData.lugar === 'otro' && (
+            {/* Mostrar input personalizado si:
+        - Seleccionó "otro" O 
+        - El valor actual no está en la lista predefinida (caso edición) */}
+            {(formData.lugar === 'otro' || !['Aula Magna', 'Salón de Actos', 'Laboratorio 1', 'Laboratorio 2', 'Laboratorio 3', 'Sala de Conferencias', 'Plataforma Virtual', 'Patio Central', 'Biblioteca', 'otro'].includes(formData.lugar)) && (
               <input
                 type="text"
                 placeholder="Especificar lugar personalizado"
-                value={formData.lugarPersonalizado || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, lugarPersonalizado: e.target.value }))}
+                value={formData.lugar === 'otro' ? formData.lugarPersonalizado : formData.lugar}
+                onChange={(e) => setFormData(prev => ({
+                  ...prev,
+                  lugarPersonalizado: e.target.value
+                }))}
                 disabled={loading}
                 required
               />
             )}
           </div>
-        </div>
+          {/* SECCIÓN: INFORMACIÓN ADICIONAL */}
+          <div className="form-section">
+            <h3>🎯 Información Adicional</h3>
 
-        {/* SECCIÓN: INFORMACIÓN ADICIONAL */}
-        <div className="form-section">
-          <h3>🎯 Información Adicional</h3>
-
-          <div className={`form-group ${fieldErrors.publico_destinatario ? 'error' : ''}`}>
-            <label htmlFor="publico_destinatario">Público Destinatario *</label>
-            <select
-              id="publico_destinatario"
-              name="publico_destinatario"
-              value={formData.publico_destinatario}
-              onChange={handleChange}
-              disabled={loading}
-              required
-            >
-              <option value="">Seleccionar público destinatario</option>
-              {opcionesPublico.map(opcion => (
-                <option key={opcion} value={opcion}>
-                  {opcion}
-                </option>
-              ))}
-              <option value="otro">Otro...</option>
-            </select>
-            {fieldErrors.publico_destinatario && <span className="field-error">{fieldErrors.publico_destinatario}</span>}
-
-            {formData.publico_destinatario === 'otro' && (
-              <input
-                type="text"
-                placeholder="Especificar público destinatario personalizado"
-                value={formData.publicoDestinatarioPersonalizado || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, publicoDestinatarioPersonalizado: e.target.value }))}
+            <div className={`form-group ${fieldErrors.publico_destinatario ? 'error' : ''}`}>
+              <label htmlFor="publico_destinatario">Público Destinatario *</label>
+              <select
+                id="publico_destinatario"
+                name="publico_destinatario"
+                value={formData.publico_destinatario === 'otro' || !['Estudiantes', 'Docentes', 'Público General', 'Estudiantes y Docentes', 'Personal Administrativo', 'Egresados', 'otro'].includes(formData.publico_destinatario) ? 'otro' : formData.publico_destinatario}
+                onChange={handleChange}
                 disabled={loading}
                 required
+              >
+                <option value="">Seleccionar público destinatario</option>
+                <option value="Estudiantes">Estudiantes</option>
+                <option value="Docentes">Docentes</option>
+                <option value="Público General">Público General</option>
+                <option value="Estudiantes y Docentes">Estudiantes y Docentes</option>
+                <option value="Personal Administrativo">Personal Administrativo</option>
+                <option value="Egresados">Egresados</option>
+                <option value="otro">Otro...</option>
+              </select>
+              {fieldErrors.publico_destinatario && <span className="field-error">{fieldErrors.publico_destinatario}</span>}
+
+              {/* Mostrar input personalizado si:
+        - Seleccionó "otro" O 
+        - El valor actual no está en la lista predefinida (caso edición) */}
+              {(formData.publico_destinatario === 'otro' || !['Estudiantes', 'Docentes', 'Público General', 'Estudiantes y Docentes', 'Personal Administrativo', 'Egresados', 'otro'].includes(formData.publico_destinatario)) && (
+                <input
+                  type="text"
+                  placeholder="Especificar público destinatario personalizado"
+                  value={formData.publico_destinatario === 'otro' ? formData.publicoDestinatarioPersonalizado : formData.publico_destinatario}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    publicoDestinatarioPersonalizado: e.target.value
+                  }))}
+                  disabled={loading}
+                  required
+                />
+              )}
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="links">Links Relevantes (Opcional)</label>
+              <textarea
+                id="links"
+                name="links"
+                value={formData.links}
+                onChange={handleChange}
+                placeholder="Formulario de inscripción, enlace de streaming, redes sociales..."
+                disabled={loading}
+                rows="3"
               />
-            )}
-          </div>
+              <small className="field-hint">Separe múltiples links con comas o saltos de línea</small>
+            </div>
 
-          <div className="form-group">
-            <label htmlFor="links">Links Relevantes (Opcional)</label>
-            <textarea
-              id="links"
-              name="links"
-              value={formData.links}
-              onChange={handleChange}
-              placeholder="Formulario de inscripción, enlace de streaming, redes sociales..."
-              disabled={loading}
-              rows="3"
-            />
-            <small className="field-hint">Separe múltiples links con comas o saltos de línea</small>
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="observaciones">Observaciones Adicionales (Opcional)</label>
-            <textarea
-              id="observaciones"
-              name="observaciones"
-              value={formData.observaciones}
-              onChange={handleChange}
-              placeholder="Información adicional, requisitos, materiales necesarios..."
-              disabled={loading}
-              rows="3"
-            />
+            <div className="form-group">
+              <label htmlFor="observaciones">Observaciones Adicionales (Opcional)</label>
+              <textarea
+                id="observaciones"
+                name="observaciones"
+                value={formData.observaciones}
+                onChange={handleChange}
+                placeholder="Información adicional, requisitos, materiales necesarios..."
+                disabled={loading}
+                rows="3"
+              />
+            </div>
           </div>
         </div>
 
