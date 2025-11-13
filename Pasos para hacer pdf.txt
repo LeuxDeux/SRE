@@ -1,0 +1,73 @@
+# 📚 Guía de Desarrollo - SRE
+
+## 📧 Envío de Emails con PDF
+## Pregunta PROMPT: "En el archivo EventoDetail.jsx hay un handleGenerarPDF, que al tocar un botón genera el pdf con el codigo de utils/pdfGenerator.js, 
+si quisiera hacer que en mi EventoForm.jsx, cuando se registre correctamente un nuevo Evento, genere el pdf y lo envíe a un correo, como podría hacer?
+Ten en cuenta que se separa routes y controllers, en routes solamente se coloca ruta y la logica en un controller separado"
+Archivos a tener en cuenta:
+api.js, server.js, eventosController.js, EventoDetail.jsx, EventoForm.jsx
+### Implementación del sistema de emails
+
+**Archivos involucrados:**
+- `backend/controllers/emailController.js` - Controlador de emails
+- `backend/routes/email.js` - Rutas de email
+- `backend/server.js` - Registro de rutas
+- `backend/temp/` - Carpeta para PDFs temporales (ocional)
+- `frontend/services/api.js` - Servicio emailAPI
+- `frontend/components/EventoForm.jsx` - Llamada al servicio
+
+### Pasos de implementación:
+
+1. **Instalar nodemailer:**
+   \`npm install nodemailer\`
+
+2. **Configurar .env:**
+   \`\`\`
+   SMTP_HOST=smtp.gmail.com
+   SMTP_PORT=587
+   SMTP_SECURE=false
+   EMAIL_USER=tu_correo@gmail.com
+   EMAIL_PASSWORD=contraseña_app
+   \`\`\`
+
+3. **Crear carpeta temporal:**
+   \`mkdir backend/temp\`
+
+### Flujo completo:
+- EventoForm envía evento al backend o EventoForm.jsx llama `eventosAPI.crear()
+- Backend crea evento en BD o eventosController.crearEvento() registra en BD
+- Frontend llama emailAPI.enviarEventoPDF(evento, destinatario)
+- EmailController genera PDF y lo envía por SMTP
+- Se elimina archivo temporal
+
+### Controllers
+- Cada controller tiene funciones auxiliares al inicio (ej: `detectarCambios`)
+- Siempre incluir try/catch con logging
+- Registrar cambios en `historial_eventos` para auditoría
+
+### Routes
+- Rutas protegidas usan `authMiddleware`
+- Respuestas consistentes: `{ success, data/error, message }`
+
+### Frontend
+- Servicios API en `src/services/api.js`
+- Interceptores automáticos para token JWT
+- Manejo de 401 expulsa token y dispara evento `tokenExpired`
+
+## 📦 Dependencias principales
+- nodemailer (emails)
+- pdfkit (generación PDFs)
+- axios (HTTP client)
+- express-jwt (autenticación)
+
+## 🔗 Archivos clave
+- `/backend/controllers/eventosController.js` - Gestión de eventos
+- `/backend/controllers/emailController.js` - Envío de emails
+- `/frontend/services/api.js` - Cliente HTTP centralizado
+- `/frontend/components/EventoDetail.jsx` - Visualización de eventos
+
+### Notas importantes:
+- Gmail requiere contraseña de aplicación (no la normal)
+- Generar en: myaccount.google.com/apppasswords
+- Para UTN, contactar TI para credenciales oficiales
+\`\`\`

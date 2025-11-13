@@ -244,9 +244,10 @@ ADD COLUMN valores_nuevos JSON;
 
 
 SISTEMA RESERVA
-Usuario debe poder seleccionar un espacio para su reserva, entre multiples resultados que se deberán poder cargar, seleccionar fecha y hora y mostrar en calendario.
+Usuario debe poder seleccionar un espacio para su reserva, entre multiples resultados que se deberán poder cargar,
+seleccionar fecha y hora y mostrar en calendario.
 Depende de que espacio se seleccione cargar recursos, y según que recursos enviar correo a cierto departamento.
 Los administradores deben poder cargar los recursos por cada espacio.
 Nuevo tipo de usuario para solo Reservar espacios, ya que serán muchos más.
 Que no se puedan cruzar eventos en el mismo espacio, y franja horaria.
-Buscar framework calendario.
+Buscar framework calendario. 
