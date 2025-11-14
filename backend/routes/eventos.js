@@ -15,4 +15,7 @@ router.put('/:id', authMiddleware, upload.single('archivo_adjunto'), eventosCont
 router.delete('/:id', authMiddleware, eventosController.eliminarEvento);
 router.get('/archivo/:filename', eventosController.descargarArchivo);
 
+// Enviar PDF por correo
+router.post('/:id/enviar-pdf', authMiddleware, eventosController.enviarPDFCorreo);
+
 module.exports = router;
