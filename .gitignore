@@ -22,3 +22,6 @@ Thumbs.db
 build/
 dist/
 uploads/*
+!/uploads/.gitkeep
+
+test-api.js
