@@ -100,7 +100,7 @@ const Dashboard = () => {
                 }}
                 className="btn-volver"
               >
-                ← Volver al Dashboard
+                ← Volver al Inicio
               </button>
               <h2>📅 Gestión de Eventos</h2>
               {vistaEventos === 'lista' && (
@@ -124,7 +124,7 @@ const Dashboard = () => {
                 onClick={() => setModuloActivo(null)}
                 className="btn-volver"
               >
-                ← Volver al Dashboard
+                ← Volver al Inicio
               </button>
               <h2>🏢 Gestión de Reservas</h2>
             </div>
@@ -140,7 +140,7 @@ const Dashboard = () => {
                 onClick={() => setModuloActivo(null)}
                 className="btn-volver"
               >
-                ← Volver al Dashboard
+                ← Volver al Inicio
               </button>
               <h2>🎯 Gestión de Categorías</h2>
             </div>
@@ -156,7 +156,7 @@ const Dashboard = () => {
                 onClick={() => setModuloActivo(null)}
                 className="btn-volver"
               >
-                ← Volver al Dashboard
+                ← Volver al Inicio
               </button>
               <h2>👥 Gestión de Usuarios</h2>
             </div>
