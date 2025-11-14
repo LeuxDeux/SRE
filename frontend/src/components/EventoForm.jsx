@@ -284,7 +284,20 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
       }
 
       if (response.data.success) {
-        setShowSuccessModal(true); // ← Mostrar modal
+        // Enviar PDF por correo (creación o edición)
+        const esEdicion = !!evento;
+
+        try {
+          await eventosAPI.enviarPDFCorreo(
+            response.data.evento.id,
+            esEdicion ? 'actualizado' : 'creado'
+          );
+          console.log(`✅ PDF enviado por correo (${esEdicion ? 'actualizado' : 'creado'})`);
+        } catch (emailError) {
+          console.warn('⚠️ Advertencia: PDF no se envió por correo', emailError);
+        }
+
+        setShowSuccessModal(true);
         setTimeout(() => {
           setShowSuccessModal(false);
           onSave(response.data.evento);
