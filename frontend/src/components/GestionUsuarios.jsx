@@ -227,7 +227,7 @@ const GestionUsuarios = ({ onClose }) => {
     <div className="gestion-usuarios">
       {/* HEADER */}
       <div className="header">
-        <button onClick={onClose} className="btn-volver">← Volver al Dashboard</button>
+        <button onClick={onClose} className="btn-volver">← Volver al Inicio</button>
         <h2>👥 Gestión de Usuarios</h2>
         <button 
           onClick={() => setShowForm(true)}
