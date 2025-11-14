@@ -670,8 +670,76 @@ const eventosController = {
         error: 'Error interno del servidor'
       });
     }
+  },
+
+  /**
+   * CONTROLADOR: enviarPDFCorreo
+   * Genera y envía el PDF del evento por correo
+   * Ruta: POST /api/eventos/:id/enviar-pdf (protegida)
+   */
+  enviarPDFCorreo: async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { tipoAccion = 'creado' } = req.body;
+
+    // Obtener evento con datos completos
+    const [eventos] = await pool.query(`
+      SELECT e.*, c.nombre as categoria_nombre, c.color as categoria_color, u.nombre_completo as usuario_nombre
+      FROM eventos e
+      LEFT JOIN categorias c ON e.categoria_id = c.id
+      LEFT JOIN usuarios u ON e.usuario_id = u.id
+      WHERE e.id = ?
+    `, [id]);
+
+    if (eventos.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Evento no encontrado'
+      });
+    }
+
+    const evento = eventos[0];
+
+    // ← NUEVO: Obtener correos del .env
+    const correoSecretaria = process.env.CORREO_SECRETARIA_PRINCIPAL;
+    const correoAdicional = process.env.CORREO_ADICIONAL?.trim();
+
+    // Array de correos a enviar
+    const correosDestino = [correoSecretaria];
+    if (correoAdicional) {
+      correosDestino.push(correoAdicional);
+    }
+
+    console.log(`📧 Enviando PDF a: ${correosDestino.join(', ')}`);
+
+    // Enviar PDF por correo a cada destinatario
+    const { enviarPDFPorCorreo } = require('../utils/emailService');
+    
+    for (const correo of correosDestino) {
+      try {
+        await enviarPDFPorCorreo(evento, correo, tipoAccion);
+      } catch (emailError) {
+        console.warn(`⚠️ Error enviando a ${correo}:`, emailError);
+        // Continuar con el siguiente correo si uno falla
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `PDF enviado exitosamente a ${correosDestino.length} destinatario(s)`
+    });
+
+  } catch (error) {
+    console.error('❌ Error enviando PDF:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Error al enviar el PDF'
+    });
   }
+}
+  
 
 };
+
 
 module.exports = eventosController;
