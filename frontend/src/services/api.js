@@ -68,7 +68,10 @@ export const eventosAPI = {
    obtenerPorId: (id) => api.get(`/eventos/${id}`),
    actualizar: (id, eventoData) => api.put(`/eventos/${id}`, eventoData),
    eliminar: (id) => api.delete(`/eventos/${id}`),
-   obtenerHistorial: (id) => api.get(`/eventos/${id}/historial`)
+   obtenerHistorial: (id) => api.get(`/eventos/${id}/historial`),
+   enviarPDFCorreo: (id, tipoAccion = 'creado') => {
+  return api.post(`/eventos/${id}/enviar-pdf`, { tipoAccion });
+}
 };
 // Servicios para reservas (para implementar después)
 export const reservasAPI = {
