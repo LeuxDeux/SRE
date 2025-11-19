@@ -28,6 +28,14 @@ app.use('/api/categorias', require('./routes/categorias'));
 app.use('/api/users', require('./routes/users'));
 
 app.use('/api/secretarias', require('./routes/secretarias'));
+
+
+// Rutas espacios
+app.use('/api/espacios', require('./routes/espacios'));
+app.use('/api/recursos', require('./routes/recursos'));
+app.use('/api/reservas', require('./routes/reservas'));
+
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ 
