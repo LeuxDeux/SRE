@@ -1,0 +1,174 @@
+/* VISTA MENSUAL - CELDAS MÁS GRANDES Y EVENTOS VISIBLES */
+.rbc-month-view {
+  height: 100% !important;
+  min-height: 500px !important;
+}
+
+.rbc-month-row {
+  min-height: 150px !important; /* ← CELDAS MUCHO MÁS ALTAS */
+  flex: 1 1 0 !important;
+}
+
+.rbc-date-cell {
+  min-height: 130px !important;
+  padding: 8px 4px !important;
+  font-size: 14px !important;
+  text-align: right !important;
+}
+
+.rbc-row-bg {
+  height: 100% !important;
+}
+
+.rbc-day-bg {
+  min-height: 130px !important;
+  border: 1px solid #ddd !important;
+}
+
+/* EVENTOS EN VISTA MENSUAL - MÁS GRANDES Y VISIBLES */
+.rbc-month-view .rbc-event {
+  font-size: 11px !important;
+  min-height: 18px !important;
+  margin: 1px 0 !important;
+  padding: 3px 5px !important;
+  line-height: 1.2 !important;
+  border-radius: 3px !important;
+  border-left: 3px solid #2980b9 !important;
+}
+
+.rbc-month-view .rbc-event-content {
+  font-size: 10px !important;
+  line-height: 1.1 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* CONTENEDOR DE EVENTOS EN CELDA MÁS ESPACIOSO */
+.rbc-row-segment {
+  padding: 1px 2px !important;
+}
+
+/*.rbc-row-content {
+  min-height: 120px !important;
+}*/
+
+/* DÍA ACTUAL DESTACADO */
+.rbc-month-view .rbc-today {
+  background-color: #fff8e1 !important;
+  border: 2px solid #ffc107 !important;
+}
+
+/* BOTÓN "VER MÁS" MÁS VISIBLE */
+.rbc-month-view .rbc-show-more {
+  background: #3498db !important;
+  color: white !important;
+  font-size: 9px !important;
+  padding: 2px 4px !important;
+  border-radius: 2px !important;
+  font-weight: bold !important;
+  margin-top: 2px !important;
+}
+
+/* HEADERS EN VISTA MENSUAL MÁS COMPACTOS */
+.rbc-month-view .rbc-header {
+  padding: 8px 4px !important;
+  font-size: 12px !important;
+  min-height: 40px !important;
+  background: #127cc1 !important;
+  color: white !important;
+  border-bottom: none !important;
+}
+
+/* ALTERNAR COLORES DE FONDO PARA MEJOR LEGIBILIDAD */
+.rbc-month-view .rbc-day-bg:nth-child(odd) {
+  background: #fafafa !important;
+}
+
+.rbc-month-view .rbc-day-bg:nth-child(even) {
+  background: #f5f5f5 !important;
+}
+
+/* QUITAR BORDES INTERNOS EXCESIVOS */
+.rbc-month-view .rbc-date-cell {
+  border: none !important;
+}
+
+.rbc-month-view .rbc-row-bg {
+  border: none !important;
+}
+/* asdasdads */
+/* ESTRUCTURA DE CELDAS EN VISTA MENSUAL - CORREGIDA */
+.rbc-month-view .rbc-row-content {
+  min-height: 100px !important; /* ← ESPACIO PARA EVENTOS */
+  margin-top: 5px !important; /* ← PEQUEÑA SEPARACIÓN DEL NÚMERO */
+}
+
+.rbc-month-view .rbc-row {
+  flex: 1 1 auto !important;
+}
+
+/* NÚMERO DEL DÍA EN SU POSICIÓN NATURAL */
+.rbc-month-view .rbc-date-cell {
+  min-height: 25px !important;
+  padding: 2px 5px !important;
+  font-size: 12px !important;
+  text-align: right !important;
+  /* ELIMINAR position: absolute y top/right */
+  position: static !important;
+  top: auto !important;
+  right: auto !important;
+  z-index: auto !important;
+}
+
+/* CELDAS MÁS ALTAS PERO MANTENIENDO ESTRUCTURA */
+.rbc-month-row {
+  min-height: 130px !important;
+  position: relative !important;
+}
+
+.rbc-day-bg {
+  min-height: 130px !important;
+  position: relative !important;
+}
+
+/* EVENTOS COMPACTOS PERO LEGIBLES */
+.rbc-month-view .rbc-event {
+  font-size: 9px !important;
+  min-height: 15px !important;
+  margin: 0.5px 0 !important;
+  padding: 1px 3px !important;
+  line-height: 1.1 !important;
+  border-left: 2px solid #2980b9 !important;
+}
+
+.rbc-month-view .rbc-event-content {
+  font-size: 8px !important;
+  line-height: 1 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* MEJORAR EL "+X MÁS" */
+.rbc-month-view .rbc-show-more {
+  background: #e74c3c !important;
+  color: white !important;
+  font-size: 8px !important;
+  padding: 1px 3px !important;
+  border-radius: 2px !important;
+  font-weight: bold !important;
+  margin-top: 1px !important;
+}
+
+/* FONDOS ALTERNADOS MEJORADOS */
+.rbc-month-view .rbc-day-bg:nth-child(odd) {
+  background: #fafafa !important;
+}
+
+.rbc-month-view .rbc-day-bg:nth-child(even) {
+  background: #f5f5f5 !important;
+}
+.rbc-current-time-indicator {
+  top: 0% !important;
+}
