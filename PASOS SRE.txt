@@ -238,16 +238,87 @@ ALTER TABLE historial_eventos
 ADD COLUMN valores_viejos JSON,
 ADD COLUMN valores_nuevos JSON;
 
+--#Por cada evento generado se genere el pdf automaticamente y se envie a un correo determinado
+Archivo: Pasos para hacer pdf.txt 
+Correo institucional funcionando para enviar correos.
 
 #Generar PDF btn solo admin
-#Por cada evento generado se genere el pdf automaticamente y se envie a un correo determinado
+
 
 
 SISTEMA RESERVA
-Usuario debe poder seleccionar un espacio para su reserva, entre multiples resultados que se deberán poder cargar,
+Usuario debe poder seleccionar un espacio para su reserva,
+entre multiples resultados que se deberán poder cargar,
 seleccionar fecha y hora y mostrar en calendario.
-Depende de que espacio se seleccione cargar recursos, y según que recursos enviar correo a cierto departamento.
+Depende de que espacio se seleccione cargar recursos, y
+según que recursos enviar correo a cierto departamento.
 Los administradores deben poder cargar los recursos por cada espacio.
 Nuevo tipo de usuario para solo Reservar espacios, ya que serán muchos más.
 Que no se puedan cruzar eventos en el mismo espacio, y franja horaria.
 Buscar framework calendario. 
+
+Pasos Sistema Reserva:
+
+1) Crear tabla espacios:
+CREATE TABLE espacios (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  nombre VARCHAR(150) UNIQUE NOT NULL,
+  descripcion TEXT,
+  capacidad INT,
+  ubicacion VARCHAR(255),
+  estado ENUM('disponible', 'en_mantenimiento', 'clausurado') DEFAULT 'disponible',
+  secretaria_id INT,
+  requiere_aprobacion BOOLEAN DEFAULT TRUE,
+  max_horas_por_reserva INT DEFAULT 8,
+  imagen_url VARCHAR(500),
+  activo BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (secretaria_id) REFERENCES secretarias(id),
+  INDEX idx_estado (estado),
+  INDEX idx_activo (activo)
+);
+
+2) Crear tabla recursos:
+CREATE TABLE recursos (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  nombre VARCHAR(150) NOT NULL,
+  descripcion TEXT,
+  cantidad_total INT NOT NULL DEFAULT 1,
+  activo BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY unique_nombre (nombre)
+);
+
+3) Crear tabla puente espacios_recursos:
+CREATE TABLE espacios_recursos (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  espacio_id INT NOT NULL,
+  recurso_id INT NOT NULL,
+  cantidad_maxima INT NOT NULL DEFAULT 1,
+  disponible BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  
+  FOREIGN KEY (espacio_id) REFERENCES espacios(id) ON DELETE CASCADE,
+  FOREIGN KEY (recurso_id) REFERENCES recursos(id) ON DELETE CASCADE,
+  UNIQUE KEY unique_espacio_recurso (espacio_id, recurso_id)
+);
+
+4) Creación de controllers básicos:
+espaciosControllers.js y recursosControllers.js con sus respectivas rutas espacios.js y recursos.js
+5) Creación de reservasController.js y tabla reservas_recursos:
+CREATE TABLE reservas_recursos (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  reserva_id INT NOT NULL,
+  recurso_id INT NOT NULL,
+  cantidad_solicitada INT NOT NULL DEFAULT 1,
+  cantidad_confirmada INT NULL,
+  observaciones TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (reserva_id) REFERENCES reservas(id) ON DELETE CASCADE,
+  FOREIGN KEY (recurso_id) REFERENCES recursos(id),
+  UNIQUE KEY unique_reserva_recurso (reserva_id, recurso_id)
+);
+6) Instalación de react-big-calendar moment
+7) Creación de ReservasCalendar.jsx
