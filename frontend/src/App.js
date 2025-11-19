@@ -6,6 +6,7 @@ import EventoForm from './components/EventoForm';
 import EventoDetail from './components/EventoDetail';
 import GestionCategorias from './components/GestionCategorias';
 import GestionUsuarios from './components/GestionUsuarios';
+import ReservasCalendar from './components/ReservasCalendar';
 import './App.css';
 
 // Componente Dashboard con navegación entre módulos
@@ -128,7 +129,7 @@ const Dashboard = () => {
               </button>
               <h2>🏢 Gestión de Reservas</h2>
             </div>
-            <p>Módulo de reservas en desarrollo...</p>
+            <ReservasCalendar />
           </div>
         );
 
@@ -188,9 +189,8 @@ const Dashboard = () => {
                 <button
                   onClick={() => setModuloActivo('reservas')}
                   className="module-button"
-                  disabled
                 >
-                  En desarrollo...
+                  Acceder
                 </button>
               </div>
 
