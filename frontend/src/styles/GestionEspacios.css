@@ -1,0 +1,354 @@
+/* GestionEspacios.css */
+.gestion-espacios {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* HEADER PRINCIPAL */
+.gestion-espacios .header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #3498db;
+}
+
+.gestion-espacios h2 {
+  color: #2c3e50;
+  margin: 0;
+  font-size: 28px;
+  font-weight: 600;
+}
+
+/* BOTÓN NUEVO ESPACIO */
+.btn-nuevo {
+  background: linear-gradient(135deg, #3498db, #2980b9);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+}
+
+.btn-nuevo:hover {
+  background: linear-gradient(135deg, #2980b9, #1f639b);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(52, 152, 219, 0.4);
+}
+
+/* MENSAJES DE ERROR */
+.error-message {
+  background: #e74c3c;
+  color: white;
+  padding: 12px 16px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+  font-weight: 500;
+  border-left: 4px solid #c0392b;
+}
+
+/* FORMULARIO */
+.formulario-container {
+  background: white;
+  border-radius: 12px;
+  padding: 25px;
+  margin-bottom: 30px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e1e8ed;
+}
+
+.formulario-container h3 {
+  color: #2c3e50;
+  margin-bottom: 20px;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.espacio-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-group label {
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  padding: 12px;
+  border: 2px solid #e1e8ed;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  background: white;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+/* CHECKBOX GROUP */
+.checkbox-group {
+  justify-content: center;
+  margin-top: 25px;
+}
+
+.checkbox-group label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-weight: normal;
+}
+
+.checkbox-group input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+/* ACCIONES DEL FORMULARIO */
+.form-actions {
+  display: flex;
+  gap: 15px;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.btn-guardar {
+  background: linear-gradient(135deg, #27ae60, #219a52);
+  color: white;
+  border: none;
+  padding: 12px 30px;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-guardar:hover {
+  background: linear-gradient(135deg, #219a52, #1e8449);
+  transform: translateY(-1px);
+}
+
+.btn-cancelar {
+  background: #95a5a6;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-cancelar:hover {
+  background: #7f8c8d;
+  transform: translateY(-1px);
+}
+
+/* TABLA DE ESPACIOS */
+.espacios-table-container {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e1e8ed;
+}
+
+.espacios-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.espacios-table th {
+  background: linear-gradient(135deg, #3498db, #2980b9);
+  color: white;
+  padding: 16px 12px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.espacios-table td {
+  padding: 16px 12px;
+  border-bottom: 1px solid #ecf0f1;
+  vertical-align: top;
+}
+
+.espacios-table tr:hover {
+  background-color: #f8f9fa;
+}
+
+.espacios-table tr:last-child td {
+  border-bottom: none;
+}
+
+/* ESTADOS */
+.estado {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.estado.disponible {
+  background: #d4edda;
+  color: #155724;
+}
+
+.estado.en_mantenimiento {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.estado.clausurado {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+/* DESCRIPCIÓN EN TABLA */
+.descripcion {
+  font-size: 12px;
+  color: #7f8c8d;
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+/* BOTONES DE ACCIÓN EN TABLA */
+.espacios-table .btn-editar,
+.espacios-table .btn-eliminar {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-right: 8px;
+}
+
+.btn-editar {
+  background: #3498db;
+  color: white;
+}
+
+.btn-editar:hover {
+  background: #2980b9;
+  transform: translateY(-1px);
+}
+
+.btn-eliminar {
+  background: #e74c3c;
+  color: white;
+}
+
+.btn-eliminar:hover {
+  background: #c0392b;
+  transform: translateY(-1px);
+}
+
+/* LOADING Y ESTADOS */
+.loading {
+  text-align: center;
+  padding: 40px;
+  font-size: 18px;
+  color: #7f8c8d;
+}
+
+/* BOTÓN VOLVER MEJORADO */
+.modulo-header {
+  margin-bottom: 20px;
+}
+
+.btn-volver {
+  background: linear-gradient(135deg, #6c757d, #5a6268);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.btn-volver:hover {
+  background: linear-gradient(135deg, #5a6268, #495057);
+  transform: translateY(-1px);
+  text-decoration: none;
+  color: white;
+}
+
+/* RESPONSIVE */
+@media (max-width: 768px) {
+  .gestion-espacios {
+    padding: 15px;
+  }
+  
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+  
+  .header {
+    flex-direction: column;
+    gap: 15px;
+    align-items: flex-start;
+  }
+  
+  .espacios-table {
+    font-size: 12px;
+  }
+  
+  .espacios-table .btn-editar,
+  .espacios-table .btn-eliminar {
+    padding: 6px 12px;
+    font-size: 11px;
+    margin-bottom: 5px;
+  }
+}
+
+/* ANIMACIONES SUAVES */
+.gestion-espacios * {
+  transition: all 0.2s ease-in-out;
+}
