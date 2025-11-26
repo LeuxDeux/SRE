@@ -277,8 +277,62 @@ const reservasController = {
                 error: 'Error interno del servidor'
             });
         }
+    },
+    rechazarReserva: async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // Solo admin puede rechazar
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                error: 'Solo administradores pueden rechazar reservas'
+            });
+        }
+
+        // Verificar que la reserva existe y está pendiente
+        const [reservas] = await db.execute(
+            `SELECT * FROM reservas WHERE id = ?`,
+            [id]
+        );
+
+        if (reservas.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Reserva no encontrada'
+            });
+        }
+
+        const reserva = reservas[0];
+
+        if (reserva.estado !== 'pendiente') {
+            return res.status(400).json({
+                success: false,
+                error: 'Solo se pueden rechazar reservas pendientes'
+            });
+        }
+
+        // Rechazar la reserva
+        await db.execute(
+            `UPDATE reservas SET estado = 'rechazada', aprobador_id = ? WHERE id = ?`,
+            [req.user.id, id]
+        );
+
+        res.json({
+            success: true,
+            mensaje: 'Reserva rechazada exitosamente'
+        });
+
+    } catch (error) {
+        console.error('Error rechazando reserva:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Error interno del servidor'
+        });
     }
+}
 };
+
 
 
 module.exports = reservasController;
