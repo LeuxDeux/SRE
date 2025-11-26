@@ -9,7 +9,8 @@ router.get('/:id', espaciosController.obtenerEspacioPorId);
 router.get('/:id/recursos', espaciosController.obtenerRecursosDeEspacio);
 
 // Rutas protegidas (solo admin) - después
-// router.post('/', authMiddleware, espaciosController.crearEspacio);
-// router.put('/:id', authMiddleware, espaciosController.actualizarEspacio);
+router.post('/', authMiddleware, espaciosController.crearEspacio);
+router.put('/:id', authMiddleware, espaciosController.actualizarEspacio);
+router.delete('/:id', authMiddleware, espaciosController.eliminarEspacio);
 
 module.exports = router;
