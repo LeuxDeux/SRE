@@ -10,7 +10,7 @@ router.post('/validar-disponibilidad', reservasController.validarDisponibilidad)
 router.get('/', authMiddleware, reservasController.obtenerReservas);
 router.post('/', authMiddleware, reservasController.crearReserva);
 router.put('/:id/cancelar', authMiddleware, reservasController.cancelarReserva);
-//router.put('/:id/aprobar', authMiddleware, reservasController.aprobarReserva);
-//router.put('/:id/rechazar', authMiddleware, reservasController.rechazarReserva);
+router.put('/:id/aprobar', authMiddleware, reservasController.aprobarReserva);
+router.put('/:id/rechazar', authMiddleware, reservasController.rechazarReserva);
 
 module.exports = router;
