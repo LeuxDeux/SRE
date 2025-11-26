@@ -6,8 +6,9 @@ const authMiddleware = require('../middleware/auth');
 // Ruta pública (sin auth)
 router.get('/', recursosController.obtenerRecursos);
 
-// Rutas protegidas (solo admin) - después
-// router.post('/', authMiddleware, recursosController.crearRecurso);
-// router.put('/:id', authMiddleware, recursosController.actualizarRecurso);
+// Rutas protegidas (solo admin) 
+router.post('/', authMiddleware, recursosController.crear);
+router.put('/:id', authMiddleware, recursosController.actualizar);
+router.delete('/:id', authMiddleware, recursosController.eliminar);
 
 module.exports = router;
