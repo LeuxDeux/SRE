@@ -87,11 +87,15 @@ export const reservasAPI = {
   obtenerRecursos: () => api.get('/recursos'),
   
   // PARA EL FUTURO
-  // aprobar: (id) => api.put(`/reservas/${id}/aprobar`),
-  // rechazar: (id) => api.put(`/reservas/${id}/rechazar`),
+  aprobar: (id) => api.put(`/reservas/${id}/aprobar`),
+  rechazar: (id) => api.put(`/reservas/${id}/rechazar`),
   // obtenerMisReservas: () => api.get('/reservas/mis-reservas')
 };
 export const espaciosAPI = {
+  // CONSULTAS
+  obtenerTodos: () => api.get('/espacios'),
+  obtenerPorId: (id) => api.get(`/espacios/${id}`),
+  obtenerRecursos: (espacioId) => api.get(`/espacios-recursos/${espacioId}/recursos`), // ← CAMBIADO
   crear: (datos) => api.post('/espacios', datos),
   actualizar: (id, datos) => api.put(`/espacios/${id}`, datos),
   eliminar: (id) => api.delete(`/espacios/${id}`)
@@ -100,12 +104,15 @@ export const espaciosAPI = {
 export const recursosAPI = {
   crear: (datos) => api.post('/recursos', datos),
   actualizar: (id, datos) => api.put(`/recursos/${id}`, datos), 
-  eliminar: (id) => api.delete(`/recursos/${id}`)
+  eliminar: (id) => api.delete(`/recursos/${id}`),
+  obtenerTodos: () => api.get('/recursos'),
 };
 
 export const espaciosRecursosAPI = {
-  asignar: (espacioId, recursos) => api.post(`/espacios/${espacioId}/recursos`, recursos),
-  obtenerAsignaciones: (espacioId) => api.get(`/espacios/${espacioId}/recursos-asignados`)
+  asignar: (espacioId, recursos) => api.post(`/espacios-recursos/${espacioId}/recursos`, { recursos }),
+  quitar: (espacioId, recursoId) => api.delete(`/espacios-recursos/${espacioId}/recursos/${recursoId}`),
+  obtenerRecursosDeEspacio: (espacioId) => api.get(`/espacios-recursos/${espacioId}/recursos`),
+  obtenerTodasLasAsignaciones: () => api.get('/espacios-recursos/asignaciones')
 };
 export const categoriasAPI = {
   obtenerTodas: () => api.get('/categorias'),
