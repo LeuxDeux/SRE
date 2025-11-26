@@ -223,7 +223,9 @@ const ReservasCalendar = () => {
       console.log('📊 Respuesta de la API:', response);
       console.log('📦 Datos de reservas:', response.data);
 
-      const eventos = response.data.map(reserva => {
+      const eventos = response.data
+      .filter(reserva => reserva.estado !== 'cancelada')
+      .map(reserva => {
         console.log('📅 Procesando reserva:', reserva);
 
         const fechaInicioSolo = reserva.fecha_inicio.split('T')[0];
@@ -398,7 +400,11 @@ const ReservasCalendar = () => {
             )}
           </>
         );
-
+      case 'lista': 
+        return <TablaGeneralReservas 
+                  onVolver={() => setVistaActual('calendario')} 
+                  onReservaActualizada={cargarReservas}  
+                />;
       case 'espacios':
         return <GestionEspacios onVolver={() => setVistaActual('calendario')} />;
 
@@ -423,84 +429,82 @@ const ReservasCalendar = () => {
 
   return (
     <div className="reservas-calendar">
-      {/* ENCABEZADO PRINCIPAL */}
-      {vistaActual === 'calendario' ? (
-        <>
-          <h2>📅 Calendario de Reservas</h2>
-          <button 
-            onClick={() => setShowReservaForm(true)}
-            style={{
-                background: 'linear-gradient(135deg, #27ae60, #219a52)',
-                color: 'white',
-                border: 'none',
-                padding: '10px 20px',
-                borderRadius: '6px',
-                fontSize: '14px',
-                fontWeight: 'bold',
-                cursor: 'pointer',
-                marginBottom: '10px'
-            }}
-        >
-            🏢 Reservar Espacio
-        </button>
-        
-        <div style={{background: '#e8f4fd', padding: '8px 12px', borderRadius: '4px', marginBottom: '10px'}}></div>
-          <div style={{
-            background: '#e8f4fd',
-            padding: '8px 12px',
-            borderRadius: '4px',
-            marginBottom: '10px',
-            fontSize: '14px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center'
-          }}>
-            <span>
-              <strong>Vista actual:</strong>
-              <span style={{
-                color: currentView === 'month' ? '#e74c3c' :
-                  currentView === 'week' ? '#27ae60' : '#3498db',
-                fontWeight: 'bold',
-                marginLeft: '5px'
-              }}>
-                {currentView === 'month' ? 'Mensual' :
-                  currentView === 'week' ? 'Semanal' : 'Diaria'}
-              </span>
-            </span>
-            <small style={{ color: '#666' }}>
-              Usa los botones arriba a la derecha para cambiar vista
-            </small>
-          </div>
-        </>
-      ) : (
-        <div className="modulo-header">
-          <button
-            onClick={() => setVistaActual('calendario')}
-            className="btn-volver"
-            style={{
-              padding: '8px 16px',
-              background: '#6c757d',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              marginBottom: '15px'
-            }}
-          >
-            ← Volver al Calendario
-          </button>
-          <h2>
-            {vistaActual === 'espacios' && '🏢 Gestión de Espacios'}
-            {vistaActual === 'recursos' && '🎛️ Gestión de Recursos'}
-            {vistaActual === 'asignar' && '🔗 Asignar Recursos a Espacios'}
-          </h2>
-        </div>
-      )}
+        {/* ENCABEZADO PRINCIPAL */}
+        {vistaActual === 'calendario' || vistaActual === 'lista' ? (
+            <>
+                <h2>📅 Calendario de Reservas</h2>
+                <div style={{
+                    background: '#e8f4fd', 
+                    padding: '8px 12px', 
+                    borderRadius: '4px', 
+                    marginBottom: '10px',
+                    fontSize: '14px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                }}>
+                    <span>
+                        <strong>Vista actual:</strong> 
+                        <span style={{ 
+                            color: vistaActual === 'calendario' ? '#3498db' : '#e67e22',
+                            fontWeight: 'bold',
+                            marginLeft: '5px'
+                        }}>
+                            {vistaActual === 'calendario' ? 'Calendario' : 'Lista de Reservas'}
+                        </span>
+                    </span>
+                    
+                    {/* BOTONES PARA CAMBIAR VISTA */}
+                    <div style={{display: 'flex', gap: '10px'}}>
+                        <button 
+                            onClick={() => setVistaActual(vistaActual === 'calendario' ? 'lista' : 'calendario')}
+                            style={{
+                                background: vistaActual === 'lista' ? '#3498db' : '#2ecc71',
+                                color: 'white',
+                                border: 'none',
+                                padding: '8px 16px',
+                                borderRadius: '4px',
+                                fontSize: '12px',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            {vistaActual === 'calendario' ? '📋 Ver Lista' : '📅 Ver Calendario'}
+                        </button>
+                        
+                        <button 
+                            onClick={() => setShowReservaForm(true)}
+                            style={{
+                                background: 'linear-gradient(135deg, #27ae60, #219a52)',
+                                color: 'white',
+                                border: 'none',
+                                padding: '8px 16px',
+                                borderRadius: '4px',
+                                fontSize: '12px',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            🏢 Nueva Reserva
+                        </button>
+                    </div>
+                </div>
+            </>
+        ) : (
+            <div className="modulo-header">
+                <button onClick={() => setVistaActual('calendario')} className="btn-volver">
+                    ← Volver al Calendario
+                </button>
+                <h2>
+                    {vistaActual === 'espacios' && '🏢 Gestión de Espacios'}
+                    {vistaActual === 'recursos' && '🎛️ Gestión de Recursos'} 
+                    {vistaActual === 'asignar' && '🔗 Asignar Recursos a Espacios'}
+                </h2>
+            </div>
+        )}
 
       {renderVista()}
 
       {/* MODALES (solo se muestran en vista calendario) */}
-      {vistaActual === 'calendario' && (
+      {(vistaActual === 'calendario' || vistaActual === 'lista') && (
         <>
           {/* MODAL DETALLES EVENTO */}
           {selectedEvent && (
