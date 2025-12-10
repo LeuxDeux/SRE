@@ -411,6 +411,7 @@ const GestionEspacios = ({ onVolver }) => {
                             <th>Capacidad</th>
                             <th>Ubicación</th>
                             <th>Estado</th>
+                            <th>Aprobación</th>
                             <th>Recursos</th>
                             <th>Acciones</th>
                         </tr>
@@ -430,6 +431,13 @@ const GestionEspacios = ({ onVolver }) => {
                                     <span className={`estado ${espacio.estado}`}>
                                         {espacio.estado}
                                     </span>
+                                </td>
+                                <td>
+                                    {espacio.requiere_aprobacion ? (
+                                        <span style={{ color: '#f39c12', fontWeight: 'bold' }}>✓ Requiere</span>
+                                    ) : (
+                                        <span style={{ color: '#27ae60', fontWeight: 'bold' }}>✗ No requiere</span>
+                                    )}
                                 </td>
                                 <td>
                                     <button
