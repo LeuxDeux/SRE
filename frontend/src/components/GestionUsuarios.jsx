@@ -32,7 +32,8 @@ const GestionUsuarios = ({ onClose }) => {
   // Opciones predefinidas
   const roles = [
     { value: 'admin', label: '👑 Administrador' },
-    { value: 'secretaria', label: '📋 Secretaría' }
+    { value: 'secretaria', label: '📋 Secretaría' },
+    { value: 'usuario', label: '👤 Usuario' }
   ];
 
   // Cargar secretarias desde API
@@ -460,7 +461,9 @@ const GestionUsuarios = ({ onClose }) => {
                 <td className="usuario-email">{usuario.email || '-'}</td>
                 <td className="usuario-rol">
                   <span className={`rol-badge rol-${usuario.role}`}>
-                    {usuario.role === 'admin' ? '👑 Admin' : '📋 Secretaría'}
+                    {usuario.role === 'admin' ? '👑 Admin' : 
+                     usuario.role === 'secretaria' ? '📋 Secretaría' : 
+                     '👤 Usuario'}
                   </span>
                 </td>
                 <td className="usuario-secretaria">{usuario.secretaria_nombre || '-'}</td>
