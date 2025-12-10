@@ -65,11 +65,11 @@ const reservasController = {
         try {
             const [reservas] = await db.execute(
                 `SELECT r.*, e.nombre as espacio_nombre, u.nombre_completo as usuario_nombre 
-         FROM reservas r 
-         JOIN espacios e ON r.espacio_id = e.id 
-         JOIN usuarios u ON r.usuario_id = u.id 
-         ORDER BY r.fecha_solicitud DESC 
-         LIMIT 50`
+                FROM reservas r 
+                JOIN espacios e ON r.espacio_id = e.id 
+                JOIN usuarios u ON r.usuario_id = u.id 
+                ORDER BY r.fecha_solicitud DESC 
+                LIMIT 50`
             );
             res.json(reservas);
         } catch (error) {
@@ -77,98 +77,92 @@ const reservasController = {
             res.status(500).json({ error: 'Error interno del servidor' });
         }
     },
-    crearReserva: async (req, res) => {
-        try {
-            const {
-                espacio_id, usuario_id, fecha_inicio, hora_inicio, fecha_fin, hora_fin,
-                titulo, descripcion, motivo, cantidad_participantes, recursos_solicitados
-            } = req.body;
+crearReserva: async (req, res) => {
+    try {
+        const { espacio_id, fecha_inicio, hora_inicio, fecha_fin, hora_fin, titulo, descripcion, motivo, cantidad_participantes, participantes_email, observaciones } = req.body;
+        const usuario_id = req.user.id;
 
-            // Validar campos obligatorios
-            if (!espacio_id || !usuario_id || !fecha_inicio || !hora_inicio ||
-                !fecha_fin || !hora_fin || !titulo) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Faltan campos obligatorios'
-                });
-            }
-
-            // Validar disponibilidad primero
-            const [conflictos] = await db.execute(
-                `SELECT id FROM reservas 
-       WHERE espacio_id = ? 
-       AND estado IN ('pendiente', 'confirmada')
-       AND (
-         (DATE(fecha_inicio) < ? OR (DATE(fecha_inicio) = ? AND TIME(hora_inicio) < ?))
-         AND
-         (DATE(fecha_fin) > ? OR (DATE(fecha_fin) = ? AND TIME(hora_fin) > ?))
-       )`,
-                [espacio_id, fecha_fin, fecha_fin, hora_fin, fecha_inicio, fecha_inicio, hora_inicio]
-            );
-
-            if (conflictos.length > 0) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'El espacio no está disponible en ese horario'
-                });
-            }
-
-            // Generar número de reserva
-            const numero_reserva = await generarNumeroReserva();
-
-            // Crear la reserva con valores por defecto para campos opcionales
-            const [result] = await db.execute(
-                `INSERT INTO reservas (
-        numero_reserva, usuario_id, espacio_id, fecha_inicio, hora_inicio,
-        fecha_fin, hora_fin, titulo, descripcion, motivo, cantidad_participantes,
-        creador_id, requiere_aprobacion
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [
-                    numero_reserva,
-                    usuario_id,
-                    espacio_id,
-                    fecha_inicio,
-                    hora_inicio,
-                    fecha_fin,
-                    hora_fin,
-                    titulo,
-                    descripcion || '',           // Si no viene, usar string vacío
-                    motivo || 'reunion',         // Si no viene, usar 'reunion' por defecto
-                    cantidad_participantes || 1, // Si no viene, usar 1 por defecto
-                    req.user.id,
-                    true
-                ]
-            );
-
-            const reservaId = result.insertId;
-
-            // Insertar recursos solicitados si los hay
-            if (recursos_solicitados && recursos_solicitados.length > 0) {
-                for (const recurso of recursos_solicitados) {
-                    await db.execute(
-                        'INSERT INTO reservas_recursos (reserva_id, recurso_id, cantidad_solicitada) VALUES (?, ?, ?)',
-                        [reservaId, recurso.recurso_id, recurso.cantidad || 1]
-                    );
-                }
-            }
-
-            res.json({
-                success: true,
-                reserva: {
-                    id: reservaId,
-                    numero_reserva: numero_reserva,
-                    mensaje: 'Reserva creada exitosamente. Está pendiente de aprobación.'
-                }
-            });
-
-        } catch (error) {
-            console.error('Error creando reserva:', error);
-            res.status(500).json({
+        // Validaciones básicas
+        if (!espacio_id || !fecha_inicio || !hora_inicio || !fecha_fin || !hora_fin || !titulo) {
+            return res.status(400).json({
                 success: false,
-                error: 'Error interno del servidor: ' + error.message
+                error: 'Faltan campos requeridos'
             });
         }
-    },
+
+        // Verificar que el espacio existe y obtener su configuración
+        const [espacios] = await db.execute(
+            'SELECT id, requiere_aprobacion FROM espacios WHERE id = ?',
+            [espacio_id]
+        );
+
+        if (espacios.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'El espacio no existe'
+            });
+        }
+
+        const espacio = espacios[0];
+
+        // Validar disponibilidad
+        const [conflictos] = await db.execute(
+            `SELECT id FROM reservas 
+             WHERE espacio_id = ? 
+             AND estado NOT IN ('cancelada', 'rechazada')
+             AND (
+                (fecha_inicio <= ? AND fecha_fin >= ?)
+             )`,
+            [espacio_id, fecha_fin, fecha_inicio]
+        );
+
+        if (conflictos.length > 0) {
+            return res.status(409).json({
+                success: false,
+                error: 'El espacio no está disponible en ese horario'
+            });
+        }
+
+        // Generar número de reserva
+        const numero_reserva = await generarNumeroReserva();
+
+        // Determinar estado según si el espacio requiere aprobación
+        const estado = espacio.requiere_aprobacion ? 'pendiente' : 'confirmada';
+
+        // Usar valores por defecto si vienen undefined
+        const motivo_final = motivo || 'reunion';
+        const cantidad_final = cantidad_participantes || 1;
+        const email_final = participantes_email || null;
+        const obs_final = observaciones || null;
+
+        // Crear la reserva
+        const [result] = await db.execute(
+            `INSERT INTO reservas 
+            (numero_reserva, usuario_id, espacio_id, fecha_inicio, hora_inicio, fecha_fin, hora_fin, titulo, descripcion, motivo, cantidad_participantes, estado, requiere_aprobacion, creador_id, participantes_email, observaciones)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [numero_reserva, usuario_id, espacio_id, fecha_inicio, hora_inicio, fecha_fin, hora_fin, titulo, descripcion, motivo_final, cantidad_final, estado, espacio.requiere_aprobacion, usuario_id, email_final, obs_final]
+        );
+
+        console.log('✅ Reserva creada:', result.insertId);
+
+        res.status(201).json({
+            success: true,
+            message: `Reserva creada exitosamente${espacio.requiere_aprobacion ? ' (pendiente de aprobación)' : ' (confirmada automáticamente)'}`,
+            reserva: {
+                id: result.insertId,
+                numero_reserva,
+                estado
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ Error creando reserva:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Error al crear la reserva'
+        });
+    }
+},
     cancelarReserva: async (req, res) => {
         try {
             const { id } = req.params;
@@ -277,6 +271,71 @@ const reservasController = {
                 error: 'Error interno del servidor'
             });
         }
+    },
+    obtenerReservaPorId: async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // Obtener detalles de la reserva con JOINs
+        const [reservas] = await db.execute(
+        `SELECT r.*, 
+                e.nombre as espacio_nombre, 
+                e.capacidad,
+                e.ubicacion,
+                e.estado as espacio_estado,
+                e.requiere_aprobacion as espacio_requiere_aprobacion,
+                u.nombre_completo as usuario_nombre,
+                u.email as usuario_email,
+                u.telefono as usuario_telefono,
+                sec.nombre as secretaria_nombre,
+                apr.nombre_completo as aprobador_nombre
+        FROM reservas r
+        LEFT JOIN espacios e ON r.espacio_id = e.id
+        LEFT JOIN usuarios u ON r.usuario_id = u.id
+        LEFT JOIN secretarias sec ON u.secretaria_id = sec.id
+        LEFT JOIN usuarios apr ON r.aprobador_id = apr.id
+        WHERE r.id = ?`,
+        [id]
+        );
+        console.log('Reserva obtenida:', reservas);
+        if (reservas.length === 0) {
+        return res.status(404).json({
+            success: false,
+            error: 'Reserva no encontrada'
+        });
+        }
+
+        const reserva = reservas[0];
+
+        // Obtener recursos solicitados para esta reserva
+        const [recursos] = await db.execute(
+        `SELECT rr.id, 
+                rr.recurso_id,
+                rr.cantidad_solicitada, 
+                rr.observaciones,
+                r.nombre as recurso_nombre
+        FROM reservas_recursos rr
+        LEFT JOIN recursos r ON rr.recurso_id = r.id
+        WHERE rr.reserva_id = ?
+        ORDER BY r.nombre ASC`,
+        [id]
+        );
+        console.log('Recursos obtenidos para la reserva:', recursos);
+        res.json({
+        success: true,
+        reserva: {
+            ...reserva,
+            recursos: recursos || []
+        }
+        });
+
+    } catch (error) {
+        console.error('Error obteniendo reserva:', error);
+        res.status(500).json({
+        success: false,
+        error: 'Error al obtener la reserva'
+        });
+    }
     },
     rechazarReserva: async (req, res) => {
     try {
