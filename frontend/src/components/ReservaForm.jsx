@@ -202,7 +202,7 @@ const ReservaForm = ({ slotInicial, onClose, onReservaCreada }) => {
                                         <option value="">Seleccionar espacio</option>
                                         {espacios.filter(e => e.estado === 'disponible').map(espacio => (
                                             <option key={espacio.id} value={espacio.id}>
-                                                {espacio.nombre} - Cap: {espacio.capacidad || 'N/A'}
+                                                {espacio.nombre} - Capacidad: {espacio.capacidad || 'N/A'}
                                             </option>
                                         ))}
                                     </select>
