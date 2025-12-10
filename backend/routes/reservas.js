@@ -8,6 +8,7 @@ router.post('/validar-disponibilidad', reservasController.validarDisponibilidad)
 
 // Rutas protegidas
 router.get('/', authMiddleware, reservasController.obtenerReservas);
+router.get('/:id', authMiddleware, reservasController.obtenerReservaPorId);
 router.post('/', authMiddleware, reservasController.crearReserva);
 router.put('/:id/cancelar', authMiddleware, reservasController.cancelarReserva);
 router.put('/:id/aprobar', authMiddleware, reservasController.aprobarReserva);
