@@ -43,9 +43,9 @@ const TablaGeneralReservas = ({ onVolver, onReservaActualizada }) => {
     };
 
     const puedeAprobarRechazar = (reserva) => {
-           return user.role === 'admin' && 
-           reserva.estado === 'pendiente' && 
-           reserva.requiere_aprobacion === true;
+       return user.role === 'admin' && 
+       reserva.estado === 'pendiente' && 
+       (reserva.requiere_aprobacion === 1 || reserva.requiere_aprobacion === true);
     };
 
     // Acciones
