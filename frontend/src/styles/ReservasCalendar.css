@@ -172,3 +172,242 @@
 .rbc-current-time-indicator {
   top: 0% !important;
 }
+/* Modal de detalles de reserva */
+.reserva-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(2px);
+  z-index: 999;
+}
+
+.reserva-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+  width: min(640px, 92vw);
+  max-height: 80vh;
+  overflow: auto;
+  z-index: 1000;
+}
+
+.reserva-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid #eaeaea;
+}
+
+.reserva-modal-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #2c3e50;
+}
+
+.reserva-modal-close {
+  border: none;
+  background: transparent;
+  color: #7f8c8d;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+}
+.reserva-modal-close:hover {
+  background: #f2f2f2;
+  color: #2c3e50;
+}
+
+.reserva-modal-body {
+  padding: 16px;
+}
+
+/* Grilla compacta de detalles */
+.detalles-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.detalle-card {
+  background: #fafafa;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.detalle-label {
+  font-size: 12px;
+  color: #7f8c8d;
+  margin-bottom: 4px;
+}
+
+.detalle-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+/* Estado de reserva */
+.estado-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.estado-confirmada {
+  background: #e9f7ef;
+  color: #27ae60;
+  border: 1px solid #c9ecd7;
+}
+.estado-pendiente {
+  background: #fff7e6;
+  color: #f39c12;
+  border: 1px solid #ffe6b3;
+}
+.estado-rechazada,
+.estado-cancelada {
+  background: #fdecea;
+  color: #e74c3c;
+  border: 1px solid #fac3bd;
+}
+
+/* Sección de recursos */
+.recursos-section {
+  margin-top: 8px;
+}
+
+.section-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #2c3e50;
+  margin: 10px 0 8px;
+}
+
+.recursos-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.recurso-item {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  border: 1px solid #eaeaea;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #ffffff;
+}
+
+.recurso-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: #127cc1;
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  flex: 0 0 28px;
+}
+
+.recurso-content {
+  flex: 1;
+}
+
+.recurso-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #2c3e50;
+  margin-bottom: 2px;
+}
+
+.recurso-subtitle {
+  font-size: 12px;
+  color: #7f8c8d;
+  margin-bottom: 6px;
+}
+
+/* Chips para cantidades y tipo */
+.recurso-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid #eaeaea;
+  background: #f8f9fa;
+  color: #2c3e50;
+}
+
+.tag-info {
+  background: #eef6fd;
+  border-color: #d6eafa;
+  color: #127cc1;
+}
+.tag-success {
+  background: #ecfdf5;
+  border-color: #d1fae5;
+  color: #107a4f;
+}
+.tag-warning {
+  background: #fff7e6;
+  border-color: #ffe6b3;
+  color: #8a5a00;
+}
+
+/* Información del espacio */
+.espacio-section {
+  margin-top: 12px;
+  background: #f9fafb;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.espacio-info {
+  font-size: 12px;
+  color: #7f8c8d;
+}
+
+/* Loader simple dentro del modal */
+.modal-loader {
+  display: inline-block;
+  border: 2px solid #f3f3f3;
+  border-top: 2px solid #3498db;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Responsive */
+@media (max-width: 520px) {
+  .reserva-modal {
+    width: 96vw;
+  }
+  .detalles-grid {
+    grid-template-columns: 1fr;
+  }
+  .recurso-item {
+    padding: 8px;
+  }
+}
