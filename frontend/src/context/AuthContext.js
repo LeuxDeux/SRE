@@ -93,7 +93,8 @@ export const AuthProvider = ({ children }) => {
     checkAuth,
     isAuthenticated: !!user,
     isAdmin: user?.role === 'admin',
-    isSecretaria: user?.role === 'secretaria'
+    isSecretaria: user?.role === 'secretaria',
+    isUsuario: user?.role === 'usuario'
   };
 
   return (
