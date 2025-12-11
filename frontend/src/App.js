@@ -172,16 +172,18 @@ const Dashboard = () => {
             <p>Selecciona un módulo para comenzar:</p>
 
             <div className="modules-grid">
-              <div className="module-card">
-                <h3>📅 Registro de Eventos a Comunicar</h3>
-                <p>Gestiona los eventos universitarios</p>
-                <button
-                  onClick={() => setModuloActivo('eventos')}
-                  className="module-button"
-                >
-                  Acceder
-                </button>
-              </div>
+              {(user.role === 'admin' || user.role === 'secretaria') && (
+                <div className="module-card">
+                  <h3>📅 Registro de Eventos a Comunicar</h3>
+                  <p>Gestiona los eventos universitarios</p>
+                  <button
+                    onClick={() => setModuloActivo('eventos')}
+                    className="module-button"
+                  >
+                    Acceder
+                  </button>
+                </div>
+              )}
 
               <div className="module-card">
                 <h3>🏢 Reserva de Espacios</h3>
