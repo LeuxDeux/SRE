@@ -77,6 +77,7 @@ export const eventosAPI = {
 export const reservasAPI = {
   // RESERVAS
   obtenerTodas: () => api.get('/reservas'),
+  obtenerPorId: (id) => api.get(`/reservas/${id}`),
   crear: (datos) => api.post('/reservas', datos),
   cancelar: (id) => api.put(`/reservas/${id}/cancelar`),
   validarDisponibilidad: (datos) => api.post('/reservas/validar-disponibilidad', datos),
