@@ -203,6 +203,8 @@ const ReservasCalendar = () => {
   const [error, setError] = useState(null);
   const [date, setDate] = useState(new Date());
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [selectedReservaDetalles, setSelectedReservaDetalles] = useState(null);
+  const [loadingDetalles, setLoadingDetalles] = useState(false);
   const [showMoreEvents, setShowMoreEvents] = useState([]);
   const [currentView, setCurrentView] = useState('week');
   const { user } = useAuth();
@@ -253,6 +255,7 @@ const ReservasCalendar = () => {
           start: startDate,
           end: endDate,
           resource: reserva,
+          estado: reserva.estado,
         };
       }).filter(evento => evento !== null);
 
@@ -277,9 +280,21 @@ const ReservasCalendar = () => {
     setCurrentView(newView);
   };
 
-  const handleSelectEvent = (event) => {
+  const handleSelectEvent = async (event) => {
     console.log('🎯 Evento seleccionado:', event);
     setSelectedEvent(event);
+    setSelectedReservaDetalles(null);
+    setLoadingDetalles(true);
+    try {
+      const resp = await reservasAPI.obtenerPorId(event.id);
+      // resp.data: { success: true, reserva: { ... , recursos: [] } }
+      const detalles = resp.data?.reserva || null;
+      setSelectedReservaDetalles(detalles);
+    } catch (e) {
+      console.error('❌ Error cargando detalles de reserva:', e);
+    } finally {
+      setLoadingDetalles(false);
+    }
   };
 
   const handleSelectSlot = (slotInfo) => {
@@ -315,14 +330,34 @@ const ReservasCalendar = () => {
               showMultiDayTimes={true}
               step={30}
               timeslots={2}
-              eventPropGetter={(event) => ({
-                style: {
-                  backgroundColor: '#3498db',
-                  borderRadius: '4px',
-                  fontSize: '12px',
-                  padding: '2px 4px',
-                },
-              })}
+              eventPropGetter={(event) => {
+                let backgroundColor = '#3498db'; // azul por defecto
+                let borderColor = '#0e5b96';
+
+                if (event.estado === 'confirmada') {
+                  backgroundColor = '#27ae60'; // verde
+                  borderColor = '#1e8449';
+                } else if (event.estado === 'pendiente') {
+                  backgroundColor = '#f39c12'; // naranja
+                  borderColor = '#d68910';
+                } else if (event.estado === 'rechazada') {
+                  backgroundColor = '#e74c3c'; // rojo
+                  borderColor = '#c0392b';
+                } else if (event.estado === 'completada') {
+                  backgroundColor = '#9b59b6'; // púrpura
+                  borderColor = '#7d3c98';
+                }
+
+                return {
+                  style: {
+                    backgroundColor: backgroundColor,
+                    borderRadius: '4px',
+                    fontSize: '12px',
+                    padding: '2px 4px',
+                    borderLeft: `3px solid ${borderColor}`,
+                  },
+                };
+              }}
               components={{
                 event: (props) => <CustomEvent {...props} view={currentView} />,
                 toolbar: CustomToolbar,
@@ -527,12 +562,60 @@ const ReservasCalendar = () => {
                   {selectedEvent.resource.estado}
                 </span>
               </p>
+              {/* NUEVA: Mostrar si requiere aprobación */}
+              <p><strong>Requiere aprobación:</strong>
+                <span style={{
+                  color: selectedReservaDetalles?.espacio_requiere_aprobacion ? '#f39c12' : '#27ae60',
+                  fontWeight: 'bold', marginLeft: '5px'
+                }}>
+                  {selectedReservaDetalles?.espacio_requiere_aprobacion ? '✓ Sí' : '✗ No'}
+                </span>
+              </p>
               <p><strong>Solicitante:</strong> {selectedEvent.resource.usuario_nombre}</p>
               {selectedEvent.resource.descripcion && (
                 <p><strong>Descripción:</strong> {selectedEvent.resource.descripcion}</p>
               )}
+              {/* Sección de Recursos */}
+              <div style={{ marginTop: '12px' }}>
+                <h4>🎛️ Recursos solicitados</h4>
+                {loadingDetalles && <p>Cargando recursos...</p>}
+                {!loadingDetalles && selectedReservaDetalles?.recursos?.length === 0 && (
+                  <p>No hay recursos asociados.</p>
+                )}
+                {!loadingDetalles && selectedReservaDetalles?.recursos?.length > 0 && (
+                  <ul style={{ paddingLeft: '18px' }}>
+                    {selectedReservaDetalles.recursos.map((rr) => (
+                      <li key={rr.id} style={{ marginBottom: '6px' }}>
+        <strong>{rr.recurso_nombre}</strong>
+        <br />
+        <small>Cantidad: {rr.cantidad_solicitada}</small>
+      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              {/* Datos extra del espacio (si vienen del detalle) 
+              {selectedReservaDetalles && (
+                <div style={{ marginTop: '12px' }}>
+                  <h4>🏢 Información del espacio</h4>
+                  <p><small>
+                    Tipo: {selectedReservaDetalles.espacio_tipo || '—'} |
+                    Capacidad: {selectedReservaDetalles.capacidad ?? '—'} |
+                    Ubicación: {selectedReservaDetalles.ubicacion || '—'}
+                  </small></p>
+                </div>
+              )}*/}
+
+              {/* Datos de aprobación (si aplican) */}
+              {selectedReservaDetalles?.aprobador_id && (
+                <div style={{ marginTop: '8px' }}>
+                  <p><strong>Aprobador:</strong> {selectedReservaDetalles.aprobador_nombre || selectedReservaDetalles.aprobador_id}</p>
+                </div>
+              )}
+
               <button
-                onClick={() => setSelectedEvent(null)}
+                onClick={() => { setSelectedEvent(null); setSelectedReservaDetalles(null); }}
                 style={{
                   marginTop: '15px', padding: '8px 16px', background: '#e74c3c',
                   color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer'
