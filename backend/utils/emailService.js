@@ -337,7 +337,7 @@ const enviarPDFPorCorreo = async (evento, correoDestino, tipoAccion = 'creado') 
     // ← Usar tipoAccion para mensajes dinámicos
     const asuntoTexto = tipoAccion === 'actualizado' 
       ? `🔄 Evento Actualizado - ${evento.nombre}`
-      : `📋 Evento Registrado - ${evento.nombre}`;
+      : `${evento.categoria_nombre}`;
 
     const mensajeTexto = tipoAccion === 'actualizado'
       ? '<p><strong>⚠️ Este evento ha sido actualizado.</strong> Se adjunta el formulario actualizado.</p>'
