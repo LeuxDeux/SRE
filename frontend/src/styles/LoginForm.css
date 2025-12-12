@@ -67,6 +67,12 @@
   cursor: not-allowed;
 }
 
+#username, #password {
+  width: 372px;
+  padding: 12px;
+  height: 18px;
+}
+
 .error-message {
   background-color: #fee;
   color: #c33;
