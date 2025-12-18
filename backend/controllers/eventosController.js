@@ -682,9 +682,13 @@ const eventosController = {
     const { id } = req.params;
     const { tipoAccion = 'creado' } = req.body;
 
-    // Obtener evento con datos completos
+    // Obtener evento con datos completos (incluyendo email de categoría)
     const [eventos] = await pool.query(`
-      SELECT e.*, c.nombre as categoria_nombre, c.color as categoria_color, u.nombre_completo as usuario_nombre
+      SELECT e.*, 
+             c.nombre as categoria_nombre, 
+             c.color as categoria_color, 
+             c.email_contacto as categoria_email,
+             u.nombre_completo as usuario_nombre
       FROM eventos e
       LEFT JOIN categorias c ON e.categoria_id = c.id
       LEFT JOIN usuarios u ON e.usuario_id = u.id
@@ -700,33 +704,40 @@ const eventosController = {
 
     const evento = eventos[0];
 
-    // ← NUEVO: Obtener correos del .env
+    // Obtener correos del .env
     const correoSecretaria = process.env.CORREO_SECRETARIA_PRINCIPAL;
     const correoAdicional = process.env.CORREO_ADICIONAL?.trim();
 
-    // Array de correos a enviar
+    // Array de correos a enviar (sin duplicados)
     const correosDestino = [correoSecretaria];
-    if (correoAdicional) {
+    
+    if (correoAdicional && correoAdicional !== correoSecretaria) {
       correosDestino.push(correoAdicional);
+    }
+    
+    // Agregar email de la categoría si existe
+    if (evento.categoria_email && 
+        !correosDestino.includes(evento.categoria_email)) {
+      correosDestino.push(evento.categoria_email);
+      console.log(`✅ Email de categoría agregado: ${evento.categoria_email}`);
     }
 
     console.log(`📧 Enviando PDF a: ${correosDestino.join(', ')}`);
 
-    // Enviar PDF por correo a cada destinatario
+    // Enviar UN SOLO EMAIL a todos los destinatarios
     const { enviarPDFPorCorreo } = require('../utils/emailService');
     
-    for (const correo of correosDestino) {
-      try {
-        await enviarPDFPorCorreo(evento, correo, tipoAccion);
-      } catch (emailError) {
-        console.warn(`⚠️ Error enviando a ${correo}:`, emailError);
-        // Continuar con el siguiente correo si uno falla
-      }
+    try {
+      await enviarPDFPorCorreo(evento, correosDestino, tipoAccion);
+    } catch (emailError) {
+      console.error(`❌ Error enviando email:`, emailError);
+      throw emailError;
     }
 
     res.json({
       success: true,
-      message: `PDF enviado exitosamente a ${correosDestino.length} destinatario(s)`
+      message: `PDF enviado exitosamente a ${correosDestino.length} destinatario(s)`,
+      destinatarios: correosDestino
     });
 
   } catch (error) {
