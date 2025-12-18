@@ -57,7 +57,16 @@ const usersController = {
 
       const { username, password, nombre_completo, email, telefono, role, secretaria_id } = req.body;
 
-      // ... validaciones ...
+      // Validar que la contraseña existe
+      if (!password || password.length < 6) {
+        return res.status(400).json({
+          success: false,
+          error: 'La contraseña debe tener al menos 6 caracteres'
+        });
+      }
+
+      // Hash de la contraseña
+      const password_hash = await bcrypt.hash(password, 10);
 
       // Insertar con secretaria_id
       const [result] = await pool.query(`
