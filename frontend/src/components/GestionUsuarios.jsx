@@ -12,10 +12,14 @@ const GestionUsuarios = ({ onClose }) => {
   const [success, setSuccess] = useState('');
   const [secretarias, setSecretarias] = useState([]);
   const [cargandoSecretarias, setCargandoSecretarias] = useState(true);
+  const [mostrarPassword, setMostrarPassword] = useState(false);
+  const [mostrarConfirmarPassword, setMostrarConfirmarPassword] = useState(false);
+  const [passwordsCoinciden, setPasswordsCoinciden] = useState(true);
 
   const [formData, setFormData] = useState({
     username: '',
     password: '',
+    confirmar_password: '',
     nombre_completo: '',
     email: '',
     telefono: '',
@@ -90,10 +94,21 @@ const GestionUsuarios = ({ onClose }) => {
 
   const handlePasswordChange = (e) => {
     const { name, value } = e.target;
-    setPasswordData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setPasswordData(prev => {
+      const nuevosDatos = {
+        ...prev,
+        [name]: value
+      };
+      
+      // Validar que las contraseñas coincidan
+      if (name === 'nueva_password') {
+        setPasswordsCoinciden(value === nuevosDatos.confirmar_password);
+      } else if (name === 'confirmar_password') {
+        setPasswordsCoinciden(value === nuevosDatos.nueva_password);
+      }
+      
+      return nuevosDatos;
+    });
   };
 
   // Crear o actualizar usuario
@@ -102,14 +117,27 @@ const GestionUsuarios = ({ onClose }) => {
     setError('');
     setSuccess('');
 
+    // Validación de contraseñas para nuevo usuario
+    if (!usuarioEditando) {
+      if (formData.password !== formData.confirmar_password) {
+        setError('Las contraseñas no coinciden');
+        return;
+      }
+      if (formData.password.length < 6) {
+        setError('La contraseña debe tener al menos 6 caracteres');
+        return;
+      }
+    }
+
     try {
       if (usuarioEditando) {
         // Actualizar usuario existente
         await usersAPI.actualizar(usuarioEditando.id, formData);
         setSuccess('Usuario actualizado exitosamente');
       } else {
-        // Crear nuevo usuario
-        await usersAPI.crear(formData);
+        // Crear nuevo usuario (sin enviar confirmar_password al backend)
+        const { confirmar_password, ...datosEnvio } = formData;
+        await usersAPI.crear(datosEnvio);
         setSuccess('Usuario creado exitosamente');
       }
 
@@ -119,11 +147,13 @@ const GestionUsuarios = ({ onClose }) => {
       setFormData({
         username: '',
         password: '',
+        confirmar_password: '',
         nombre_completo: '',
         email: '',
         telefono: '',
         role: 'secretaria',
-        secretaria: ''
+        secretaria_id: '',
+        activo: true
       });
       
       cargarUsuarios();
@@ -195,6 +225,7 @@ const GestionUsuarios = ({ onClose }) => {
     setFormData({
       username: '',
       password: '',
+      confirmar_password: '',
       nombre_completo: '',
       email: '',
       telefono: '',
@@ -206,6 +237,9 @@ const GestionUsuarios = ({ onClose }) => {
       nueva_password: '',
       confirmar_password: ''
     });
+    setMostrarPassword(false);
+    setMostrarConfirmarPassword(false);
+    setPasswordsCoinciden(true);
     setError('');
     setSuccess('');
   };
@@ -257,34 +291,70 @@ const GestionUsuarios = ({ onClose }) => {
             <h3>{usuarioEditando ? '✏️ Editar Usuario' : '➕ Nuevo Usuario'}</h3>
             
             <form onSubmit={handleSubmit}>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Username *</label>
-                  <input
-                    type="text"
-                    name="username"
-                    value={formData.username}
-                    onChange={handleChange}
-                    required
-                    placeholder="usuario.ejemplo"
-                  />
-                </div>
-
-                {!usuarioEditando && (
-                  <div className="form-group">
-                    <label>Password *</label>
-                    <input
-                      type="password"
-                      name="password"
-                      value={formData.password}
-                      onChange={handleChange}
-                      required={!usuarioEditando}
-                      placeholder="Mínimo 6 caracteres"
-                      minLength="6"
-                    />
-                  </div>
-                )}
+              <div className="form-group">
+                <label>Usuario *</label>
+                <input
+                  type="text"
+                  name="username"
+                  value={formData.username}
+                  onChange={handleChange}
+                  required
+                  placeholder="usuario.ejemplo"
+                />
               </div>
+
+              {!usuarioEditando && (
+                <>
+                  <div className="form-group">
+                    <label>Contraseña *</label>
+                    <div className="password-input-wrapper">
+                      <input
+                        type={mostrarPassword ? "text" : "password"}
+                        name="password"
+                        value={formData.password}
+                        onChange={handleChange}
+                        required={!usuarioEditando}
+                        placeholder="Mínimo 6 caracteres"
+                        minLength="6"
+                      />
+                      <button
+                        type="button"
+                        className="btn-toggle-password"
+                        onClick={() => setMostrarPassword(!mostrarPassword)}
+                        title={mostrarPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                      >
+                        {mostrarPassword ? "🙈" : "👁️"}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Confirmar Contraseña *</label>
+                    <div className="password-input-wrapper">
+                      <input
+                        type={mostrarConfirmarPassword ? "text" : "password"}
+                        name="confirmar_password"
+                        value={formData.confirmar_password}
+                        onChange={handleChange}
+                        required={!usuarioEditando}
+                        placeholder="Repetir contraseña"
+                        className={formData.confirmar_password && formData.password !== formData.confirmar_password ? 'input-error' : ''}
+                      />
+                      <button
+                        type="button"
+                        className="btn-toggle-password"
+                        onClick={() => setMostrarConfirmarPassword(!mostrarConfirmarPassword)}
+                        title={mostrarConfirmarPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                      >
+                        {mostrarConfirmarPassword ? "🙈" : "👁️"}
+                      </button>
+                    </div>
+                    {formData.confirmar_password && formData.password !== formData.confirmar_password && (
+                      <small className="password-error">⚠️ Las contraseñas no coinciden</small>
+                    )}
+                  </div>
+                </>
+              )}
 
               <div className="form-group">
                 <label>Nombre Completo *</label>
@@ -400,27 +470,51 @@ const GestionUsuarios = ({ onClose }) => {
             <form onSubmit={handleResetPassword}>
               <div className="form-group">
                 <label>Nueva Contraseña *</label>
-                <input
-                  type="password"
-                  name="nueva_password"
-                  value={passwordData.nueva_password}
-                  onChange={handlePasswordChange}
-                  required
-                  placeholder="Mínimo 6 caracteres"
-                  minLength="6"
-                />
+                <div className="password-input-wrapper">
+                  <input
+                    type={mostrarPassword ? "text" : "password"}
+                    name="nueva_password"
+                    value={passwordData.nueva_password}
+                    onChange={handlePasswordChange}
+                    required
+                    placeholder="Mínimo 6 caracteres"
+                    minLength="6"
+                  />
+                  <button
+                    type="button"
+                    className="btn-toggle-password"
+                    onClick={() => setMostrarPassword(!mostrarPassword)}
+                    title={mostrarPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  >
+                    {mostrarPassword ? "🙈" : "👁️"}
+                  </button>
+                </div>
               </div>
 
               <div className="form-group">
                 <label>Confirmar Contraseña *</label>
-                <input
-                  type="password"
-                  name="confirmar_password"
-                  value={passwordData.confirmar_password}
-                  onChange={handlePasswordChange}
-                  required
-                  placeholder="Repetir contraseña"
-                />
+                <div className="password-input-wrapper">
+                  <input
+                    type={mostrarConfirmarPassword ? "text" : "password"}
+                    name="confirmar_password"
+                    value={passwordData.confirmar_password}
+                    onChange={handlePasswordChange}
+                    required
+                    placeholder="Repetir contraseña"
+                    className={!passwordsCoinciden && passwordData.confirmar_password ? 'input-error' : ''}
+                  />
+                  <button
+                    type="button"
+                    className="btn-toggle-password"
+                    onClick={() => setMostrarConfirmarPassword(!mostrarConfirmarPassword)}
+                    title={mostrarConfirmarPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  >
+                    {mostrarConfirmarPassword ? "🙈" : "👁️"}
+                  </button>
+                </div>
+                {!passwordsCoinciden && passwordData.confirmar_password && (
+                  <small className="password-error">⚠️ Las contraseñas no coinciden</small>
+                )}
               </div>
 
               <div className="form-actions">
