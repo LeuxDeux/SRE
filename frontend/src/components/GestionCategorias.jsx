@@ -12,7 +12,8 @@ const GestionCategorias = ({ onClose }) => {
     nombre: '',
     color: '#3498db',
     prioridad: 'media',
-    dias_antelacion: 15
+    dias_antelacion: 15,
+    email_contacto: ''
   });
   const [editando, setEditando] = useState(null);
 
@@ -54,7 +55,7 @@ const GestionCategorias = ({ onClose }) => {
       
       setShowForm(false);
       setEditando(null);
-      setFormData({ nombre: '', color: '#3498db' });
+      setFormData({ nombre: '', color: '#3498db', dias_antelacion: 15, email_contacto: '' });
       cargarCategorias();
       
     } catch (error) {
@@ -69,7 +70,8 @@ const GestionCategorias = ({ onClose }) => {
       nombre: categoria.nombre,
       color: categoria.color,
       prioridad: categoria.prioridad,
-      dias_antelacion: categoria.dias_antelacion
+      dias_antelacion: categoria.dias_antelacion,
+      email_contacto: categoria.email_contacto || ''
     });
     setShowForm(true);
   };
@@ -104,7 +106,7 @@ const GestionCategorias = ({ onClose }) => {
   const cancelarForm = () => {
     setShowForm(false);
     setEditando(null);
-    setFormData({ nombre: '', color: '#3498db' });
+    setFormData({ nombre: '', color: '#3498db', dias_antelacion: 15, email_contacto: '' });
   };
 
   if (loading) {
@@ -196,6 +198,17 @@ const GestionCategorias = ({ onClose }) => {
               <small className="field-hint">Días mínimos de anticipación para eventos de esta categoría</small>
             </div>
 
+            <div className="form-group">
+              <label>Email de contacto (opcional):</label>
+              <input
+                type="email"
+                value={formData.email_contacto}
+                onChange={(e) => setFormData({ ...formData, email_contacto: e.target.value })}
+                placeholder="correo@dominio.com"
+              />
+              <small className="field-hint">Se enviará copia de eventos de esta categoría a este email</small>
+            </div>
+
             <div className="form-actions">
               <button type="button" onClick={cancelarForm} className="btn-cancel">
                 Cancelar
@@ -216,6 +229,7 @@ const GestionCategorias = ({ onClose }) => {
               <th>Color</th>
               <th>Prioridad</th>
               <th>Días Antelación</th>
+              <th>Email Contacto</th>
               <th>Estado</th>
               <th>Fecha Creación</th>
               {user.role === 'admin' && <th>Acciones</th>}
@@ -250,6 +264,15 @@ const GestionCategorias = ({ onClose }) => {
                   <span className="dias-badge">
                     {categoria.dias_antelacion} días
                   </span>
+                </td>
+                <td className="categoria-email">
+                  {categoria.email_contacto ? (
+                    <a href={`mailto:${categoria.email_contacto}`} className="email-link">
+                      {categoria.email_contacto}
+                    </a>
+                  ) : (
+                    <span className="sin-email">—</span>
+                  )}
                 </td>
                 <td className="categoria-estado">
                   <span className={`estado-badge ${categoria.activa ? 'activa' : 'inactiva'}`}>
