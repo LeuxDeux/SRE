@@ -322,21 +322,26 @@ const formatearFecha = (fechaInicio, fechaFin) => {
 };
 
 /**
- * Envía el PDF del evento por correo
+ * Envía el PDF del evento por correo (a múltiples destinatarios)
  * @param {Object} evento - Datos del evento
- * @param {String} correoDestino - Email del destinatario
+ * @param {Array|String} correosDestino - Email(s) del destinatario(s)
  * @returns {Promise}
  */
-const enviarPDFPorCorreo = async (evento, correoDestino, tipoAccion = 'creado') => {
+const enviarPDFPorCorreo = async (evento, correosDestino, tipoAccion = 'creado') => {
   try {
-    console.log(`📧 Preparando envío de PDF a: ${correoDestino} (${tipoAccion})`);
+    // Convertir a array si viene string
+    const listaCorreos = Array.isArray(correosDestino) 
+      ? correosDestino.filter(c => c && c.length > 0) 
+      : [correosDestino];
+
+    console.log(`📧 Preparando envío de PDF a: ${listaCorreos.join(', ')} (${tipoAccion})`);
 
     const pdfBuffer = await generarPDFBuffer(evento);
     const nombreArchivo = `Formulario_${evento.nombre.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
 
-    // ← Usar tipoAccion para mensajes dinámicos
+    // ← Usar tipoAccion para mensajes dinámicos, SI ES ACTUALIZADO 1 SI ES CREADO 2
     const asuntoTexto = tipoAccion === 'actualizado' 
-      ? `🔄 Evento Actualizado - ${evento.nombre}`
+      ? `${evento.categoria_nombre}`
       : `${evento.categoria_nombre}`;
 
     const mensajeTexto = tipoAccion === 'actualizado'
@@ -345,7 +350,7 @@ const enviarPDFPorCorreo = async (evento, correoDestino, tipoAccion = 'creado') 
 
     const info = await transporter.sendMail({
       from: `"${process.env.EMAIL_FROM_NAME}" <${process.env.EMAIL_USER}>`,
-      to: correoDestino,
+      to: listaCorreos.join(', '),  // ← Enviar a múltiples correos
       subject: asuntoTexto,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -384,7 +389,7 @@ const enviarPDFPorCorreo = async (evento, correoDestino, tipoAccion = 'creado') 
       ]
     });
 
-    console.log(`✅ PDF enviado a ${correoDestino}`);
+    console.log(`✅ PDF enviado a ${listaCorreos.join(', ')}`);
     return info;
 
   } catch (error) {
