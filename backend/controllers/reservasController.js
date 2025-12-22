@@ -1,4 +1,6 @@
 const db = require('../config/database');
+const { enviarCorreoReserva } = require('../utils/emailService');
+
 const generarNumeroReserva = async () => {
     const year = new Date().getFullYear();
     const [result] = await db.execute(
@@ -145,6 +147,105 @@ crearReserva: async (req, res) => {
 
         console.log('✅ Reserva creada:', result.insertId);
 
+        // ============================================
+        // 💾 GUARDAR RECURSOS ASOCIADOS A LA RESERVA
+        // ============================================
+        
+        // Si vienen recursos_solicitados, guardarlos en la tabla reservas_recursos
+        if (req.body.recursos_solicitados && Array.isArray(req.body.recursos_solicitados)) {
+            const recursosSolicitados = req.body.recursos_solicitados.filter(r => r.cantidad_solicitada > 0);
+            
+            for (const recurso of recursosSolicitados) {
+                try {
+                    await db.execute(
+                        `INSERT INTO reservas_recursos 
+                        (reserva_id, recurso_id, cantidad_solicitada, observaciones)
+                        VALUES (?, ?, ?, ?)`,
+                        [result.insertId, recurso.recurso_id, recurso.cantidad_solicitada, recurso.observaciones || null]
+                    );
+                    console.log(`✅ Recurso ${recurso.recurso_id} agregado a la reserva`);
+                } catch (recursoError) {
+                    console.error(`⚠️ Error guardando recurso ${recurso.recurso_id}:`, recursoError.message);
+                }
+            }
+        }
+
+        // ============================================
+        // 📧 BLOQUE DE ENVÍO DE CORREOS - CREACIÓN
+        // ============================================
+        
+        // Obtener datos completos de la reserva para enviar el correo
+        const [reservasCreadas] = await db.execute(
+            `SELECT r.*, 
+                    e.nombre as espacio_nombre, 
+                    u.nombre_completo as usuario_nombre,
+                    u.email as usuario_email,
+                    u.telefono as usuario_telefono
+            FROM reservas r
+            LEFT JOIN espacios e ON r.espacio_id = e.id
+            LEFT JOIN usuarios u ON r.usuario_id = u.id
+            WHERE r.id = ?`,
+            [result.insertId]
+        );
+
+        if (reservasCreadas.length > 0) {
+            const reservaCreada = reservasCreadas[0];
+            
+            // Obtener recursos asociados a esta reserva
+            const [recursos] = await db.execute(
+                `SELECT rr.id, rr.cantidad_solicitada, rr.observaciones,
+                        r.nombre as recurso_nombre
+                FROM reservas_recursos rr
+                LEFT JOIN recursos r ON rr.recurso_id = r.id
+                WHERE rr.reserva_id = ?
+                ORDER BY r.nombre ASC`,
+                [result.insertId]
+            );
+            
+            // Agregar recursos al objeto de la reserva
+            reservaCreada.recursos = recursos || [];
+            
+            // 📨 CONDICIÓN: Solo enviar correo si la reserva está CONFIRMADA
+            // (es decir, no requería aprobación o ya fue aprobada)
+            if (reservaCreada.estado === 'confirmada') {
+                // ⚙️ Construir lista de destinatarios desde .env
+                let emailDestinos = [];
+                
+                // Agregar correos del .env (departamentos, mantenimiento, etc.)
+                if (process.env.CORREOS_NOTIFICACION_RESERVA) {
+                    const correosEnv = process.env.CORREOS_NOTIFICACION_RESERVA
+                        .split(',')
+                        .map(e => e.trim())
+                        .filter(e => e.length > 0);
+                    emailDestinos = [...emailDestinos, ...correosEnv];
+                }
+                
+                // Agregar email del usuario solicitante (si está habilitado y existe)
+                if (process.env.INCLUIR_EMAIL_USUARIO_EN_NOTIFICACION === 'true' && reservaCreada.usuario_email) {
+                    // Evitar duplicados
+                    if (!emailDestinos.includes(reservaCreada.usuario_email)) {
+                        emailDestinos.push(reservaCreada.usuario_email);
+                    }
+                }
+                
+                // Enviar solo si hay destinatarios
+                if (emailDestinos.length > 0) {
+                    try {
+                        await enviarCorreoReserva(reservaCreada, emailDestinos, 'creada');
+                        console.log(`📧 Correo enviado a: ${emailDestinos.join(', ')}`);
+                    } catch (emailError) {
+                        console.error('⚠️ Error enviando correo:', emailError.message);
+                        // No interrumpir la respuesta si falla el correo
+                    }
+                } else {
+                    console.log('⚠️ No hay destinatarios configurados para enviar correo de reserva');
+                }
+            } else {
+                // Si está pendiente, no se envía correo
+                console.log('⏳ Reserva pendiente de aprobación - correo NO enviado');
+            }
+        }
+
         res.status(201).json({
             success: true,
             message: `Reserva creada exitosamente${espacio.requiere_aprobacion ? ' (pendiente de aprobación)' : ' (confirmada automáticamente)'}`,
@@ -258,6 +359,77 @@ crearReserva: async (req, res) => {
                 `UPDATE reservas SET estado = 'confirmada', aprobador_id = ?, fecha_aprobacion = NOW() WHERE id = ?`,
                 [req.user.id, id]
             );
+
+            // ============================================
+            // 📧 BLOQUE DE ENVÍO DE CORREOS - APROBACIÓN
+            // ============================================
+            
+            // Obtener datos completos de la reserva aprobada para enviar el correo
+            const [reservasAprobadas] = await db.execute(
+                `SELECT r.*, 
+                        e.nombre as espacio_nombre, 
+                        u.nombre_completo as usuario_nombre,
+                        u.email as usuario_email,
+                        u.telefono as usuario_telefono,
+                        apr.nombre_completo as aprobador_nombre
+                FROM reservas r
+                LEFT JOIN espacios e ON r.espacio_id = e.id
+                LEFT JOIN usuarios u ON r.usuario_id = u.id
+                LEFT JOIN usuarios apr ON r.aprobador_id = apr.id
+                WHERE r.id = ?`,
+                [id]
+            );
+
+            if (reservasAprobadas.length > 0) {
+                const reservaAprobada = reservasAprobadas[0];
+                
+                // Obtener recursos asociados a esta reserva
+                const [recursos] = await db.execute(
+                    `SELECT rr.id, rr.cantidad_solicitada, rr.observaciones,
+                            r.nombre as recurso_nombre
+                    FROM reservas_recursos rr
+                    LEFT JOIN recursos r ON rr.recurso_id = r.id
+                    WHERE rr.reserva_id = ?
+                    ORDER BY r.nombre ASC`,
+                    [id]
+                );
+                
+                // Agregar recursos al objeto de la reserva
+                reservaAprobada.recursos = recursos || [];
+                
+                // ⚙️ Construir lista de destinatarios desde .env
+                let emailDestinos = [];
+                
+                // Agregar correos del .env (departamentos, mantenimiento, etc.)
+                if (process.env.CORREOS_NOTIFICACION_RESERVA) {
+                    const correosEnv = process.env.CORREOS_NOTIFICACION_RESERVA
+                        .split(',')
+                        .map(e => e.trim())
+                        .filter(e => e.length > 0);
+                    emailDestinos = [...emailDestinos, ...correosEnv];
+                }
+                
+                // Agregar email del usuario solicitante (si está habilitado y existe)
+                if (process.env.INCLUIR_EMAIL_USUARIO_EN_NOTIFICACION === 'true' && reservaAprobada.usuario_email) {
+                    // Evitar duplicados
+                    if (!emailDestinos.includes(reservaAprobada.usuario_email)) {
+                        emailDestinos.push(reservaAprobada.usuario_email);
+                    }
+                }
+                
+                // Enviar solo si hay destinatarios
+                if (emailDestinos.length > 0) {
+                    try {
+                        await enviarCorreoReserva(reservaAprobada, emailDestinos, 'aprobada');
+                        console.log(`📧 Correo de aprobación enviado a: ${emailDestinos.join(', ')}`);
+                    } catch (emailError) {
+                        console.error('⚠️ Error enviando correo de aprobación:', emailError.message);
+                        // No interrumpir la respuesta si falla el correo
+                    }
+                } else {
+                    console.log('⚠️ No hay destinatarios configurados para enviar correo de reserva');
+                }
+            }
 
             res.json({
                 success: true,
@@ -376,6 +548,38 @@ crearReserva: async (req, res) => {
             `UPDATE reservas SET estado = 'rechazada', aprobador_id = ? WHERE id = ?`,
             [req.user.id, id]
         );
+
+        // ============================================
+        // 📧 BLOQUE DE ENVÍO DE CORREOS - RECHAZO
+        // ============================================
+        // ⚠️ DE MOMENTO DESHABILITADO - Descomentar si quieres activar
+        
+        // Obtener datos completos de la reserva rechazada para enviar el correo
+        // const [reservasRechazadas] = await db.execute(
+        //     `SELECT r.*, 
+        //             e.nombre as espacio_nombre, 
+        //             u.nombre_completo as usuario_nombre,
+        //             u.email as usuario_email,
+        //             u.telefono as usuario_telefono,
+        //             apr.nombre_completo as aprobador_nombre
+        //     FROM reservas r
+        //     LEFT JOIN espacios e ON r.espacio_id = e.id
+        //     LEFT JOIN usuarios u ON r.usuario_id = u.id
+        //     LEFT JOIN usuarios apr ON r.aprobador_id = apr.id
+        //     WHERE r.id = ?`,
+        //     [id]
+        // );
+
+        // if (reservasRechazadas.length > 0) {
+        //     const reservaRechazada = reservasRechazadas[0];
+        //     
+        //     try {
+        //         await enviarCorreoReserva(reservaRechazada, [reservaRechazada.usuario_email], 'rechazada');
+        //         console.log('📧 Correo de rechazo enviado a:', reservaRechazada.usuario_email);
+        //     } catch (emailError) {
+        //         console.error('⚠️ Error enviando correo de rechazo:', emailError.message);
+        //     }
+        // }
 
         res.json({
             success: true,
