@@ -398,7 +398,201 @@ const enviarPDFPorCorreo = async (evento, correosDestino, tipoAccion = 'creado')
   }
 };
 
+/**
+ * Envía correo de notificación de reserva (sin PDF)
+ * @param {Object} reserva - Datos de la reserva
+ * @param {Array|String} correosDestino - Email(s) del destinatario(s)
+ * @param {String} tipoAccion - 'creada', 'aprobada', 'rechazada'
+ * @returns {Promise}
+ */
+const enviarCorreoReserva = async (reserva, correosDestino, tipoAccion = 'creada') => {
+  try {
+    // Convertir a array si viene string
+    const listaCorreos = Array.isArray(correosDestino) 
+      ? correosDestino.filter(c => c && c.length > 0) 
+      : [correosDestino];
+
+    console.log(`📧 Preparando envío de correo de reserva a: ${listaCorreos.join(', ')} (${tipoAccion})`);
+
+    // Formatear fechas
+    const fechaInicio = new Date(reserva.fecha_inicio).toLocaleDateString('es-ES');
+    const fechaFin = new Date(reserva.fecha_fin).toLocaleDateString('es-ES');
+    const horaInicio = reserva.hora_inicio ? reserva.hora_inicio.substring(0, 5) : '--:--';
+    const horaFin = reserva.hora_fin ? reserva.hora_fin.substring(0, 5) : '--:--';
+
+    // Determinar el rango de fechas
+    const rangoFechas = fechaInicio === fechaFin 
+      ? fechaInicio 
+      : `${fechaInicio} al ${fechaFin}`;
+
+    // Mapear tipos de acción a mensajes
+    const tiposAccion = {
+      'creada': {
+        titulo: '✅ Reserva Creada Correctamente',
+        descripcion: 'La reserva se ha registrado en el sistema.',
+        color: '#27ae60'
+      },
+      'aprobada': {
+        titulo: '🎉 Reserva Aprobada',
+        descripcion: 'La reserva ha sido aprobada y confirmada.',
+        color: '#2980b9'
+      },
+      'rechazada': {
+        titulo: '❌ Reserva Rechazada',
+        descripcion: 'Tu reserva ha sido rechazada. Contacta con administración para más detalles.',
+        color: '#e74c3c'
+      }
+    };
+
+    const tipoConfig = tiposAccion[tipoAccion] || tiposAccion['creada'];
+    const estadoTexto = reserva.estado === 'pendiente' 
+      ? '⏳ Pendiente de aprobación' 
+      : reserva.estado === 'confirmada' 
+        ? '✅ Confirmada' 
+        : '❌ Rechazada';
+
+    const info = await transporter.sendMail({
+      from: `"${process.env.EMAIL_FROM_NAME}" <${process.env.EMAIL_USER}>`,
+      to: listaCorreos.join(', '),
+      subject: `Notificación de Reserva: ${reserva.titulo} - ${tipoConfig.titulo}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
+            <h2 style="color: #333; margin-top: 0; font-size: 18px;">
+              ${tipoConfig.titulo}
+            </h2>
+            
+            <p style="color: #666; font-size: 14px; margin: 10px 0;">
+              ${tipoConfig.descripcion}
+            </p>
+
+            <!-- TARJETA PRINCIPAL DE INFORMACIÓN -->
+            <div style="background-color: white; padding: 20px; border-left: 5px solid ${tipoConfig.color}; margin: 20px 0; border-radius: 4px;">
+              
+              <h3 style="margin: 0 0 15px 0; color: ${tipoConfig.color}; font-size: 16px;">
+                📋 ${reserva.titulo}
+              </h3>
+
+              <div style="background-color: #f5f5f5; padding: 15px; border-radius: 4px; margin-bottom: 15px;">
+                <table style="width: 100%; font-size: 14px; line-height: 1.8;">
+                  <tr>
+                    <td style="font-weight: bold; color: #333; width: 40%;"><strong>📍 Espacio:</strong></td>
+                    <td style="color: #555;">${reserva.espacio_nombre || 'N/A'}</td>
+                  </tr>
+                  <tr>
+                    <td style="font-weight: bold; color: #333;"><strong>📅 Fecha:</strong></td>
+                    <td style="color: #555;">${rangoFechas}</td>
+                  </tr>
+                  <tr>
+                    <td style="font-weight: bold; color: #333;"><strong>🕐 Hora:</strong></td>
+                    <td style="color: #555;">${horaInicio} - ${horaFin}</td>
+                  </tr>
+                  <tr>
+                    <td style="font-weight: bold; color: #333;"><strong>📌 Número:</strong></td>
+                    <td style="color: #555; font-family: 'Courier New', monospace;">${reserva.numero_reserva || 'N/A'}</td>
+                  </tr>
+                  <tr style="border-top: 1px solid #ddd; padding-top: 10px;">
+                    <td style="font-weight: bold; color: #333;"><strong>Estado:</strong></td>
+                    <td style="color: ${
+                      reserva.estado === 'confirmada' ? '#27ae60' : 
+                      reserva.estado === 'pendiente' ? '#f39c12' : 
+                      '#e74c3c'
+                    }; font-weight: bold;">
+                      ${estadoTexto}
+                    </td>
+                  </tr>
+                </table>
+              </div>
+
+              <!-- SECCIÓN DE RECURSOS -->
+              ${reserva.recursos && reserva.recursos.length > 0 ? `
+              <div style="margin-bottom: 15px;">
+                <p style="margin: 0 0 8px 0; font-weight: bold; color: #333; font-size: 12px;">🎛️ Recursos solicitados:</p>
+                <div style="background-color: #f0f7ff; padding: 10px; border-left: 3px solid #3498db; border-radius: 3px;">
+                  <ul style="margin: 0; padding-left: 20px; color: #555; font-size: 13px;">
+                    ${reserva.recursos.map(r => `
+                      <li style="margin-bottom: 5px;">
+                        <strong>${r.recurso_nombre}</strong> - Cantidad: ${r.cantidad_solicitada}${r.observaciones ? ` (${r.observaciones})` : ''}
+                      </li>
+                    `).join('')}
+                  </ul>
+                </div>
+              </div>
+              ` : `
+              <div style="margin-bottom: 15px;">
+                <p style="margin: 0 0 5px 0; font-weight: bold; color: #333; font-size: 12px;">🎛️ Recursos:</p>
+                <p style="margin: 0; color: #999; font-size: 13px; padding: 10px; background-color: #f9f9f9; border-radius: 3px;">
+                  No hay recursos asociados a esta reserva
+                </p>
+              </div>
+              `}
+
+              ${reserva.descripcion ? `
+              <div style="margin-bottom: 15px;">
+                <p style="margin: 0 0 5px 0; font-weight: bold; color: #333; font-size: 12px;">📝 Descripción:</p>
+                <p style="margin: 0; color: #666; font-size: 13px; padding: 10px; background-color: #f9f9f9; border-radius: 3px;">
+                  ${reserva.descripcion}
+                </p>
+              </div>
+              ` : ''}
+
+              ${reserva.observaciones ? `
+              <div style="margin-bottom: 15px;">
+                <p style="margin: 0 0 5px 0; font-weight: bold; color: #333; font-size: 12px;">💬 Observaciones:</p>
+                <p style="margin: 0; color: #666; font-size: 13px; padding: 10px; background-color: #f9f9f9; border-radius: 3px;">
+                  ${reserva.observaciones}
+                </p>
+              </div>
+              ` : ''}
+
+            </div>
+
+            <!-- INFORMACIÓN DE SOLICITANTE -->
+            <div style="background-color: #e8f4fd; padding: 15px; border-radius: 4px; margin-bottom: 15px; font-size: 13px;">
+              <p style="margin: 0 0 8px 0;"><strong>👤 Solicitante:</strong> ${reserva.usuario_nombre || 'N/A'}</p>
+              ${reserva.usuario_email ? `<p style="margin: 0 0 8px 0;"><strong>📧 Email:</strong> ${reserva.usuario_email}</p>` : ''}
+              ${reserva.usuario_telefono ? `<p style="margin: 0;"><strong>📞 Teléfono:</strong> ${reserva.usuario_telefono}</p>` : ''}
+            </div>
+
+            <!-- INFORMACIÓN DE APROBACIÓN (si aplica) -->
+            ${reserva.estado === 'pendiente' ? `
+            <div style="background-color: #fff3cd; padding: 15px; border-radius: 4px; margin-bottom: 15px; border-left: 4px solid #ffc107;">
+              <p style="margin: 0; font-size: 13px; color: #856404;">
+                <strong>⏳ Nota:</strong> Esta reserva requiere aprobación de un administrador. Recibirás una notificación cuando sea procesada.
+              </p>
+            </div>
+            ` : ''}
+
+            ${reserva.aprobador_nombre ? `
+            <div style="background-color: #d4edda; padding: 15px; border-radius: 4px; margin-bottom: 15px; font-size: 13px;">
+              <p style="margin: 0;"><strong>✓ Aprobador:</strong> ${reserva.aprobador_nombre}</p>
+            </div>
+            ` : ''}
+
+            <!-- PIE DE PÁGINA -->
+            <div style="background-color: #e7f3ff; padding: 12px; border-radius: 4px; margin-top: 20px;">
+              <p style="margin: 0; color: #004085; font-size: 11px; text-align: center;">
+                <strong>Sistema de Reserva de Espacios (SRE)</strong><br/>
+                Este es un correo automático del sistema. No responda a este correo.
+              </p>
+            </div>
+
+          </div>
+        </div>
+      `
+    });
+
+    console.log(`✅ Correo de reserva enviado a ${listaCorreos.join(', ')}`);
+    return info;
+
+  } catch (error) {
+    console.error('❌ Error enviando correo de reserva:', error);
+    throw new Error(`Error al enviar correo de reserva: ${error.message}`);
+  }
+};
+
 module.exports = {
   enviarPDFPorCorreo,
-  generarPDFBuffer
+  generarPDFBuffer,
+  enviarCorreoReserva
 };
