@@ -535,7 +535,7 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
             <select
               id="lugar"
               name="lugar"
-              value={formData.lugar === 'otro' || !['Aula Magna', 'Salón de Actos', 'Laboratorio 1', 'Laboratorio 2', 'Laboratorio 3', 'Sala de Conferencias', 'Plataforma Virtual', 'Patio Central', 'Biblioteca', 'otro'].includes(formData.lugar) ? 'otro' : formData.lugar}
+              value={formData.lugar === 'otro' || (formData.lugar !== '' && !['Aula Magna', 'Salón de Actos', 'Laboratorio 1', 'Laboratorio 2', 'Laboratorio 3', 'Sala de Conferencias', 'Plataforma Virtual', 'Patio Central', 'Biblioteca', 'otro'].includes(formData.lugar)) ? 'otro' : formData.lugar}
               onChange={handleChange}
               disabled={loading}
               required
@@ -557,7 +557,7 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
             {/* Mostrar input personalizado si:
         - Seleccionó "otro" O 
         - El valor actual no está en la lista predefinida (caso edición) */}
-            {(formData.lugar === 'otro' || !['Aula Magna', 'Salón de Actos', 'Laboratorio 1', 'Laboratorio 2', 'Laboratorio 3', 'Sala de Conferencias', 'Plataforma Virtual', 'Patio Central', 'Biblioteca', 'otro'].includes(formData.lugar)) && (
+            {(formData.lugar === 'otro' || (formData.lugar !== '' && !['Aula Magna', 'Salón de Actos', 'Laboratorio 1', 'Laboratorio 2', 'Laboratorio 3', 'Sala de Conferencias', 'Plataforma Virtual', 'Patio Central', 'Biblioteca', 'otro'].includes(formData.lugar))) && (
               <input
                 type="text"
                 placeholder="Especificar lugar personalizado"
@@ -580,7 +580,7 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
               <select
                 id="publico_destinatario"
                 name="publico_destinatario"
-                value={formData.publico_destinatario === 'otro' || !['Estudiantes', 'Docentes', 'Público General', 'Estudiantes y Docentes', 'Personal Administrativo', 'Egresados', 'otro'].includes(formData.publico_destinatario) ? 'otro' : formData.publico_destinatario}
+                value={formData.publico_destinatario === 'otro' || (formData.publico_destinatario !== '' && !['Estudiantes', 'Docentes', 'Público General', 'Estudiantes y Docentes', 'Personal Administrativo', 'Egresados', 'otro'].includes(formData.publico_destinatario)) ? 'otro' : formData.publico_destinatario}
                 onChange={handleChange}
                 disabled={loading}
                 required
@@ -599,7 +599,7 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
               {/* Mostrar input personalizado si:
         - Seleccionó "otro" O 
         - El valor actual no está en la lista predefinida (caso edición) */}
-              {(formData.publico_destinatario === 'otro' || !['Estudiantes', 'Docentes', 'Público General', 'Estudiantes y Docentes', 'Personal Administrativo', 'Egresados', 'otro'].includes(formData.publico_destinatario)) && (
+              {(formData.publico_destinatario === 'otro' || (formData.publico_destinatario !== '' && !['Estudiantes', 'Docentes', 'Público General', 'Estudiantes y Docentes', 'Personal Administrativo', 'Egresados', 'otro'].includes(formData.publico_destinatario))) && (
                 <input
                   type="text"
                   placeholder="Especificar público destinatario personalizado"
