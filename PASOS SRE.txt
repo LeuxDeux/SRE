@@ -321,4 +321,8 @@ CREATE TABLE reservas_recursos (
   UNIQUE KEY unique_reserva_recurso (reserva_id, recurso_id)
 );
 6) Instalación de react-big-calendar moment
-7) Creación de ReservasCalendar.jsx
+7) Creación de ReservasCalendar.jsx como calendario interactivo, vista mensual/semanal/diaria, modal de tealles de reserva
+8)
+
+screen -dmS sre bash -c 'cd ~/SRE/backend && npm start'
+## Frontend: cd frontend -> npm run build -> sudo cp -r build/* /var/www/html/sre
