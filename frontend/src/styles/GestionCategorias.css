@@ -382,3 +382,35 @@
   font-weight: 600;
   border: 1px solid #bbdefb;
 }
+
+/* Tooltip estilo */
+.info-icon {
+  display: inline-block;
+  margin-left: 8px;
+  cursor: help;
+  font-size: 16px;
+  opacity: 0.7;
+  transition: opacity 0.3s ease;
+}
+
+.info-icon:hover {
+  opacity: 1;
+}
+
+/* Estilo para react-tooltip */
+[role="tooltip"] {
+  background-color: #2c3e50 !important;
+  color: white;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+  max-width: 300px;
+  white-space: normal;
+  word-wrap: break-word;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+}
+
+[role="tooltip"]::after {
+  border-top-color: #2c3e50 !important;
+}
