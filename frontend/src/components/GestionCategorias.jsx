@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Tooltip } from 'react-tooltip';
 import { categoriasAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import '../styles/GestionCategorias.css';
@@ -13,13 +14,14 @@ const GestionCategorias = ({ onClose }) => {
     color: '#3498db',
     prioridad: 'media',
     dias_antelacion: 15,
-    email_contacto: ''
+    email_contacto: '',
+    descripcion: ''
   });
   const [editando, setEditando] = useState(null);
 
   // Colores predefinidos
   const coloresPredefinidos = [
-    '#3498db', '#e74c3c', '#2ecc71', '#f39c12', 
+    '#3498db', '#e74c3c', '#2ecc71', '#f39c12',
     '#9b59b6', '#1abc9c', '#34495e', '#e67e22',
     '#16a085', '#8e44ad', '#2c3e50', '#f1c40f'
   ];
@@ -27,10 +29,10 @@ const GestionCategorias = ({ onClose }) => {
   const cargarCategorias = useCallback(async () => {
     try {
       setLoading(true);
-      const response = user.role === 'admin' 
+      const response = user.role === 'admin'
         ? await categoriasAPI.obtenerTodasAdmin()
         : await categoriasAPI.obtenerTodas();
-      
+
       setCategorias(response.data.categorias);
     } catch (error) {
       console.error('Error cargando categorías:', error);
@@ -45,19 +47,19 @@ const GestionCategorias = ({ onClose }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     try {
       if (editando) {
         await categoriasAPI.actualizar(editando.id, formData);
       } else {
         await categoriasAPI.crear(formData);
       }
-      
+
       setShowForm(false);
       setEditando(null);
-      setFormData({ nombre: '', color: '#3498db', dias_antelacion: 15, email_contacto: '' });
+      setFormData({ nombre: '', color: '#3498db', dias_antelacion: 15, email_contacto: '', descripcion: '' });
       cargarCategorias();
-      
+
     } catch (error) {
       console.error('Error guardando categoría:', error);
       alert(error.response?.data?.error || 'Error al guardar la categoría');
@@ -71,7 +73,8 @@ const GestionCategorias = ({ onClose }) => {
       color: categoria.color,
       prioridad: categoria.prioridad,
       dias_antelacion: categoria.dias_antelacion,
-      email_contacto: categoria.email_contacto || ''
+      email_contacto: categoria.email_contacto || '',
+      descripcion: categoria.descripcion || ''
     });
     setShowForm(true);
   };
@@ -106,7 +109,7 @@ const GestionCategorias = ({ onClose }) => {
   const cancelarForm = () => {
     setShowForm(false);
     setEditando(null);
-    setFormData({ nombre: '', color: '#3498db', dias_antelacion: 15, email_contacto: '' });
+    setFormData({ nombre: '', color: '#3498db', dias_antelacion: 15, email_contacto: '', descripcion: '' });
   };
 
   if (loading) {
@@ -124,7 +127,7 @@ const GestionCategorias = ({ onClose }) => {
         {/*<button onClick={onClose} className="btn-volver">← Volver</button>*/}
         <h2>🎯 Gestión de Categorías</h2>
         {user.role === 'admin' && (
-          <button 
+          <button
             onClick={() => setShowForm(true)}
             className="btn-nueva-categoria"
           >
@@ -142,7 +145,7 @@ const GestionCategorias = ({ onClose }) => {
               <input
                 type="text"
                 value={formData.nombre}
-                onChange={(e) => setFormData({...formData, nombre: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
                 required
                 placeholder="Ej: Reunión, Examen, Evento Social..."
               />
@@ -157,7 +160,7 @@ const GestionCategorias = ({ onClose }) => {
                     type="button"
                     className={`color-option ${formData.color === color ? 'selected' : ''}`}
                     style={{ backgroundColor: color }}
-                    onClick={() => setFormData({...formData, color})}
+                    onClick={() => setFormData({ ...formData, color })}
                     title={color}
                   />
                 ))}
@@ -209,6 +212,17 @@ const GestionCategorias = ({ onClose }) => {
               <small className="field-hint">Se enviará copia de eventos de esta categoría a este email</small>
             </div>
 
+            <div className="form-group">
+              <label>Descripción (opcional):</label>
+              <textarea
+                value={formData.descripcion}
+                onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
+                placeholder="Descripción detallada de la categoría..."
+                rows="4"
+              />
+              <small className="field-hint">Información adicional sobre esta categoría que aparecerá en el tooltip</small>
+            </div>
+
             <div className="form-actions">
               <button type="button" onClick={cancelarForm} className="btn-cancel">
                 Cancelar
@@ -239,15 +253,31 @@ const GestionCategorias = ({ onClose }) => {
             {categorias.map(categoria => (
               <tr key={categoria.id} className={!categoria.activa ? 'inactiva' : ''}>
                 <td className="categoria-nombre">
-                  <div 
+                  <div
                     className="color-indicator"
                     style={{ backgroundColor: categoria.color }}
                   />
                   {categoria.nombre}
+                  {categoria.descripcion && (
+                    <>
+                      <span
+                        data-tooltip-id="categoria-tooltip"
+                        data-tooltip-content={categoria.descripcion}
+                        data-tooltip-place="top"
+                        className="info-icon"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="18" height="18" style={{ display: 'inline', verticalAlign: 'middle', color: '#127cc1' }}>
+                          <path fillRule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0ZM8.94 6.94a.75.75 0 1 1-1.061-1.061 3 3 0 1 1 2.871 5.026v.345a.75.75 0 0 1-1.5 0v-.5c0-.72.57-1.172 1.081-1.287A1.5 1.5 0 1 0 8.94 6.94ZM10 15a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clipRule="evenodd" />
+                        </svg>
+
+                      </span>
+                      <Tooltip id="categoria-tooltip" />
+                    </>
+                  )}
                 </td>
                 <td className="categoria-color">
                   <div className="color-display">
-                    <span 
+                    <span
                       className="color-sample"
                       style={{ backgroundColor: categoria.color }}
                     />
@@ -284,21 +314,21 @@ const GestionCategorias = ({ onClose }) => {
                 </td>
                 {user.role === 'admin' && (
                   <td className="categoria-acciones">
-                    <button 
+                    <button
                       onClick={() => toggleActiva(categoria)}
                       className="btn-toggle"
                       title={categoria.activa ? 'Desactivar' : 'Activar'}
                     >
                       {categoria.activa ? '⏸️' : '▶️'}
                     </button>
-                    <button 
+                    <button
                       onClick={() => handleEditar(categoria)}
                       className="btn-editar"
                       title="Editar"
                     >
                       ✏️
                     </button>
-                    <button 
+                    <button
                       onClick={() => handleEliminar(categoria.id, categoria.nombre)}
                       className="btn-eliminar"
                       title="Eliminar"
@@ -316,7 +346,7 @@ const GestionCategorias = ({ onClose }) => {
           <div className="empty-table">
             <p>No hay categorías registradas</p>
             {user.role === 'admin' && (
-              <button 
+              <button
                 onClick={() => setShowForm(true)}
                 className="btn-nueva-categoria"
               >
