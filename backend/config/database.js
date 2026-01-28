@@ -9,7 +9,8 @@ const pool = mysql.createPool({
   ssl: false,
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0
+  queueLimit: 0,
+  charset: 'utf8mb4'
 });
 
 pool.getConnection((err, connection) => {
