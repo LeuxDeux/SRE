@@ -299,7 +299,9 @@ const ReservasCalendar = () => {
 
   const handleSelectSlot = (slotInfo) => {
     console.log('📅 Slot seleccionado:', slotInfo);
-    alert(`Crear reserva para: ${slotInfo.start.toLocaleDateString()} ${moment(slotInfo.start).format('HH:mm')}`);
+    setSlotSeleccionado(slotInfo);
+    setShowReservaForm(true);
+    //alert(`Crear reserva para: ${slotInfo.start.toLocaleDateString()} ${moment(slotInfo.start).format('HH:mm')}`);
   };
 
   const handleShowMore = (events, date) => {
