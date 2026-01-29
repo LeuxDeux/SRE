@@ -454,7 +454,10 @@ const enviarCorreoReserva = async (reserva, correosDestino, tipoAccion = 'creada
     const info = await transporter.sendMail({
       from: `"${process.env.EMAIL_FROM_NAME}" <${process.env.EMAIL_USER}>`,
       to: listaCorreos.join(', '),
-      subject: `Notificación de Reserva: ${reserva.titulo} - ${tipoConfig.titulo}`,
+      // ← ASUNTO ORIGINAL (comentado para sistema de automatización de calendarios)
+      // subject: `Notificación de Reserva: ${reserva.titulo} - ${tipoConfig.titulo}`,
+      // ← ASUNTO CORTO PARA AUTOMATIZACIÓN DE CALENDARIOS
+      subject: `Reserva: ${reserva.espacio_nombre}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
