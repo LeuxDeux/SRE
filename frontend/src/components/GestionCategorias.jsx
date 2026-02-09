@@ -15,7 +15,8 @@ const GestionCategorias = ({ onClose }) => {
     prioridad: 'media',
     dias_antelacion: 15,
     email_contacto: '',
-    descripcion: ''
+    descripcion: '',
+    activa: true
   });
   const [editando, setEditando] = useState(null);
 
@@ -57,7 +58,7 @@ const GestionCategorias = ({ onClose }) => {
 
       setShowForm(false);
       setEditando(null);
-      setFormData({ nombre: '', color: '#3498db', dias_antelacion: 15, email_contacto: '', descripcion: '' });
+      setFormData({ nombre: '', color: '#3498db', dias_antelacion: 15, email_contacto: '', descripcion: '', activa: true });
       cargarCategorias();
 
     } catch (error) {
@@ -74,7 +75,8 @@ const GestionCategorias = ({ onClose }) => {
       prioridad: categoria.prioridad,
       dias_antelacion: categoria.dias_antelacion,
       email_contacto: categoria.email_contacto || '',
-      descripcion: categoria.descripcion || ''
+      descripcion: categoria.descripcion || '',
+      activa: categoria.activa
     });
     setShowForm(true);
   };
@@ -109,7 +111,7 @@ const GestionCategorias = ({ onClose }) => {
   const cancelarForm = () => {
     setShowForm(false);
     setEditando(null);
-    setFormData({ nombre: '', color: '#3498db', dias_antelacion: 15, email_contacto: '', descripcion: '' });
+    setFormData({ nombre: '', color: '#3498db', dias_antelacion: 15, email_contacto: '', descripcion: '', activa: true });
   };
 
   if (loading) {
