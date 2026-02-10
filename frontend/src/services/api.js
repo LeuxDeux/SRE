@@ -79,6 +79,7 @@ export const reservasAPI = {
   obtenerTodas: () => api.get('/reservas'),
   obtenerPorId: (id) => api.get(`/reservas/${id}`),
   crear: (datos) => api.post('/reservas', datos),
+  actualizar: (id, datos) => api.put(`/reservas/${id}`, datos),
   cancelar: (id) => api.put(`/reservas/${id}/cancelar`),
   validarDisponibilidad: (datos) => api.post('/reservas/validar-disponibilidad', datos),
   
@@ -96,6 +97,7 @@ export const espaciosAPI = {
   // CONSULTAS
   obtenerTodos: () => api.get('/espacios'),
   obtenerPorId: (id) => api.get(`/espacios/${id}`),
+  obtenerRecursosDeEspacio: (espacioId) => api.get(`/espacios-recursos/${espacioId}/recursos`),
   obtenerRecursos: (espacioId) => api.get(`/espacios-recursos/${espacioId}/recursos`), // ← CAMBIADO
   crear: (datos) => api.post('/espacios', datos),
   actualizar: (id, datos) => api.put(`/espacios/${id}`, datos),
