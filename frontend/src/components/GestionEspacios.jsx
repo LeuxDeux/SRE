@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { espaciosAPI, recursosAPI, espaciosRecursosAPI } from '../services/api';
+import EspacioDetail from './EspacioDetail';
 import '../styles/GestionEspacios.css';
 
 const GestionEspacios = ({ onVolver }) => {
@@ -12,6 +13,7 @@ const GestionEspacios = ({ onVolver }) => {
     const [mostrarRecursos, setMostrarRecursos] = useState(null); // ID del espacio cuyos recursos se muestran
     const [recursosDelEspacio, setRecursosDelEspacio] = useState([]);
     const [asignandoRecursos, setAsignandoRecursos] = useState(null); // ID del espacio al que se asignan recursos
+    const [mostrarDetalles, setMostrarDetalles] = useState(null); // ID del espacio cuyos detalles se muestran
 
     const [formData, setFormData] = useState({
         nombre: '',
@@ -134,6 +136,7 @@ const GestionEspacios = ({ onVolver }) => {
         setMostrarFormulario(false);
         setMostrarRecursos(null);
         setAsignandoRecursos(null);
+        setMostrarDetalles(null);
     };
 
     const handleEditar = (espacio) => {
@@ -181,6 +184,13 @@ const GestionEspacios = ({ onVolver }) => {
     }
 
     return (
+        <>
+        {mostrarDetalles && (
+            <EspacioDetail 
+                espacioId={mostrarDetalles} 
+                onClose={() => setMostrarDetalles(null)}
+            />
+        )}
         <div className="gestion-espacios">
             {onVolver && (
                 <div className="modulo-header">
@@ -412,7 +422,7 @@ const GestionEspacios = ({ onVolver }) => {
                             <th>Ubicación</th>
                             <th>Estado</th>
                             <th>Aprobación</th>
-                            <th>Recursos</th>
+                            <th>Detalles</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
@@ -441,10 +451,14 @@ const GestionEspacios = ({ onVolver }) => {
                                 </td>
                                 <td>
                                     <button
-                                        onClick={() => handleVerRecursos(espacio)}
-                                        className="btn-recursos"
+                                        onClick={() => {
+                                            console.log('🔍 Abriendo detalles del espacio:', espacio.id);
+                                            setMostrarDetalles(espacio.id);
+                                        }}
+                                        className="btn-detalles"
+                                        title="Ver detalles completos y reservas"
                                     >
-                                        🎛️ Ver Recursos
+                                        👁️ Ver Detalles
                                     </button>
                                 </td>
                                 <td>
@@ -467,6 +481,7 @@ const GestionEspacios = ({ onVolver }) => {
                 </table>
             </div>
         </div>
+        </>
     );
 };
 
