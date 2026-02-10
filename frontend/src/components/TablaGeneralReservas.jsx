@@ -95,6 +95,61 @@ const TablaGeneralReservas = ({ onVolver, onReservaActualizada }) => {
         }
     };
 
+    // Estados para modal de detalles y edición
+    const [detalleReserva, setDetalleReserva] = useState(null);
+    const [editandoReserva, setEditandoReserva] = useState(null);
+    const [formEditada, setFormEditada] = useState({});
+
+    const handleVerDetalles = (reserva) => {
+        setDetalleReserva(reserva);
+    };
+
+    const handleEditarReserva = (reserva) => {
+        if (reserva.estado !== 'confirmada') {
+            alert('Solo se pueden editar reservas confirmadas');
+            return;
+        }
+        setEditandoReserva(reserva.id);
+        // Formatear fechas correctamente para los inputs (YYYY-MM-DD)
+        const fechaInicioFormato = reserva.fecha_inicio ? new Date(reserva.fecha_inicio).toISOString().split('T')[0] : '';
+        const fechaFinFormato = reserva.fecha_fin ? new Date(reserva.fecha_fin).toISOString().split('T')[0] : '';
+        
+        setFormEditada({
+            fecha_inicio: fechaInicioFormato,
+            fecha_fin: fechaFinFormato,
+            hora_inicio: reserva.hora_inicio || '',
+            hora_fin: reserva.hora_fin || '',
+            titulo: reserva.titulo || '',
+            descripcion: reserva.descripcion || ''
+        });
+    };
+
+    const handleGuardarEdicion = async () => {
+        try {
+            setLoading(true);
+            await reservasAPI.actualizar(editandoReserva, formEditada);
+            await cargarReservas();
+            setEditandoReserva(null);
+            setFormEditada({});
+            if (onReservaActualizada) {
+                onReservaActualizada();
+            }
+        } catch (err) {
+            console.error('Error actualizando reserva:', err);
+            setError('Error al actualizar la reserva');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        setFormEditada(prev => ({
+            ...prev,
+            [name]: value
+        }));
+    };
+
     if (loading) {
         return (
             <div className="loading-container">
@@ -216,10 +271,21 @@ const TablaGeneralReservas = ({ onVolver, onReservaActualizada }) => {
                                         <div className="acciones">
                                             <button 
                                                 className="btn-ver"
+                                                onClick={() => handleVerDetalles(reserva)}
                                                 title="Ver detalles"
                                             >
                                                 👁️
                                             </button>
+
+                                            {(reserva.creador_id === user.id || user.role === 'admin') && reserva.estado === 'confirmada' && (
+                                                <button 
+                                                    className="btn-editar"
+                                                    onClick={() => handleEditarReserva(reserva)}
+                                                    title="Editar reserva"
+                                                >
+                                                    ✏️
+                                                </button>
+                                            )}
                                             
                                             {puedeCancelar(reserva) && reserva.estado === 'pendiente' && (
                                                 <button 
@@ -266,6 +332,151 @@ const TablaGeneralReservas = ({ onVolver, onReservaActualizada }) => {
                     </tbody>
                 </table>
             </div>
+
+            {/* MODAL DE DETALLES */}
+            {detalleReserva && (
+                <div className="modal-overlay" onClick={() => setDetalleReserva(null)}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h2>📋 Detalles de Reserva</h2>
+                            <button onClick={() => setDetalleReserva(null)} className="btn-cerrar">✕</button>
+                        </div>
+                        <div className="modal-body">
+                            <div className="detalle-grid">
+                                <div className="detalle-item">
+                                    <strong>N° Reserva:</strong>
+                                    <span>{detalleReserva.numero_reserva}</span>
+                                </div>
+                                <div className="detalle-item">
+                                    <strong>Espacio:</strong>
+                                    <span>{detalleReserva.espacio_nombre}</span>
+                                </div>
+                                <div className="detalle-item">
+                                    <strong>Fecha Inicio:</strong>
+                                    <span>{moment(detalleReserva.fecha_inicio).format('DD/MM/YYYY')}</span>
+                                </div>
+                                <div className="detalle-item">
+                                    <strong>Hora Inicio:</strong>
+                                    <span>{detalleReserva.hora_inicio}</span>
+                                </div>
+                                <div className="detalle-item">
+                                    <strong>Fecha Fin:</strong>
+                                    <span>{moment(detalleReserva.fecha_fin).format('DD/MM/YYYY')}</span>
+                                </div>
+                                <div className="detalle-item">
+                                    <strong>Hora Fin:</strong>
+                                    <span>{detalleReserva.hora_fin}</span>
+                                </div>
+                                <div className="detalle-item">
+                                    <strong>Título:</strong>
+                                    <span>{detalleReserva.titulo || '-'}</span>
+                                </div>
+                                <div className="detalle-item">
+                                    <strong>Estado:</strong>
+                                    <span className={`estado-badge ${detalleReserva.estado}`}>{detalleReserva.estado}</span>
+                                </div>
+                                <div className="detalle-item">
+                                    <strong>Solicitante:</strong>
+                                    <span>{detalleReserva.usuario_nombre}</span>
+                                </div>
+                                <div className="detalle-item">
+                                    <strong>Participantes:</strong>
+                                    <span>{detalleReserva.cantidad_participantes || 1}</span>
+                                </div>
+                            </div>
+                            {detalleReserva.descripcion && (
+                                <div className="detalle-descripcion">
+                                    <strong>Descripción:</strong>
+                                    <p>{detalleReserva.descripcion}</p>
+                                </div>
+                            )}
+                        </div>
+                        <button onClick={() => setDetalleReserva(null)} className="btn-cerrar-modal">Cerrar</button>
+                    </div>
+                </div>
+            )}
+
+            {/* MODAL DE EDICIÓN */}
+            {editandoReserva && (
+                <div className="modal-overlay" onClick={() => setEditandoReserva(null)}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h2>✏️ Editar Reserva</h2>
+                            <button onClick={() => setEditandoReserva(null)} className="btn-cerrar">✕</button>
+                        </div>
+                        <div className="modal-body">
+                            <div className="form-group">
+                                <label>Fecha Inicio</label>
+                                <input
+                                    type="date"
+                                    name="fecha_inicio"
+                                    value={formEditada.fecha_inicio}
+                                    onChange={handleInputChange}
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Hora Inicio</label>
+                                <input
+                                    type="time"
+                                    name="hora_inicio"
+                                    value={formEditada.hora_inicio}
+                                    onChange={handleInputChange}
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Fecha Fin</label>
+                                <input
+                                    type="date"
+                                    name="fecha_fin"
+                                    value={formEditada.fecha_fin}
+                                    onChange={handleInputChange}
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Hora Fin</label>
+                                <input
+                                    type="time"
+                                    name="hora_fin"
+                                    value={formEditada.hora_fin}
+                                    onChange={handleInputChange}
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Título</label>
+                                <input
+                                    type="text"
+                                    name="titulo"
+                                    value={formEditada.titulo}
+                                    onChange={handleInputChange}
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Descripción</label>
+                                <textarea
+                                    name="descripcion"
+                                    value={formEditada.descripcion}
+                                    onChange={handleInputChange}
+                                    rows="4"
+                                />
+                            </div>
+                        </div>
+                        <div className="modal-footer">
+                            <button 
+                                onClick={handleGuardarEdicion} 
+                                className="btn-guardar"
+                            >
+                                💾 Guardar Cambios
+                            </button>
+                            <button 
+                                onClick={() => setEditandoReserva(null)} 
+                                className="btn-cancelar"
+                            >
+                                ✕ Cancelar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
