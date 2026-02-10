@@ -122,6 +122,14 @@
     cursor: help;
 }
 
+.titulo .recursos-badge {
+    margin-left: 8px;
+    color: #27ae60;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: help;
+}
+
 .tu-reserva {
     color: #3498db;
     font-weight: 600;
@@ -374,6 +382,43 @@
     word-wrap: break-word;
 }
 
+.detalle-recursos {
+    margin-top: 20px;
+    padding: 15px;
+    background: #f0f8ff;
+    border-radius: 8px;
+    border-left: 4px solid #27ae60;
+}
+
+.detalle-recursos strong {
+    color: #2c3e50;
+    display: block;
+    margin-bottom: 10px;
+}
+
+.detalle-recursos ul {
+    margin: 0;
+    padding-left: 20px;
+    color: #34495e;
+}
+
+.detalle-recursos li {
+    margin: 6px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.detalle-recursos .cantidad {
+    background: #27ae60;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 12px;
+    margin-left: 10px;
+}
+
 /* FORMULARIO EN MODAL */
 .form-group {
     margin-bottom: 18px;
@@ -393,7 +438,9 @@
 .form-group input[type="date"],
 .form-group input[type="time"],
 .form-group input[type="text"],
-.form-group textarea {
+.form-group input[type="number"],
+.form-group textarea,
+.form-group select {
     padding: 12px;
     border: 2px solid #ecf0f1;
     border-radius: 6px;
@@ -403,7 +450,8 @@
 }
 
 .form-group input:focus,
-.form-group textarea:focus {
+.form-group textarea:focus,
+.form-group select:focus {
     outline: none;
     border-color: #3498db;
     box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
@@ -412,6 +460,21 @@
 .form-group textarea {
     resize: vertical;
     min-height: 100px;
+}
+
+.form-group input[type="checkbox"] {
+    margin-right: 8px;
+    cursor: pointer;
+    accent-color: #3498db;
+}
+
+.form-group label {
+    display: flex;
+    align-items: center;
+}
+
+.form-group label input[type="checkbox"] {
+    margin: 0;
 }
 
 .modal-footer {

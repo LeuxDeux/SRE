@@ -109,7 +109,7 @@ const TablaGeneralReservas = ({ onVolver, onReservaActualizada }) => {
             alert('Solo se pueden editar reservas confirmadas');
             return;
         }
-        setEditandoReserva(reserva.id);
+        setEditandoReserva(reserva);
         // Formatear fechas correctamente para los inputs (YYYY-MM-DD)
         const fechaInicioFormato = reserva.fecha_inicio ? new Date(reserva.fecha_inicio).toISOString().split('T')[0] : '';
         const fechaFinFormato = reserva.fecha_fin ? new Date(reserva.fecha_fin).toISOString().split('T')[0] : '';
@@ -120,14 +120,19 @@ const TablaGeneralReservas = ({ onVolver, onReservaActualizada }) => {
             hora_inicio: reserva.hora_inicio || '',
             hora_fin: reserva.hora_fin || '',
             titulo: reserva.titulo || '',
-            descripcion: reserva.descripcion || ''
+            descripcion: reserva.descripcion || '',
+            motivo: reserva.motivo || 'reunion',
+            cantidad_participantes: reserva.cantidad_participantes || 1,
+            observaciones: reserva.observaciones || '',
+            participantes_email: reserva.participantes_email || '',
+            notificar_participantes: reserva.notificar_participantes || false
         });
     };
 
     const handleGuardarEdicion = async () => {
         try {
             setLoading(true);
-            await reservasAPI.actualizar(editandoReserva, formEditada);
+            await reservasAPI.actualizar(editandoReserva.id, formEditada);
             await cargarReservas();
             setEditandoReserva(null);
             setFormEditada({});
@@ -254,6 +259,9 @@ const TablaGeneralReservas = ({ onVolver, onReservaActualizada }) => {
                                         {reserva.titulo}
                                         {reserva.descripcion && (
                                             <small title={reserva.descripcion}>💬</small>
+                                        )}
+                                        {reserva.recursos && reserva.recursos.length > 0 && (
+                                            <small className="recursos-badge" title={`${reserva.recursos.length} recursos solicitados`}>📦</small>
                                         )}
                                     </td>
                                     <td>
@@ -390,6 +398,16 @@ const TablaGeneralReservas = ({ onVolver, onReservaActualizada }) => {
                                     <p>{detalleReserva.descripcion}</p>
                                 </div>
                             )}
+                            {detalleReserva.recursos && detalleReserva.recursos.length > 0 && (
+                                <div className="detalle-recursos">
+                                    <strong>📦 Recursos Solicitados:</strong>
+                                    <ul>
+                                        {detalleReserva.recursos.map((recurso, idx) => (
+                                            <li key={idx}>{recurso.nombre} <span className="cantidad">x{recurso.cantidad_solicitada}</span></li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
                         </div>
                         <button onClick={() => setDetalleReserva(null)} className="btn-cerrar-modal">Cerrar</button>
                     </div>
@@ -457,6 +475,66 @@ const TablaGeneralReservas = ({ onVolver, onReservaActualizada }) => {
                                     value={formEditada.descripcion}
                                     onChange={handleInputChange}
                                     rows="4"
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Motivo</label>
+                                <select
+                                    name="motivo"
+                                    value={formEditada.motivo || 'reunion'}
+                                    onChange={handleInputChange}
+                                >
+                                    <option value="clase">Clase</option>
+                                    <option value="reunion">Reunión</option>
+                                    <option value="evento">Evento</option>
+                                    <option value="examen">Examen</option>
+                                    <option value="capacitacion">Capacitación</option>
+                                    <option value="otro">Otro</option>
+                                </select>
+                            </div>
+                            <div className="form-group">
+                                <label>Cantidad de Participantes</label>
+                                <input
+                                    type="number"
+                                    name="cantidad_participantes"
+                                    value={formEditada.cantidad_participantes}
+                                    onChange={handleInputChange}
+                                    min="1"
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Correos de Participantes (separados por coma)</label>
+                                <textarea
+                                    name="participantes_email"
+                                    value={formEditada.participantes_email}
+                                    onChange={handleInputChange}
+                                    rows="2"
+                                    placeholder="usuario1@example.com, usuario2@example.com"
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>
+                                    <input
+                                        type="checkbox"
+                                        name="notificar_participantes"
+                                        checked={formEditada.notificar_participantes}
+                                        onChange={(e) => {
+                                            setFormEditada(prev => ({
+                                                ...prev,
+                                                notificar_participantes: e.target.checked
+                                            }));
+                                        }}
+                                    />
+                                    Notificar a participantes
+                                </label>
+                            </div>
+                            <div className="form-group">
+                                <label>Observaciones</label>
+                                <textarea
+                                    name="observaciones"
+                                    value={formEditada.observaciones}
+                                    onChange={handleInputChange}
+                                    rows="3"
                                 />
                             </div>
                         </div>
