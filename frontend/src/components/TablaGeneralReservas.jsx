@@ -56,6 +56,11 @@ const TablaGeneralReservas = ({ onVolver, onReservaActualizada }) => {
         return fechaInicio > hoy;
     };
 
+    // Verificar si una reserva está eliminada
+    const estaEliminada = (reserva) => {
+        return reserva.fecha_eliminacion !== null && reserva.fecha_eliminacion !== undefined;
+    };
+
     // Acciones
     const handleCancelar = async (reservaId) => {
         if (!window.confirm('¿Estás seguro de cancelar esta reserva?')) return;
@@ -258,7 +263,7 @@ const TablaGeneralReservas = ({ onVolver, onReservaActualizada }) => {
                     <tbody>
                         {reservasFiltradas.length > 0 ? (
                             reservasFiltradas.map(reserva => (
-                                <tr key={reserva.id} className={reserva.creador_id === user.id ? 'mi-reserva' : ''}>
+                                <tr key={reserva.id} className={`${reserva.creador_id === user.id ? 'mi-reserva' : ''} ${estaEliminada(reserva) ? 'eliminada' : ''}`}>
                                     <td className="numero-reserva">
                                         <strong>{reserva.numero_reserva}</strong>
                                     </td>
@@ -289,8 +294,8 @@ const TablaGeneralReservas = ({ onVolver, onReservaActualizada }) => {
                                         )}
                                     </td>
                                     <td>
-                                        <span className={`estado-badge ${reserva.estado}`}>
-                                            {reserva.estado}
+                                        <span className={`estado-badge ${estaEliminada(reserva) ? 'eliminada' : reserva.estado}`}>
+                                            {estaEliminada(reserva) ? 'eliminada' : reserva.estado}
                                         </span>
                                     </td>
                                     <td>
@@ -301,6 +306,9 @@ const TablaGeneralReservas = ({ onVolver, onReservaActualizada }) => {
                                     </td>
                                     <td>
                                         <div className="acciones">
+                                            {estaEliminada(reserva) && (
+                                                <span className="eliminada-badge" title="Esta reserva ha sido eliminada">🗑️ Eliminada</span>
+                                            )}
                                             <button 
                                                 className="btn-ver"
                                                 onClick={() => handleVerDetalles(reserva)}
@@ -309,7 +317,7 @@ const TablaGeneralReservas = ({ onVolver, onReservaActualizada }) => {
                                                 👁️
                                             </button>
 
-                                            {(reserva.creador_id === user.id || user.role === 'admin') && reserva.estado === 'confirmada' && (
+                                            {(reserva.creador_id === user.id || user.role === 'admin') && reserva.estado === 'confirmada' && !estaEliminada(reserva) && (
                                                 <button 
                                                     className="btn-editar"
                                                     onClick={() => handleEditarReserva(reserva)}
@@ -319,7 +327,7 @@ const TablaGeneralReservas = ({ onVolver, onReservaActualizada }) => {
                                                 </button>
                                             )}
 
-                                            {(reserva.creador_id === user.id || user.role === 'admin') && esReservaFutura(reserva) && (
+                                            {(reserva.creador_id === user.id || user.role === 'admin') && esReservaFutura(reserva) && !estaEliminada(reserva) && (
                                                 <button 
                                                     className="btn-eliminar"
                                                     onClick={() => handleEliminar(reserva.id)}

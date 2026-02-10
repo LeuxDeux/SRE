@@ -87,7 +87,6 @@ const reservasController = {
                 FROM reservas r 
                 JOIN espacios e ON r.espacio_id = e.id 
                 JOIN usuarios u ON r.usuario_id = u.id 
-                WHERE r.fecha_eliminacion IS NULL
                 ORDER BY r.fecha_solicitud DESC 
                 LIMIT 50`
             );

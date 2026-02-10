@@ -97,6 +97,16 @@
     background-color: #d4e6f1;
 }
 
+.reservas-table tr.eliminada {
+    background-color: #f5f5f5;
+    opacity: 0.7;
+}
+
+.reservas-table tr.eliminada:hover {
+    background-color: #efefef;
+    opacity: 0.85;
+}
+
 /* ESTILOS DE CELDAS */
 .numero-reserva {
     font-family: 'Courier New', monospace;
@@ -136,6 +146,17 @@
     margin-left: 5px;
 }
 
+.eliminada-badge {
+    display: inline-block;
+    padding: 6px 10px;
+    background-color: #e9ecef;
+    color: #495057;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: line-through;
+}
+
 /* ESTADOS */
 .estado-badge {
     padding: 6px 12px;
@@ -168,6 +189,12 @@
 .estado-badge.completada {
     background: #d1ecf1;
     color: #0c5460;
+}
+
+.estado-badge.eliminada {
+    background: #e9ecef;
+    color: #495057;
+    text-decoration: line-through;
 }
 
 /* ACCIONES */
