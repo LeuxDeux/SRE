@@ -1,5 +1,5 @@
 const db = require('../config/database');
-const { enviarCorreoReserva } = require('../utils/emailService');
+const { enviarCorreoReserva, enviarCorreoEdicionReserva } = require('../utils/emailService');
 
 const generarNumeroReserva = async () => {
     const year = new Date().getFullYear();
@@ -10,6 +10,23 @@ const generarNumeroReserva = async () => {
     const numero = result[0].total + 1;
     return `RES-${year}-${numero.toString().padStart(3, '0')}`;
 };
+
+// Función helper para guardar historial de cambios
+const guardarHistorialReserva = async (reservaId, datosAnteriores, tipoChangio = 'edicion', realizadoPor, observaciones = null) => {
+    try {
+        await db.execute(
+            `INSERT INTO reservas_historial 
+            (reserva_id, datos_anteriores, tipo_cambio, realizado_por, observaciones)
+            VALUES (?, ?, ?, ?, ?)`,
+            [reservaId, JSON.stringify(datosAnteriores), tipoChangio, realizadoPor, observaciones]
+        );
+        console.log(`✅ Historial guardado para reserva ${reservaId}`);
+    } catch (error) {
+        console.error(`⚠️ Error guardando historial: ${error.message}`);
+        // No lanzar error, solo log
+    }
+};
+
 const reservasController = {
     // Validar disponibilidad de un espacio en una franja horaria
     validarDisponibilidad: async (req, res) => {
@@ -73,7 +90,27 @@ const reservasController = {
                 ORDER BY r.fecha_solicitud DESC 
                 LIMIT 50`
             );
-            res.json(reservas);
+
+            // Obtener recursos para cada reserva
+            const reservasConRecursos = await Promise.all(
+                reservas.map(async (reserva) => {
+                    const [recursos] = await db.execute(
+                        `SELECT rr.id, rr.cantidad_solicitada, rr.observaciones,
+                                r.id as recurso_id, r.nombre as nombre
+                        FROM reservas_recursos rr
+                        LEFT JOIN recursos r ON rr.recurso_id = r.id
+                        WHERE rr.reserva_id = ?
+                        ORDER BY r.nombre ASC`,
+                        [reserva.id]
+                    );
+                    return {
+                        ...reserva,
+                        recursos: recursos || []
+                    };
+                })
+            );
+
+            res.json(reservasConRecursos);
         } catch (error) {
             console.error('Error obteniendo reservas:', error);
             res.status(500).json({ error: 'Error interno del servidor' });
@@ -599,12 +636,23 @@ crearReserva: async (req, res) => {
     actualizar: async (req, res) => {
         try {
             const { id } = req.params;
-            const { fecha_inicio, fecha_fin, hora_inicio, hora_fin, titulo, descripcion } = req.body;
+            const { fecha_inicio, fecha_fin, hora_inicio, hora_fin, titulo, descripcion, 
+                    motivo, cantidad_participantes, observaciones, participantes_email, 
+                    notificar_participantes } = req.body;
             const usuario_id = req.user.id;
 
             // Verificar que la reserva existe y obtener datos
             const [reservas] = await db.execute(
-                'SELECT * FROM reservas WHERE id = ?',
+                `SELECT r.*,
+                        DATE_FORMAT(r.fecha_inicio, '%Y-%m-%d') as fecha_inicio_fmt,
+                        DATE_FORMAT(r.fecha_fin, '%Y-%m-%d') as fecha_fin_fmt,
+                        e.nombre as espacio_nombre,
+                        u.nombre_completo as usuario_nombre,
+                        u.email as usuario_email
+                 FROM reservas r
+                 LEFT JOIN espacios e ON r.espacio_id = e.id
+                 LEFT JOIN usuarios u ON r.usuario_id = u.id
+                 WHERE r.id = ?`,
                 [id]
             );
 
@@ -616,6 +664,10 @@ crearReserva: async (req, res) => {
             }
 
             const reserva = reservas[0];
+            
+            // Usar las fechas formateadas para evitar problemas de zona horaria
+            reserva.fecha_inicio = reserva.fecha_inicio_fmt;
+            reserva.fecha_fin = reserva.fecha_fin_fmt;
 
             // Solo el creador o admin puede editar
             if (reserva.usuario_id !== usuario_id && req.user.role !== 'admin') {
@@ -659,14 +711,115 @@ crearReserva: async (req, res) => {
                 });
             }
 
+            // ============================================
+            // 📝 GUARDAR HISTORIAL ANTES DE ACTUALIZAR
+            // ============================================
+            // Normalizar fechas a formato YYYY-MM-DD antes de guardar historial
+            const normalizarFecha = (fecha) => {
+                if (!fecha) return null;
+                // Si ya está en formato YYYY-MM-DD, retornar tal cual
+                if (typeof fecha === 'string' && !fecha.includes('T')) {
+                    return fecha;
+                }
+                // Si es formato ISO (2026-02-13T03:00:00.000Z), extraer solo la fecha
+                if (typeof fecha === 'string' && fecha.includes('T')) {
+                    return fecha.split('T')[0];
+                }
+                // Si es Date object
+                if (fecha instanceof Date) {
+                    return fecha.toISOString().split('T')[0];
+                }
+                return fecha;
+            };
+
+            const datosAnteriores = {
+                fecha_inicio: normalizarFecha(reserva.fecha_inicio),
+                hora_inicio: reserva.hora_inicio,
+                fecha_fin: normalizarFecha(reserva.fecha_fin),
+                hora_fin: reserva.hora_fin,
+                titulo: reserva.titulo,
+                descripcion: reserva.descripcion,
+                cantidad_participantes: reserva.cantidad_participantes,
+                motivo: reserva.motivo
+            };
+
+            await guardarHistorialReserva(
+                id,
+                datosAnteriores,
+                'edicion',
+                req.user.id,
+                `Editada por ${req.user.nombre_completo || req.user.username}`
+            );
+
             // Actualizar la reserva
             await db.execute(
                 `UPDATE reservas 
                  SET fecha_inicio = ?, fecha_fin = ?, hora_inicio = ?, hora_fin = ?, 
-                     titulo = ?, descripcion = ?, ultima_modificacion = NOW()
+                     titulo = ?, descripcion = ?, motivo = ?, cantidad_participantes = ?,
+                     observaciones = ?, participantes_email = ?, notificar_participantes = ?
                  WHERE id = ?`,
-                [fecha_inicio, fecha_fin, hora_inicio, hora_fin, titulo, descripcion, id]
+                [fecha_inicio, fecha_fin, hora_inicio, hora_fin, titulo, descripcion, 
+                 motivo, cantidad_participantes, observaciones, participantes_email, 
+                 notificar_participantes, id]
             );
+
+            // ============================================
+            // 📧 ENVIAR CORREO DE EDICIÓN (asincronamente)
+            // ============================================
+            // Obtener recursos de la reserva
+            const [recursos] = await db.execute(
+                `SELECT rr.id, rr.cantidad_solicitada, rr.observaciones,
+                        r.id as recurso_id, r.nombre
+                FROM reservas_recursos rr
+                LEFT JOIN recursos r ON rr.recurso_id = r.id
+                WHERE rr.reserva_id = ?
+                ORDER BY r.nombre ASC`,
+                [id]
+            );
+
+            // Preparar objeto de reserva actualizada para envío de correo
+            const reservaActualizada = {
+                ...reserva,
+                fecha_inicio,
+                fecha_fin,
+                hora_inicio,
+                hora_fin,
+                titulo,
+                descripcion,
+                cantidad_participantes,
+                motivo,
+                observaciones,
+                participantes_email,
+                notificar_participantes,
+                recursos: recursos || []
+            };
+
+            // Construir lista de destinatarios
+            let emailDestinos = [];
+            
+            if (process.env.CORREOS_NOTIFICACION_RESERVA) {
+                const correosEnv = process.env.CORREOS_NOTIFICACION_RESERVA
+                    .split(',')
+                    .map(e => e.trim())
+                    .filter(e => e.length > 0);
+                emailDestinos = [...emailDestinos, ...correosEnv];
+            }
+            
+            if (reservaActualizada.usuario_email && !emailDestinos.includes(reservaActualizada.usuario_email)) {
+                emailDestinos.push(reservaActualizada.usuario_email);
+            }
+
+            // Enviar correo sin bloquear la respuesta
+            if (emailDestinos.length > 0) {
+                enviarCorreoEdicionReserva(
+                    reservaActualizada,
+                    datosAnteriores,
+                    emailDestinos,
+                    req.user.nombre_completo || req.user.username
+                ).catch(err => {
+                    console.error('⚠️ Error enviando correo de edición:', err.message);
+                });
+            }
 
             res.json({
                 success: true,

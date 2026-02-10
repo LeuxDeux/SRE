@@ -596,8 +596,189 @@ const enviarCorreoReserva = async (reserva, correosDestino, tipoAccion = 'creada
   }
 };
 
+const enviarCorreoEdicionReserva = async (reserva, datosAnteriores, correosDestino, editadoPor) => {
+  try {
+    // Convertir a array si viene string
+    const listaCorreos = Array.isArray(correosDestino) 
+      ? correosDestino.filter(c => c && c.length > 0) 
+      : [correosDestino];
+
+    console.log(`📧 Preparando envío de correo de EDICIÓN de reserva a: ${listaCorreos.join(', ')}`);
+
+    // Función para parsear fechas YYYY-MM-DD sin problemas de zona horaria
+    const formatearFechaLocal = (fechaStr) => {
+      if (!fechaStr) return '--/--/----';
+      // Parseamos la fecha manualmente para evitar problemas de UTC
+      const [año, mes, día] = fechaStr.split('-');
+      const date = new Date(parseInt(año), parseInt(mes) - 1, parseInt(día));
+      return date.toLocaleDateString('es-ES');
+    };
+
+    // Formatear fechas sin problemas de zona horaria
+    const fechaInicio = formatearFechaLocal(reserva.fecha_inicio);
+    const fechaFin = formatearFechaLocal(reserva.fecha_fin);
+    const horaInicio = reserva.hora_inicio ? reserva.hora_inicio.substring(0, 5) : '--:--';
+    const horaFin = reserva.hora_fin ? reserva.hora_fin.substring(0, 5) : '--:--';
+
+    // Determinar el rango de fechas
+    const rangoFechas = fechaInicio === fechaFin 
+      ? fechaInicio 
+      : `${fechaInicio} al ${fechaFin}`;
+
+    // Identificar cambios
+    const cambios = [];
+    
+    // Normalizar fechas para comparación correcta (por si acaso)
+    const normalizarFecha = (fecha) => {
+      if (!fecha) return null;
+      if (typeof fecha === 'string' && fecha.includes('T')) {
+        return fecha.split('T')[0];
+      }
+      return fecha;
+    };
+    
+    const fechaInicio_ant = normalizarFecha(datosAnteriores.fecha_inicio);
+    const fechaFin_ant = normalizarFecha(datosAnteriores.fecha_fin);
+    
+    if (fechaInicio_ant !== reserva.fecha_inicio || datosAnteriores.hora_inicio !== reserva.hora_inicio) {
+      const fechaInicioAnterior = formatearFechaLocal(fechaInicio_ant);
+      cambios.push(`Fecha/Hora inicio: ${fechaInicioAnterior} ${datosAnteriores.hora_inicio} → ${fechaInicio} ${horaInicio}`);
+    }
+    if (fechaFin_ant !== reserva.fecha_fin || datosAnteriores.hora_fin !== reserva.hora_fin) {
+      const fechaFinAnterior = formatearFechaLocal(fechaFin_ant);
+      cambios.push(`Fecha/Hora fin: ${fechaFinAnterior} ${datosAnteriores.hora_fin} → ${fechaFin} ${horaFin}`);
+    }
+    if (datosAnteriores.titulo !== reserva.titulo) {
+      cambios.push(`Título: "${datosAnteriores.titulo}" → "${reserva.titulo}"`);
+    }
+    if (datosAnteriores.descripcion !== reserva.descripcion) {
+      cambios.push(`Descripción: Actualizada`);
+    }
+    if (datosAnteriores.cantidad_participantes !== reserva.cantidad_participantes) {
+      cambios.push(`Participantes: ${datosAnteriores.cantidad_participantes} → ${reserva.cantidad_participantes}`);
+    }
+    if (datosAnteriores.motivo !== reserva.motivo) {
+      cambios.push(`Motivo: ${datosAnteriores.motivo} → ${reserva.motivo}`);
+    }
+
+    const info = await transporter.sendMail({
+      from: `"${process.env.EMAIL_FROM_NAME}" <${process.env.EMAIL_USER}>`,
+      to: listaCorreos.join(', '),
+      subject: `Reserva Modificada: ${reserva.espacio_nombre}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
+            <h2 style="color: #f39c12; margin-top: 0; font-size: 18px;">
+              🔄 Reserva Modificada
+            </h2>
+            
+            <p style="color: #666; font-size: 14px; margin: 10px 0;">
+              La reserva ha sido editada por <strong>${editadoPor}</strong>. A continuación se detallan los cambios realizados y los datos actuales de la reserva.
+            </p>
+
+            <!-- TARJETA PRINCIPAL DE INFORMACIÓN -->
+            <div style="background-color: white; padding: 20px; border-left: 5px solid #f39c12; margin: 20px 0; border-radius: 4px;">
+              
+              <h3 style="margin: 0 0 15px 0; color: #f39c12; font-size: 16px;">
+                📋 ${reserva.titulo}
+              </h3>
+
+              <!-- CAMBIOS REALIZADOS -->
+              <div style="background-color: #fff3cd; padding: 15px; border-radius: 4px; margin-bottom: 15px; border-left: 4px solid #f39c12;">
+                <p style="margin: 0 0 10px 0; font-weight: bold; color: #856404; font-size: 13px;">Cambios realizados:</p>
+                <ul style="margin: 0; padding-left: 20px; color: #666; font-size: 13px;">
+                  ${cambios.map(cambio => `<li style="margin-bottom: 5px;">${cambio}</li>`).join('')}
+                </ul>
+                <p style="margin: 10px 0 0 0; font-size: 12px; color: #666;">
+                  <strong>Editado por:</strong> ${editadoPor}
+                </p>
+              </div>
+
+              <!-- DATOS ACTUALES -->
+              <div style="background-color: #f5f5f5; padding: 15px; border-radius: 4px; margin-bottom: 15px;">
+                <p style="margin: 0 0 10px 0; font-weight: bold; color: #333; font-size: 13px;">Datos actuales de la reserva:</p>
+                <table style="width: 100%; font-size: 14px; line-height: 1.8;">
+                  <tr>
+                    <td style="font-weight: bold; color: #333; width: 40%;"><strong>📍 Espacio:</strong></td>
+                    <td style="color: #555;">${reserva.espacio_nombre || 'N/A'}</td>
+                  </tr>
+                  <tr>
+                    <td style="font-weight: bold; color: #333;"><strong>📅 Fecha:</strong></td>
+                    <td style="color: #555;">${rangoFechas}</td>
+                  </tr>
+                  <tr>
+                    <td style="font-weight: bold; color: #333;"><strong>🕐 Hora:</strong></td>
+                    <td style="color: #555;">${horaInicio} - ${horaFin}</td>
+                  </tr>
+                  <tr>
+                    <td style="font-weight: bold; color: #333;"><strong>📌 Número:</strong></td>
+                    <td style="color: #555; font-family: 'Courier New', monospace;">${reserva.numero_reserva || 'N/A'}</td>
+                  </tr>
+                  <tr style="border-top: 1px solid #ddd;">
+                    <td style="font-weight: bold; color: #333;"><strong>Estado:</strong></td>
+                    <td style="color: #27ae60; font-weight: bold;">✅ Confirmada</td>
+                  </tr>
+                </table>
+              </div>
+
+              <!-- SECCIÓN DE RECURSOS -->
+              ${reserva.recursos && reserva.recursos.length > 0 ? `
+              <div style="margin-bottom: 15px;">
+                <p style="margin: 0 0 8px 0; font-weight: bold; color: #333; font-size: 12px;">🎛️ Recursos solicitados:</p>
+                <div style="background-color: #f0f7ff; padding: 10px; border-left: 3px solid #3498db; border-radius: 3px;">
+                  <ul style="margin: 0; padding-left: 20px; color: #555; font-size: 13px;">
+                    ${reserva.recursos.map(r => `
+                      <li style="margin-bottom: 5px;">
+                        <strong>${r.nombre}</strong> - Cantidad: ${r.cantidad_solicitada}${r.observaciones ? ` (${r.observaciones})` : ''}
+                      </li>
+                    `).join('')}
+                  </ul>
+                </div>
+              </div>
+              ` : ''}
+
+              ${reserva.descripcion ? `
+              <div style="margin-bottom: 15px;">
+                <p style="margin: 0 0 5px 0; font-weight: bold; color: #333; font-size: 12px;">📝 Descripción:</p>
+                <p style="margin: 0; color: #666; font-size: 13px; padding: 10px; background-color: #f9f9f9; border-radius: 3px;">
+                  ${reserva.descripcion}
+                </p>
+              </div>
+              ` : ''}
+
+            </div>
+
+            <!-- INFORMACIÓN DE SOLICITANTE -->
+            <div style="background-color: #e8f4fd; padding: 15px; border-radius: 4px; margin-bottom: 15px; font-size: 13px;">
+              <p style="margin: 0 0 8px 0;"><strong>👤 Solicitante:</strong> ${reserva.usuario_nombre || 'N/A'}</p>
+              ${reserva.usuario_email ? `<p style="margin: 0;"><strong>📧 Email:</strong> ${reserva.usuario_email}</p>` : ''}
+            </div>
+
+            <!-- PIE DE PÁGINA -->
+            <div style="background-color: #e7f3ff; padding: 12px; border-radius: 4px; margin-top: 20px;">
+              <p style="margin: 0; color: #004085; font-size: 11px; text-align: center;">
+                <strong>Sistema de Reserva de Espacios (SRE)</strong><br/>
+                Este es un correo automático del sistema. No responda a este correo.
+              </p>
+            </div>
+
+          </div>
+        </div>
+      `
+    });
+
+    console.log(`✅ Correo de edición enviado a ${listaCorreos.join(', ')}`);
+    return info;
+
+  } catch (error) {
+    console.error('❌ Error enviando correo de edición:', error);
+    throw new Error(`Error al enviar correo de edición: ${error.message}`);
+  }
+};
+
 module.exports = {
   enviarPDFPorCorreo,
   generarPDFBuffer,
-  enviarCorreoReserva
+  enviarCorreoReserva,
+  enviarCorreoEdicionReserva
 };
