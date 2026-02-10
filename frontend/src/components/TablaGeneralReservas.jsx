@@ -48,6 +48,14 @@ const TablaGeneralReservas = ({ onVolver, onReservaActualizada }) => {
        (reserva.requiere_aprobacion === 1 || reserva.requiere_aprobacion === true);
     };
 
+    // Verificar si una reserva es futura (puede ser eliminada)
+    const esReservaFutura = (reserva) => {
+        const hoy = new Date();
+        hoy.setHours(0, 0, 0, 0);
+        const fechaInicio = new Date(reserva.fecha_inicio);
+        return fechaInicio > hoy;
+    };
+
     // Acciones
     const handleCancelar = async (reservaId) => {
         if (!window.confirm('¿Estás seguro de cancelar esta reserva?')) return;
@@ -92,6 +100,22 @@ const TablaGeneralReservas = ({ onVolver, onReservaActualizada }) => {
         } catch (err) {
             console.error('Error rechazando reserva:', err);
             setError('Error al rechazar la reserva');
+        }
+    };
+
+    const handleEliminar = async (reservaId) => {
+        if (!window.confirm('¿Estás seguro de que deseas eliminar esta reserva? Esta acción no se puede deshacer.')) return;
+        
+        try {
+            await reservasAPI.eliminar(reservaId);
+            await cargarReservas(); // Recargar lista
+
+            if (onReservaActualizada) {
+                onReservaActualizada();
+            }
+        } catch (err) {
+            console.error('Error eliminando reserva:', err);
+            setError('Error al eliminar la reserva');
         }
     };
 
@@ -292,6 +316,16 @@ const TablaGeneralReservas = ({ onVolver, onReservaActualizada }) => {
                                                     title="Editar reserva"
                                                 >
                                                     ✏️
+                                                </button>
+                                            )}
+
+                                            {(reserva.creador_id === user.id || user.role === 'admin') && esReservaFutura(reserva) && (
+                                                <button 
+                                                    className="btn-eliminar"
+                                                    onClick={() => handleEliminar(reserva.id)}
+                                                    title="Eliminar reserva"
+                                                >
+                                                    🗑️
                                                 </button>
                                             )}
                                             

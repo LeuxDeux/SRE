@@ -249,6 +249,7 @@ CREATE TABLE `reservas` (
   `notificar_participantes` tinyint(1) DEFAULT '0',
   `participantes_email` text,
   `observaciones` text,
+  `fecha_eliminacion` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `numero_reserva` (`numero_reserva`),
   KEY `aprobador_id` (`aprobador_id`),
@@ -257,6 +258,7 @@ CREATE TABLE `reservas` (
   KEY `idx_usuario` (`usuario_id`),
   KEY `idx_creador` (`creador_id`),
   KEY `idx_fecha_solicitud` (`fecha_solicitud`),
+  KEY `idx_fecha_eliminacion` (`fecha_eliminacion`),
   CONSTRAINT `reservas_ibfk_1` FOREIGN KEY (`usuario_id`) REFERENCES `usuarios` (`id`),
   CONSTRAINT `reservas_ibfk_2` FOREIGN KEY (`espacio_id`) REFERENCES `espacios` (`id`),
   CONSTRAINT `reservas_ibfk_3` FOREIGN KEY (`creador_id`) REFERENCES `usuarios` (`id`),
@@ -296,6 +298,29 @@ CREATE TABLE `reservas_recursos` (
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET @OLD_SQL_NOTES=@OLD_SQL_NOTES */;
+
+--
+-- Table: reservas_historial
+-- Audit trail for reservation changes
+--
+DROP TABLE IF EXISTS `reservas_historial`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `reservas_historial` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `reserva_id` int NOT NULL,
+  `datos_anteriores` json NOT NULL,
+  `tipo_cambio` enum('creacion','edicion','aprobacion','rechazo','cancelacion') DEFAULT 'edicion',
+  `realizado_por` int NOT NULL,
+  `observaciones` text,
+  `fecha_cambio` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `reserva_id` (`reserva_id`),
+  KEY `realizado_por` (`realizado_por`),
+  CONSTRAINT `reservas_historial_ibfk_1` FOREIGN KEY (`reserva_id`) REFERENCES `reservas` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `reservas_historial_ibfk_2` FOREIGN KEY (`realizado_por`) REFERENCES `usuarios` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
 -- ========================================
 -- INSTRUCTIONS FOR VPS DEPLOYMENT

@@ -211,6 +211,11 @@
     color: white;
 }
 
+.btn-eliminar {
+    background: #c0392b;
+    color: white;
+}
+
 .acciones button:hover {
     transform: translateY(-1px);
     opacity: 0.9;

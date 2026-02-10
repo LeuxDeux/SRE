@@ -12,6 +12,7 @@ router.get('/:id', authMiddleware, reservasController.obtenerReservaPorId);
 router.post('/', authMiddleware, reservasController.crearReserva);
 router.put('/:id', authMiddleware, reservasController.actualizar);
 router.put('/:id/cancelar', authMiddleware, reservasController.cancelarReserva);
+router.delete('/:id', authMiddleware, reservasController.eliminarReserva);
 router.put('/:id/aprobar', authMiddleware, reservasController.aprobarReserva);
 router.put('/:id/rechazar', authMiddleware, reservasController.rechazarReserva);
 

@@ -81,6 +81,7 @@ export const reservasAPI = {
   crear: (datos) => api.post('/reservas', datos),
   actualizar: (id, datos) => api.put(`/reservas/${id}`, datos),
   cancelar: (id) => api.put(`/reservas/${id}/cancelar`),
+  eliminar: (id) => api.delete(`/reservas/${id}`),
   validarDisponibilidad: (datos) => api.post('/reservas/validar-disponibilidad', datos),
   
   // ESPACIOS Y RECURSOS  

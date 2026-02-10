@@ -87,6 +87,7 @@ const reservasController = {
                 FROM reservas r 
                 JOIN espacios e ON r.espacio_id = e.id 
                 JOIN usuarios u ON r.usuario_id = u.id 
+                WHERE r.fecha_eliminacion IS NULL
                 ORDER BY r.fecha_solicitud DESC 
                 LIMIT 50`
             );
@@ -357,6 +358,83 @@ crearReserva: async (req, res) => {
             });
         }
     },
+
+    // Eliminar reserva (baja lógica - soft delete)
+    eliminarReserva: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const usuarioId = req.user.id;
+            const usuarioRole = req.user.role;
+
+            // Verificar que la reserva existe
+            const [reservas] = await db.execute(
+                `SELECT * FROM reservas WHERE id = ? AND fecha_eliminacion IS NULL`,
+                [id]
+            );
+
+            if (reservas.length === 0) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Reserva no encontrada o ya eliminada'
+                });
+            }
+
+            const reserva = reservas[0];
+
+            // Verificar permisos: admin puede eliminar cualquier reserva, usuario solo las propias
+            if (usuarioRole !== 'admin' && reserva.creador_id !== usuarioId) {
+                return res.status(403).json({
+                    success: false,
+                    error: 'No tienes permiso para eliminar esta reserva'
+                });
+            }
+
+            // Validar que la reserva es futura (no se puede eliminar reservas pasadas)
+            const hoy = new Date();
+            const fechaInicio = new Date(reserva.fecha_inicio);
+            if (fechaInicio <= hoy) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'No se pueden eliminar reservas de fechas pasadas o de hoy'
+                });
+            }
+
+            // Obtener datos anteriores para historial
+            const datosAnteriores = {
+                estado_anterior: reserva.estado,
+                fecha_inicio: new Date(reserva.fecha_inicio).toISOString().split('T')[0],
+                titulo: reserva.titulo
+            };
+
+            // Realizar soft delete - marcar con fecha_eliminacion
+            await db.execute(
+                `UPDATE reservas SET fecha_eliminacion = NOW() WHERE id = ?`,
+                [id]
+            );
+
+            // Guardar en historial
+            await guardarHistorialReserva(
+                id,
+                datosAnteriores,
+                'eliminacion',
+                usuarioId,
+                'Reserva eliminada por el usuario'
+            );
+
+            res.json({
+                success: true,
+                mensaje: 'Reserva eliminada exitosamente'
+            });
+
+        } catch (error) {
+            console.error('Error eliminando reserva:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Error interno del servidor'
+            });
+        }
+    },
+
     aprobarReserva: async (req, res) => {
         try {
             const { id } = req.params;
