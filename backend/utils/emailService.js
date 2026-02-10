@@ -776,9 +776,102 @@ const enviarCorreoEdicionReserva = async (reserva, datosAnteriores, correosDesti
   }
 };
 
+// Enviar correo de cancelación de reserva
+const enviarCorreoCancelacionReserva = async (reserva, correosDestino) => {
+  try {
+    // Convertir a array si viene string
+    const listaCorreos = Array.isArray(correosDestino) 
+      ? correosDestino.filter(c => c && c.length > 0) 
+      : [correosDestino];
+
+    console.log(`📧 Preparando envío de correo de cancelación a: ${listaCorreos.join(', ')}`);
+
+    // Formatear fechas
+    const fechaInicio = new Date(reserva.fecha_inicio).toLocaleDateString('es-ES');
+    const fechaFin = new Date(reserva.fecha_fin).toLocaleDateString('es-ES');
+    const horaInicio = reserva.hora_inicio ? reserva.hora_inicio.substring(0, 5) : '--:--';
+    const horaFin = reserva.hora_fin ? reserva.hora_fin.substring(0, 5) : '--:--';
+
+    // Determinar el rango de fechas
+    const rangoFechas = fechaInicio === fechaFin 
+      ? fechaInicio 
+      : `${fechaInicio} al ${fechaFin}`;
+
+    const info = await transporter.sendMail({
+      from: `"${process.env.EMAIL_FROM_NAME}" <${process.env.EMAIL_USER}>`,
+      to: listaCorreos.join(', '),
+      subject: `Cancelación de Reserva: ${reserva.numero_reserva} - ${reserva.espacio_nombre}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
+            <h2 style="color: #c0392b; margin-top: 0; font-size: 18px;">
+              🗑️ Reserva Cancelada
+            </h2>
+            
+            <p style="color: #666; font-size: 14px; margin: 10px 0;">
+              La siguiente reserva ha sido cancelada:
+            </p>
+
+            <!-- TARJETA PRINCIPAL DE INFORMACIÓN -->
+            <div style="background-color: white; padding: 20px; border-left: 5px solid #c0392b; margin: 20px 0; border-radius: 4px;">
+              
+              <h3 style="margin: 0 0 15px 0; color: #c0392b; font-size: 16px;">
+                📋 ${reserva.titulo}
+              </h3>
+
+              <div style="background-color: #f5f5f5; padding: 15px; border-radius: 4px; margin-bottom: 15px;">
+                <table style="width: 100%; font-size: 14px; line-height: 1.8;">
+                  <tr>
+                    <td style="font-weight: bold; color: #333; width: 40%;"><strong>Número de Reserva:</strong></td>
+                    <td style="color: #555; font-family: 'Courier New', monospace;">${reserva.numero_reserva || 'N/A'}</td>
+                  </tr>
+                  <tr>
+                    <td style="font-weight: bold; color: #333;"><strong>📍 Espacio:</strong></td>
+                    <td style="color: #555;">${reserva.espacio_nombre || 'N/A'}</td>
+                  </tr>
+                  <tr>
+                    <td style="font-weight: bold; color: #333;"><strong>📅 Fecha:</strong></td>
+                    <td style="color: #555;">${rangoFechas}</td>
+                  </tr>
+                  <tr>
+                    <td style="font-weight: bold; color: #333;"><strong>🕐 Hora:</strong></td>
+                    <td style="color: #555;">${horaInicio} - ${horaFin}</td>
+                  </tr>
+                  <tr style="border-top: 1px solid #ddd; padding-top: 10px;">
+                    <td style="font-weight: bold; color: #c0392b;"><strong>Estado:</strong></td>
+                    <td style="color: #c0392b; font-weight: bold;">
+                      ❌ Cancelada
+                    </td>
+                  </tr>
+                </table>
+              </div>
+
+              <p style="color: #666; font-size: 13px; margin-top: 15px;">
+                Si tienes consultas sobre esta cancelación, contacta con el área de administración.
+              </p>
+            </div>
+
+            <p style="color: #999; font-size: 12px; margin-top: 20px; text-align: center;">
+              Sistema de Reserva de Espacios - UTN Facultad Regional Resistencia
+            </p>
+          </div>
+        </div>
+      `
+    });
+
+    console.log(`✅ Correo de cancelación enviado a ${listaCorreos.join(', ')}`);
+    return info;
+
+  } catch (error) {
+    console.error('❌ Error enviando correo de cancelación:', error);
+    throw new Error(`Error al enviar correo de cancelación: ${error.message}`);
+  }
+};
+
 module.exports = {
   enviarPDFPorCorreo,
   generarPDFBuffer,
   enviarCorreoReserva,
-  enviarCorreoEdicionReserva
+  enviarCorreoEdicionReserva,
+  enviarCorreoCancelacionReserva
 };

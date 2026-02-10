@@ -1,5 +1,5 @@
 const db = require('../config/database');
-const { enviarCorreoReserva, enviarCorreoEdicionReserva } = require('../utils/emailService');
+const { enviarCorreoReserva, enviarCorreoEdicionReserva, enviarCorreoCancelacionReserva } = require('../utils/emailService');
 
 const generarNumeroReserva = async () => {
     const year = new Date().getFullYear();
@@ -309,7 +309,11 @@ crearReserva: async (req, res) => {
 
             // Verificar que la reserva existe
             const [reservas] = await db.execute(
-                `SELECT * FROM reservas WHERE id = ?`,
+                `SELECT r.*, e.nombre as espacio_nombre, u.nombre_completo as usuario_nombre, u.email as usuario_email
+                FROM reservas r
+                JOIN espacios e ON r.espacio_id = e.id
+                JOIN usuarios u ON r.usuario_id = u.id
+                WHERE r.id = ?`,
                 [id]
             );
 
@@ -343,6 +347,48 @@ crearReserva: async (req, res) => {
                 `UPDATE reservas SET estado = 'cancelada' WHERE id = ?`,
                 [id]
             );
+
+            // ============================================
+            // 📧 ENVIAR CORREO DE CANCELACIÓN
+            // ============================================
+            try {
+                let emailDestinos = [];
+
+                // Agregar email del usuario solicitante
+                if (reserva.usuario_email) {
+                    emailDestinos.push(reserva.usuario_email);
+                }
+
+                // Agregar emails de participantes (si los hay)
+                if (reserva.participantes_email) {
+                    const participantes = reserva.participantes_email
+                        .split(',')
+                        .map(e => e.trim())
+                        .filter(e => e.length > 0);
+                    emailDestinos = [...emailDestinos, ...participantes];
+                }
+
+                // Agregar emails del .env (departamentos, administración)
+                if (process.env.CORREOS_NOTIFICACION_RESERVA) {
+                    const correosEnv = process.env.CORREOS_NOTIFICACION_RESERVA
+                        .split(',')
+                        .map(e => e.trim())
+                        .filter(e => e.length > 0);
+                    emailDestinos = [...emailDestinos, ...correosEnv];
+                }
+
+                // Eliminar duplicados
+                emailDestinos = [...new Set(emailDestinos)];
+
+                // Enviar solo si hay destinatarios
+                if (emailDestinos.length > 0) {
+                    await enviarCorreoCancelacionReserva(reserva, emailDestinos);
+                    console.log(`📧 Correo de cancelación enviado a: ${emailDestinos.join(', ')}`);
+                }
+            } catch (emailError) {
+                console.error('⚠️ Error enviando correo de cancelación:', emailError.message);
+                // No interrumpir la respuesta si falla el correo
+            }
 
             res.json({
                 success: true,
