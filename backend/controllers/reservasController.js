@@ -593,6 +593,93 @@ crearReserva: async (req, res) => {
             error: 'Error interno del servidor'
         });
     }
+},
+
+    // Actualizar reserva confirmada
+    actualizar: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const { fecha_inicio, fecha_fin, hora_inicio, hora_fin, titulo, descripcion } = req.body;
+            const usuario_id = req.user.id;
+
+            // Verificar que la reserva existe y obtener datos
+            const [reservas] = await db.execute(
+                'SELECT * FROM reservas WHERE id = ?',
+                [id]
+            );
+
+            if (reservas.length === 0) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Reserva no encontrada'
+                });
+            }
+
+            const reserva = reservas[0];
+
+            // Solo el creador o admin puede editar
+            if (reserva.usuario_id !== usuario_id && req.user.role !== 'admin') {
+                return res.status(403).json({
+                    success: false,
+                    error: 'No tienes permiso para editar esta reserva'
+                });
+            }
+
+            // Solo se pueden editar reservas confirmadas
+            if (reserva.estado !== 'confirmada') {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Solo se pueden editar reservas confirmadas'
+                });
+            }
+
+            // Validar disponibilidad (excluyendo esta reserva)
+            const [conflictos] = await db.execute(
+                `SELECT id FROM reservas 
+                 WHERE espacio_id = ? 
+                 AND estado IN ('pendiente', 'confirmada')
+                 AND id != ?
+                 AND (
+                   (DATE(fecha_inicio) < ? OR (DATE(fecha_inicio) = ? AND TIME(hora_inicio) < ?))
+                   AND
+                   (DATE(fecha_fin) > ? OR (DATE(fecha_fin) = ? AND TIME(hora_fin) > ?))
+                 )`,
+                [
+                    reserva.espacio_id,
+                    id,
+                    fecha_fin, fecha_fin, hora_fin,
+                    fecha_inicio, fecha_inicio, hora_inicio
+                ]
+            );
+
+            if (conflictos.length > 0) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'El espacio no está disponible en las nuevas fechas/horarios'
+                });
+            }
+
+            // Actualizar la reserva
+            await db.execute(
+                `UPDATE reservas 
+                 SET fecha_inicio = ?, fecha_fin = ?, hora_inicio = ?, hora_fin = ?, 
+                     titulo = ?, descripcion = ?, ultima_modificacion = NOW()
+                 WHERE id = ?`,
+                [fecha_inicio, fecha_fin, hora_inicio, hora_fin, titulo, descripcion, id]
+            );
+
+            res.json({
+                success: true,
+                mensaje: 'Reserva actualizada exitosamente'
+            });
+
+        } catch (error) {
+            console.error('Error actualizando reserva:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Error interno del servidor'
+            });
+        }
 }
 };
 
