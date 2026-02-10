@@ -365,6 +365,8 @@ const enviarPDFPorCorreo = async (evento, correosDestino, tipoAccion = 'creado')
               <p><strong>Fecha:</strong> ${evento.fecha_fin && evento.fecha_fin !== evento.fecha_evento 
                 ? `${new Date(evento.fecha_evento).toLocaleDateString('es-ES')} al ${new Date(evento.fecha_fin).toLocaleDateString('es-ES')}`
                 : new Date(evento.fecha_evento).toLocaleDateString('es-ES')}</p>
+              <p><strong>Hora Inicio:</strong> ${evento.hora_inicio ? evento.hora_inicio.substring(0, 5) : '--:--'}</p>
+              <p><strong>Hora Fin:</strong> ${evento.hora_fin ? evento.hora_fin.substring(0, 5) : '--:--'}</p>
               <p><strong>Lugar:</strong> ${evento.lugar}</p>
               <p><strong>Público:</strong> ${evento.publico_destinatario}</p>
             </div>
