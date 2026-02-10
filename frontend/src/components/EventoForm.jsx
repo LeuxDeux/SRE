@@ -45,8 +45,7 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
         break;
 
       case 'correo_contacto':
-        if (!value) errors.correo_contacto = 'El correo es requerido';
-        else if (!/\S+@\S+\.\S+/.test(value)) errors.correo_contacto = 'Correo inválido';
+        if (value && !/\S+@\S+\.\S+/.test(value)) errors.correo_contacto = 'Correo inválido';
         else delete errors.correo_contacto;
         break;
 
@@ -67,8 +66,7 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
         break;
 
       case 'hora_fin':
-        if (!value) errors.hora_fin = 'La hora de fin es requerida';
-        else delete errors.hora_fin;
+        delete errors.hora_fin;
         break;
 
       case 'lugar':
@@ -203,15 +201,13 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
     // Validación completa antes de enviar
     const errors = {};
     if (!formData.nombre.trim()) errors.nombre = 'El nombre es requerido';
+    if (!formData.nombre.trim()) errors.nombre = 'El nombre es requerido';
     if (!formData.fecha_evento) errors.fecha_evento = 'La fecha es requerida';
     if (!formData.categoria_id) errors.categoria_id = 'La categoría es requerida';
     if (!formData.descripcion.trim()) errors.descripcion = 'La descripción es requerida';
-    if (!formData.correo_contacto) errors.correo_contacto = 'El correo es requerido';
     if (!formData.hora_inicio) errors.hora_inicio = 'La hora de inicio es requerida';
-    if (!formData.hora_fin) errors.hora_fin = 'La hora de fin es requerida';
     if (!formData.lugar) errors.lugar = 'El lugar es requerido';
     if (!formData.publico_destinatario) errors.publico_destinatario = 'El público destinatario es requerido';
-
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
       setError('Por favor completa todos los campos requeridos');
@@ -321,15 +317,11 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
     'Egresados'
   ];
   const lugaresPredefinidos = [
-    'Aula Magna',
-    'Salón de Actos',
-    'Laboratorio 1',
-    'Laboratorio 2',
-    'Laboratorio 3',
-    'Sala de Conferencias',
-    'Plataforma Virtual',
-    'Patio Central',
-    'Biblioteca'
+    'Auditorio',
+    'Salón de Extensión 1',
+    'Salón de Extensión 2',
+    'Bar',
+    'Polideportivo'
   ];
 
   return (
@@ -468,7 +460,7 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
 
           <div className="form-row">
             <div className={`form-group ${fieldErrors.correo_contacto ? 'error' : ''}`}>
-              <label htmlFor="correo_contacto">Correo de Contacto *</label>
+              <label htmlFor="correo_contacto">Correo de Contacto (Opcional)</label>
               <input
                 type="email"
                 id="correo_contacto"
@@ -477,7 +469,6 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
                 onChange={handleChange}
                 placeholder="ejemplo@universidad.edu"
                 disabled={loading}
-                required
               />
               {fieldErrors.correo_contacto && <span className="field-error">{fieldErrors.correo_contacto}</span>}
             </div>
@@ -517,7 +508,7 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
             </div>
 
             <div className={`form-group ${fieldErrors.hora_fin ? 'error' : ''}`}>
-              <label htmlFor="hora_fin">Hora de Finalización *</label>
+              <label htmlFor="hora_fin">Hora de Finalización (Opcional)</label>
               <input
                 type="time"
                 id="hora_fin"
@@ -525,7 +516,6 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
                 value={formData.hora_fin}
                 onChange={handleChange}
                 disabled={loading}
-                required
               />
               {fieldErrors.hora_fin && <span className="field-error">{fieldErrors.hora_fin}</span>}
             </div>
@@ -535,21 +525,15 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
             <select
               id="lugar"
               name="lugar"
-              value={formData.lugar === 'otro' || (formData.lugar !== '' && !['Aula Magna', 'Salón de Actos', 'Laboratorio 1', 'Laboratorio 2', 'Laboratorio 3', 'Sala de Conferencias', 'Plataforma Virtual', 'Patio Central', 'Biblioteca', 'otro'].includes(formData.lugar)) ? 'otro' : formData.lugar}
+              value={formData.lugar === 'otro' || (formData.lugar !== '' && !lugaresPredefinidos.includes(formData.lugar)) ? 'otro' : formData.lugar}
               onChange={handleChange}
               disabled={loading}
               required
             >
               <option value="">Seleccionar lugar</option>
-              <option value="Aula Magna">Aula Magna</option>
-              <option value="Salón de Actos">Salón de Actos</option>
-              <option value="Laboratorio 1">Laboratorio 1</option>
-              <option value="Laboratorio 2">Laboratorio 2</option>
-              <option value="Laboratorio 3">Laboratorio 3</option>
-              <option value="Sala de Conferencias">Sala de Conferencias</option>
-              <option value="Plataforma Virtual">Plataforma Virtual</option>
-              <option value="Patio Central">Patio Central</option>
-              <option value="Biblioteca">Biblioteca</option>
+              {lugaresPredefinidos.map(lugar => (
+                <option key={lugar} value={lugar}>{lugar}</option>
+              ))}
               <option value="otro">Otro...</option>
             </select>
             {fieldErrors.lugar && <span className="field-error">{fieldErrors.lugar}</span>}
@@ -557,7 +541,7 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
             {/* Mostrar input personalizado si:
         - Seleccionó "otro" O 
         - El valor actual no está en la lista predefinida (caso edición) */}
-            {(formData.lugar === 'otro' || (formData.lugar !== '' && !['Aula Magna', 'Salón de Actos', 'Laboratorio 1', 'Laboratorio 2', 'Laboratorio 3', 'Sala de Conferencias', 'Plataforma Virtual', 'Patio Central', 'Biblioteca', 'otro'].includes(formData.lugar))) && (
+            {(formData.lugar === 'otro' || (formData.lugar !== '' && !lugaresPredefinidos.includes(formData.lugar))) && (
               <input
                 type="text"
                 placeholder="Especificar lugar personalizado"
