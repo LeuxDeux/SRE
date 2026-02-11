@@ -7,7 +7,7 @@ const upload = require("../middleware/upload");
 // Rutas públicas - cualquiera puede ver eventos
 router.get("/", eventosController.obtenerEventos);
 router.get("/:id", eventosController.obtenerEvento);
-router.get("/:id/historial", eventosController.obtenerHistorialEvento);
+router.get("/:id/historial", eventosController.obtenerHistorial);
 
 // Rutas protegidas para gestionar eventos
 // Cambio: upload.array para múltiples archivos en lugar de upload.single
@@ -32,15 +32,16 @@ router.delete(
   authMiddleware,
   eventosController.eliminarArchivoEvento,
 );
+router.get(
+  "/:eventoId/archivos/:archivoId/download",
+  eventosController.descargarArchivo,
+);
 
 // Endpoint para descargar todos los archivos (nuevos + legacy) como ZIP
 router.get(
   "/:id/descargar-todos",
   eventosController.descargarMultiplesArchivos,
 );
-
-// Endpoint para descargar archivos individuales (fuerza descarga)
-router.get("/archivo/:filename/download", eventosController.descargarArchivo);
 
 // Enviar PDF por correo
 router.post(

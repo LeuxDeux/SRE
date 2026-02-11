@@ -66,7 +66,7 @@ const EventoDetail = ({ eventoId, onClose }) => {
 
   const descargarArchivo = async (archivo) => {
     try {
-      const response = await eventosAPI.descargarArchivo(archivo.archivo_path);
+      const response = await eventosAPI.descargarArchivo(eventoId, archivo.id);
       
       // Crear blob y descargar
       const url = window.URL.createObjectURL(new Blob([response.data]));
