@@ -7,7 +7,10 @@ const EventosTable = ({ onEditEvento, onViewDetails, onNuevoEvento }) => {
   const [eventos, setEventos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [descargandoId, setDescargandoId] = useState(null); // Para track descarga en progreso
+  const [showModalDescargas, setShowModalDescargas] = useState(false);
+  const [eventoSeleccionado, setEventoSeleccionado] = useState(null);
+  const [archivosModal, setArchivosModal] = useState([]);
+  const [cargandoArchivos, setCargandoArchivos] = useState(false);
   const { user } = useAuth(); // ✅ Agregar useAuth
 
   useEffect(() => {
@@ -50,36 +53,84 @@ const EventosTable = ({ onEditEvento, onViewDetails, onNuevoEvento }) => {
   };
 
   const handleDescargarTodos = async (eventoId, eventoNombre) => {
-    if (!window.confirm(`¿Descargar todos los archivos del evento "${eventoNombre}"?`)) {
-      return;
-    }
-
     try {
-      setDescargandoId(eventoId);
-      const response = await fetch(`/api/eventos/${eventoId}/descargar-todos`);
+      setCargandoArchivos(true);
+      setEventoSeleccionado({ id: eventoId, nombre: eventoNombre });
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        alert(`Error: ${errorData.error || 'No se puede descargar los archivos'}`);
-        return;
+      // Cargar archivos del evento
+      const response = await eventosAPI.obtenerArchivos(eventoId);
+      
+      if (response.data.success) {
+        // Obtener también el evento para el archivo legacy
+        const eventoResponse = await eventosAPI.obtenerPorId(eventoId);
+        const evento = eventoResponse.data.evento;
+        
+        // Combinar archivos nuevos + legacy
+        const archivos = response.data.archivos || [];
+        
+        // Agregar archivo legacy si existe
+        if (evento.archivo_adjunto) {
+          archivos.unshift({
+            id: 'legacy',
+            nombre_archivo: evento.archivo_adjunto,
+            tamaño: null,
+            tipo_archivo: evento.archivo_adjunto.split('.').pop().toLowerCase(),
+            fecha_carga: evento.fecha_carga,
+            isLegacy: true
+          });
+        }
+        
+        setArchivosModal(archivos);
+        setShowModalDescargas(true);
       }
-
-      // Crear blob y descargar
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Evento_${eventoNombre.replace(/[^a-z0-9]/gi, '_')}.zip`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
     } catch (error) {
-      console.error('Error descargando archivos:', error);
-      alert('Error al descargar los archivos');
+      console.error('Error cargando archivos:', error);
+      alert('Error al cargar los archivos');
     } finally {
-      setDescargandoId(null);
+      setCargandoArchivos(false);
     }
+  };
+
+  const cerrarModalDescargas = () => {
+    setShowModalDescargas(false);
+    setEventoSeleccionado(null);
+    setArchivosModal([]);
+  };
+
+  const descargarArchivo = async (archivo) => {
+    try {
+      if (archivo.isLegacy) {
+        // Descargar archivo legacy directamente
+        const link = document.createElement('a');
+        link.href = `/uploads/${archivo.nombre_archivo}`;
+        link.download = archivo.nombre_archivo;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        // Descargar archivo nuevo
+        const response = await eventosAPI.descargarArchivo(archivo.archivo_path || archivo.nombre_archivo);
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', archivo.nombre_archivo);
+        document.body.appendChild(link);
+        link.click();
+        link.parentNode.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      }
+    } catch (error) {
+      console.error('Error descargando archivo:', error);
+      alert('Error al descargar el archivo');
+    }
+  };
+
+  const formatearTamano = (bytes) => {
+    if (!bytes) return '-';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
   };
 
   const formatearFecha = (fechaString) => {
@@ -182,10 +233,10 @@ const EventosTable = ({ onEditEvento, onViewDetails, onNuevoEvento }) => {
                       <button
                         className="archivo-badge-btn"
                         onClick={() => handleDescargarTodos(evento.id, evento.nombre)}
-                        disabled={descargandoId === evento.id}
-                        title="Haz clic para descargar todos los archivos"
+                        disabled={cargandoArchivos && eventoSeleccionado?.id === evento.id}
+                        title="Haz clic para ver los archivos disponibles"
                       >
-                        {descargandoId === evento.id ? '⏳' : '📎'} {evento.total_archivos} {evento.total_archivos === 1 ? 'archivo' : 'archivos'}
+                        {cargandoArchivos && eventoSeleccionado?.id === evento.id ? '⏳' : '📎'} {evento.total_archivos} {evento.total_archivos === 1 ? 'archivo' : 'archivos'}
                       </button>
                     ) : (
                       <span className="sin-archivo">-</span>
@@ -233,6 +284,73 @@ const EventosTable = ({ onEditEvento, onViewDetails, onNuevoEvento }) => {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* MODAL DE DESCARGAS */}
+      {showModalDescargas && (
+        <div className="modal-overlay" onClick={cerrarModalDescargas}>
+          <div className="modal-content modal-descargas" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>📎 Descargar Archivos</h3>
+              <button className="modal-close" onClick={cerrarModalDescargas}>✕</button>
+            </div>
+
+            <div className="modal-body">
+              {archivosModal.length > 0 ? (
+                <div className="descargas-tabla-container">
+                  <table className="descargas-tabla">
+                    <thead>
+                      <tr>
+                        <th>Nombre</th>
+                        <th>Tamaño</th>
+                        <th>Tipo</th>
+                        <th>Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {archivosModal.map((archivo) => (
+                        <tr key={archivo.id} className={archivo.isLegacy ? 'archivo-legacy' : ''}>
+                          <td>
+                            <span>
+                              📄 {archivo.nombre_archivo}
+                              {archivo.isLegacy && (
+                                <span style={{fontSize: '0.8em', color: '#999', marginLeft: '8px'}}>
+                                  (legacy)
+                                </span>
+                              )}
+                            </span>
+                          </td>
+                          <td>{formatearTamano(archivo.tamaño)}</td>
+                          <td>{archivo.tipo_archivo || 'desconocido'}</td>
+                          <td>
+                            <button
+                              className="btn-descargar-modal"
+                              onClick={() => descargarArchivo(archivo)}
+                              title="Descargar"
+                            >
+                              ⬇️ Descargar
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p style={{textAlign: 'center', color: '#999'}}>No hay archivos disponibles</p>
+              )}
+            </div>
+
+            <div className="modal-footer">
+              <button
+                className="btn btn-secondary"
+                onClick={cerrarModalDescargas}
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

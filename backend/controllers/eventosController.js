@@ -1259,6 +1259,12 @@ const eventosController = {
         [id],
       );
 
+      console.log(`📦 Generando ZIP para evento ${id}: "${evento.nombre}"`);
+      console.log(`📁 Archivos encontrados en BD: ${archivos.length}`);
+      archivos.forEach((a) =>
+        console.log(`  - ${a.nombre_archivo} (path: ${a.archivo_path})`),
+      );
+
       // Crear nombre del ZIP
       const nombreZip = `Evento_${evento.nombre.replace(/[^a-z0-9]/gi, "_")}.zip`;
 
@@ -1279,23 +1285,41 @@ const eventosController = {
 
       // Agregar archivos nuevos al ZIP
       archivos.forEach((archivo) => {
-        const filePath = path.join(uploadsDir, archivo.nombre_archivo);
+        // Usar archivo_path si existe, sino usar nombre_archivo
+        const nombreEnDisco = archivo.archivo_path || archivo.nombre_archivo;
+        const filePath = path.join(uploadsDir, nombreEnDisco);
+
+        console.log(`🔍 Buscando: ${filePath}`);
+
         if (fs.existsSync(filePath)) {
+          console.log(`✅ Archivo encontrado: ${nombreEnDisco}`);
           archive.file(filePath, { name: archivo.nombre_archivo });
           archivoEncontrado = true;
+        } else {
+          console.log(`❌ Archivo NO encontrado: ${nombreEnDisco}`);
         }
       });
 
       // Agregar archivo legacy si existe
       if (evento.archivo_adjunto) {
         const legacyPath = path.join(uploadsDir, evento.archivo_adjunto);
+        console.log(`🔍 Buscando legacy: ${legacyPath}`);
+
         if (fs.existsSync(legacyPath)) {
+          console.log(
+            `✅ Archivo legacy encontrado: ${evento.archivo_adjunto}`,
+          );
           archive.file(legacyPath, { name: evento.archivo_adjunto });
           archivoEncontrado = true;
+        } else {
+          console.log(
+            `❌ Archivo legacy NO encontrado: ${evento.archivo_adjunto}`,
+          );
         }
       }
 
       if (!archivoEncontrado) {
+        console.error(`❌ No hay archivos para descargar (evento ${id})`);
         return res.status(404).json({
           success: false,
           error: "No hay archivos para descargar",
@@ -1306,12 +1330,14 @@ const eventosController = {
       archive.pipe(output);
 
       output.on("finish", () => {
+        console.log(`✅ ZIP creado exitosamente: ${nombreZip}`);
         // Enviar el ZIP
         res.download(tempZipPath, nombreZip, (error) => {
           // Eliminar el archivo temporal después de descargar
           if (fs.existsSync(tempZipPath)) {
             fs.unlink(tempZipPath, (err) => {
               if (err) console.error("Error eliminando ZIP temporal:", err);
+              else console.log(`🗑️ ZIP temporal eliminado`);
             });
           }
         });
