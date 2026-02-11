@@ -3,6 +3,7 @@
  * Uso: node backend/migrations/auditoriaArchivos.js
  */
 
+require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
 const pool = require("../config/database");
 const fs = require("fs");
 const path = require("path");

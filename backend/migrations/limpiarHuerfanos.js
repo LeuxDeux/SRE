@@ -3,6 +3,7 @@
  * Uso: node backend/migrations/limpiarHuerfanos.js
  */
 
+require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
 const fs = require("fs");
 const path = require("path");
 const pool = require("../config/database");

@@ -3,6 +3,7 @@
  * Uso: node backend/migrations/limpiarArchivosLegacy.js
  */
 
+require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
 const pool = require("../config/database");
 
 const limpiarArchivosLegacy = async () => {
