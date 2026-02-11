@@ -301,10 +301,11 @@ const eventosController = {
   obtenerEventos: async (req, res) => {
     try {
       // Consulta que une la tabla eventos con usuarios para obtener el nombre del creador
+      // Cuenta archivos nuevos (eventos_archivos) + archivos legacy (archivo_adjunto)
       const [eventos] = await pool.query(`
         SELECT e.*, u.nombre_completo as usuario_nombre, 
                c.nombre as categoria_nombre, c.color as categoria_color,
-               COUNT(ea.id) as total_archivos
+               (COUNT(ea.id) + IF(e.archivo_adjunto IS NOT NULL AND e.archivo_adjunto != '', 1, 0)) as total_archivos
         FROM eventos e 
         LEFT JOIN usuarios u ON e.usuario_id = u.id 
         LEFT JOIN categorias c ON e.categoria_id = c.id
@@ -1220,6 +1221,116 @@ const eventosController = {
       res.status(500).json({
         success: false,
         error: error.message || "Error al enviar el PDF",
+      });
+    }
+  },
+
+  /**
+   * CONTROLADOR: descargarMultiplesArchivos
+   * Descarga todos los archivos de un evento (nuevos + legacy) como ZIP
+   * Ruta: GET /api/eventos/:id/descargar-todos
+   */
+  descargarMultiplesArchivos: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const path = require("path");
+      const fs = require("fs");
+      const archiver = require("archiver");
+      const os = require("os");
+
+      // Obtener evento
+      const [eventos] = await pool.query(
+        "SELECT nombre, fecha_evento, archivo_adjunto FROM eventos WHERE id = ?",
+        [id],
+      );
+
+      if (eventos.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: "Evento no encontrado",
+        });
+      }
+
+      const evento = eventos[0];
+
+      // Obtener archivos nuevos
+      const [archivos] = await pool.query(
+        "SELECT nombre_archivo, archivo_path FROM eventos_archivos WHERE evento_id = ? ORDER BY fecha_carga ASC",
+        [id],
+      );
+
+      // Crear nombre del ZIP
+      const nombreZip = `Evento_${evento.nombre.replace(/[^a-z0-9]/gi, "_")}.zip`;
+
+      // Crear directorio temporal para el ZIP
+      const uploadsDir = path.join(__dirname, "../uploads");
+      const tempZipPath = path.join(
+        uploadsDir,
+        `temp_${Date.now()}_${nombreZip}`,
+      );
+
+      // Crear el archivo ZIP
+      const output = fs.createWriteStream(tempZipPath);
+      const archive = archiver("zip", {
+        zlib: { level: 9 },
+      });
+
+      let archivoEncontrado = false;
+
+      // Agregar archivos nuevos al ZIP
+      archivos.forEach((archivo) => {
+        const filePath = path.join(uploadsDir, archivo.nombre_archivo);
+        if (fs.existsSync(filePath)) {
+          archive.file(filePath, { name: archivo.nombre_archivo });
+          archivoEncontrado = true;
+        }
+      });
+
+      // Agregar archivo legacy si existe
+      if (evento.archivo_adjunto) {
+        const legacyPath = path.join(uploadsDir, evento.archivo_adjunto);
+        if (fs.existsSync(legacyPath)) {
+          archive.file(legacyPath, { name: evento.archivo_adjunto });
+          archivoEncontrado = true;
+        }
+      }
+
+      if (!archivoEncontrado) {
+        return res.status(404).json({
+          success: false,
+          error: "No hay archivos para descargar",
+        });
+      }
+
+      // Pipe output
+      archive.pipe(output);
+
+      output.on("finish", () => {
+        // Enviar el ZIP
+        res.download(tempZipPath, nombreZip, (error) => {
+          // Eliminar el archivo temporal después de descargar
+          if (fs.existsSync(tempZipPath)) {
+            fs.unlink(tempZipPath, (err) => {
+              if (err) console.error("Error eliminando ZIP temporal:", err);
+            });
+          }
+        });
+      });
+
+      output.on("error", (error) => {
+        console.error("Error creando ZIP:", error);
+        res.status(500).json({
+          success: false,
+          error: "Error creando archivo ZIP",
+        });
+      });
+
+      archive.finalize();
+    } catch (error) {
+      console.error("Error descargando múltiples archivos:", error);
+      res.status(500).json({
+        success: false,
+        error: "Error interno del servidor",
       });
     }
   },

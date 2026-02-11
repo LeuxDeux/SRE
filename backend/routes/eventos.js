@@ -33,7 +33,13 @@ router.delete(
   eventosController.eliminarArchivoEvento,
 );
 
-// Endpoint para descargar archivos (fuerza descarga)
+// Endpoint para descargar todos los archivos (nuevos + legacy) como ZIP
+router.get(
+  "/:id/descargar-todos",
+  eventosController.descargarMultiplesArchivos,
+);
+
+// Endpoint para descargar archivos individuales (fuerza descarga)
 router.get("/archivo/:filename/download", eventosController.descargarArchivo);
 
 // Enviar PDF por correo

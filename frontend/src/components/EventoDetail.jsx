@@ -424,7 +424,7 @@ const EventoDetail = ({ eventoId, onClose }) => {
               {/* ARCHIVOS ADJUNTOS */}
               <div className="info-subsection">
                 <h4>📎 Archivos Adjuntos</h4>
-                {archivos && archivos.length > 0 ? (
+                {(archivos && archivos.length > 0) || evento?.archivo_adjunto ? (
                   <div className="archivos-tabla-container">
                     <table className="archivos-tabla">
                       <thead>
@@ -437,6 +437,39 @@ const EventoDetail = ({ eventoId, onClose }) => {
                         </tr>
                       </thead>
                       <tbody>
+                        {/* Mostrar archivo legacy primero si existe */}
+                        {evento?.archivo_adjunto && (
+                          <tr key="legacy-archivo" className="archivo-legacy">
+                            <td>
+                              <span 
+                                className="archivo-nombre-clickable"
+                                title="Archivo legacy - Click para descargar"
+                              >
+                                📄 {evento.archivo_adjunto} <span style={{fontSize: '0.8em', color: '#999'}}>(legacy)</span>
+                              </span>
+                            </td>
+                            <td>-</td>
+                            <td>
+                              {evento.archivo_adjunto.split('.').pop().toLowerCase() || 'desconocido'}
+                            </td>
+                            <td>
+                              {evento.fecha_carga ? new Date(evento.fecha_carga).toLocaleDateString('es-ES') : 'N/A'}
+                            </td>
+                            <td>
+                              <div className="archivo-acciones">
+                                <a 
+                                  href={`/uploads/${evento.archivo_adjunto}`}
+                                  download
+                                  className="btn-archivo btn-descargar"
+                                  title="Descargar archivo"
+                                >
+                                  ⬇️ Descargar
+                                </a>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                        {/* Mostrar archivos nuevos */}
                         {archivos.map((archivo) => (
                           <tr key={archivo.id}>
                             <td>
@@ -477,8 +510,8 @@ const EventoDetail = ({ eventoId, onClose }) => {
                     </table>
                     <div className="archivos-resumen">
                       <small>
-                        Total: {archivos.length} archivo(s) - 
-                        Tamaño total: {formatearTamano(archivos.reduce((sum, a) => sum + (a.tamaño || 0), 0))}
+                        Total: {(evento?.archivo_adjunto ? 1 : 0) + archivos.length} archivo(s) - 
+                        Tamaño total: {formatearTamano((evento?.archivo_adjunto ? 0 : 0) + archivos.reduce((sum, a) => sum + (a.tamaño || 0), 0))}
                       </small>
                     </div>
                   </div>

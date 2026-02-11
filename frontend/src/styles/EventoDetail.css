@@ -536,6 +536,15 @@
   border-bottom: none;
 }
 
+.archivos-tabla tbody tr.archivo-legacy {
+  background-color: #f0f4ff;
+  font-weight: 500;
+}
+
+.archivos-tabla tbody tr.archivo-legacy:hover {
+  background-color: #e8ecff;
+}
+
 .archivos-tabla tbody td {
   padding: 12px 15px;
   vertical-align: middle;

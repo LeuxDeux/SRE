@@ -7,6 +7,7 @@ const EventosTable = ({ onEditEvento, onViewDetails, onNuevoEvento }) => {
   const [eventos, setEventos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [descargandoId, setDescargandoId] = useState(null); // Para track descarga en progreso
   const { user } = useAuth(); // ✅ Agregar useAuth
 
   useEffect(() => {
@@ -45,6 +46,39 @@ const EventosTable = ({ onEditEvento, onViewDetails, onNuevoEvento }) => {
     } catch (error) {
       console.error('Error eliminando evento:', error);
       alert('Error al eliminar el evento');
+    }
+  };
+
+  const handleDescargarTodos = async (eventoId, eventoNombre) => {
+    if (!window.confirm(`¿Descargar todos los archivos del evento "${eventoNombre}"?`)) {
+      return;
+    }
+
+    try {
+      setDescargandoId(eventoId);
+      const response = await fetch(`/api/eventos/${eventoId}/descargar-todos`);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        alert(`Error: ${errorData.error || 'No se puede descargar los archivos'}`);
+        return;
+      }
+
+      // Crear blob y descargar
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Evento_${eventoNombre.replace(/[^a-z0-9]/gi, '_')}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Error descargando archivos:', error);
+      alert('Error al descargar los archivos');
+    } finally {
+      setDescargandoId(null);
     }
   };
 
@@ -145,9 +179,14 @@ const EventosTable = ({ onEditEvento, onViewDetails, onNuevoEvento }) => {
                   </td>
                   <td className="evento-archivo">
                     {evento.total_archivos > 0 ? (
-                      <span className="archivo-badge">
-                        📎 {evento.total_archivos} {evento.total_archivos === 1 ? 'archivo' : 'archivos'}
-                      </span>
+                      <button
+                        className="archivo-badge-btn"
+                        onClick={() => handleDescargarTodos(evento.id, evento.nombre)}
+                        disabled={descargandoId === evento.id}
+                        title="Haz clic para descargar todos los archivos"
+                      >
+                        {descargandoId === evento.id ? '⏳' : '📎'} {evento.total_archivos} {evento.total_archivos === 1 ? 'archivo' : 'archivos'}
+                      </button>
                     ) : (
                       <span className="sin-archivo">-</span>
                     )}
