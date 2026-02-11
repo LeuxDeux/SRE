@@ -268,7 +268,6 @@
 
 .archivo-badge-btn:hover:not(:disabled) {
   opacity: 0.85;
-  transform: scale(1.05);
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
 

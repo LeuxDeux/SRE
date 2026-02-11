@@ -512,7 +512,7 @@
 }
 
 .archivos-tabla thead {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #127cc1;
   color: white;
 }
 
@@ -593,12 +593,12 @@
   box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
 }
 
-.btn-detalles {
-  background: #17a2b8;
+.btn-detalles-archivo {
+  background: #127cc1;
   color: white;
 }
 
-.btn-detalles:hover {
+.btn-detalles-archivo:hover {
   background: #138496;
   box-shadow: 0 2px 8px rgba(23, 162, 184, 0.3);
 }
@@ -800,13 +800,13 @@
 }
 
 .btn-modal.btn-descargar {
-  background: #667eea;
+  background: #127cc1;
   color: white;
-  border-color: #667eea;
+  border-color: #127cc1;
 }
 
 .btn-modal.btn-descargar:hover {
-  background: #5568d3;
+  background: #0c507e;
 }
 
 /* Mejoras responsive */
