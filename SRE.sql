@@ -1,16 +1,13 @@
--- ========================================
--- SRE DATABASE SCHEMA
--- Sistema de Reserva de Espacios y Registro de Eventos
--- UTN - Facultad Regional Resistencia
--- ========================================
--- This file contains the complete database structure
--- without any data. Safe to use in production.
--- ========================================
+-- MySQL dump 10.13  Distrib 8.0.41, for Win64 (x86_64)
+--
+-- Host: localhost    Database: db-sre
+-- ------------------------------------------------------
+-- Server version	8.0.41
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
 /*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
-/*!50503 SET NAMES utf8mb4 */;
+/*!50503 SET NAMES utf8 */;
 /*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
 /*!40103 SET TIME_ZONE='+00:00' */;
 /*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
@@ -19,56 +16,9 @@
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
 --
--- Table: usuarios
--- Users of the system with roles and authentication
+-- Table structure for table `categorias`
 --
-DROP TABLE IF EXISTS `usuarios`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `usuarios` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `username` varchar(100) NOT NULL,
-  `nombre_completo` varchar(200) DEFAULT NULL,
-  `password_hash` varchar(255) NOT NULL,
-  `email` varchar(255) DEFAULT NULL,
-  `telefono` varchar(20) DEFAULT NULL,
-  `role` enum('secretaria','admin','usuario') DEFAULT 'secretaria',
-  `secretaria_id` int DEFAULT NULL,
-  `activo` tinyint(1) DEFAULT '1',
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `fecha_ultimo_login` timestamp NULL DEFAULT NULL,
-  `reset_token` varchar(255) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `username` (`username`),
-  KEY `fk_usuario_secretaria` (`secretaria_id`),
-  CONSTRAINT `fk_usuario_secretaria` FOREIGN KEY (`secretaria_id`) REFERENCES `secretarias` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table: secretarias
--- University secretariats/departments
---
-DROP TABLE IF EXISTS `secretarias`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `secretarias` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `nombre` varchar(100) NOT NULL,
-  `descripcion` text,
-  `activa` tinyint(1) DEFAULT '1',
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `nombre` (`nombre`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table: categorias
--- Event categories with priorities and notification settings
---
 DROP TABLE IF EXISTS `categorias`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -84,13 +34,65 @@ CREATE TABLE `categorias` (
   `email_contacto` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `nombre` (`nombre`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table: eventos
--- University events to be communicated
+-- Table structure for table `espacios`
 --
+
+DROP TABLE IF EXISTS `espacios`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `espacios` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `nombre` varchar(150) NOT NULL,
+  `descripcion` text,
+  `capacidad` int DEFAULT NULL,
+  `ubicacion` varchar(255) DEFAULT NULL,
+  `estado` enum('disponible','en_mantenimiento','clausurado') DEFAULT 'disponible',
+  `secretaria_id` int DEFAULT NULL,
+  `requiere_aprobacion` tinyint(1) DEFAULT '1',
+  `max_horas_por_reserva` int DEFAULT '8',
+  `imagen_url` varchar(500) DEFAULT NULL,
+  `activo` tinyint(1) DEFAULT '1',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `nombre` (`nombre`),
+  KEY `secretaria_id` (`secretaria_id`),
+  KEY `idx_estado` (`estado`),
+  KEY `idx_activo` (`activo`),
+  CONSTRAINT `espacios_ibfk_1` FOREIGN KEY (`secretaria_id`) REFERENCES `secretarias` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `espacios_recursos`
+--
+
+DROP TABLE IF EXISTS `espacios_recursos`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `espacios_recursos` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `espacio_id` int NOT NULL,
+  `recurso_id` int NOT NULL,
+  `cantidad_maxima` int NOT NULL DEFAULT '1',
+  `disponible` tinyint(1) DEFAULT '1',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_espacio_recurso` (`espacio_id`,`recurso_id`),
+  KEY `recurso_id` (`recurso_id`),
+  CONSTRAINT `espacios_recursos_ibfk_1` FOREIGN KEY (`espacio_id`) REFERENCES `espacios` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `espacios_recursos_ibfk_2` FOREIGN KEY (`recurso_id`) REFERENCES `recursos` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `eventos`
+--
+
 DROP TABLE IF EXISTS `eventos`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -120,13 +122,13 @@ CREATE TABLE `eventos` (
   KEY `categoria_id` (`categoria_id`),
   CONSTRAINT `eventos_ibfk_1` FOREIGN KEY (`usuario_id`) REFERENCES `usuarios` (`id`),
   CONSTRAINT `eventos_ibfk_2` FOREIGN KEY (`categoria_id`) REFERENCES `categorias` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table: historial_eventos
--- Event change history and audit trail
+-- Table structure for table `historial_eventos`
 --
+
 DROP TABLE IF EXISTS `historial_eventos`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -145,43 +147,13 @@ CREATE TABLE `historial_eventos` (
   KEY `idx_fecha` (`fecha`),
   CONSTRAINT `historial_eventos_ibfk_1` FOREIGN KEY (`evento_id`) REFERENCES `eventos` (`id`) ON DELETE CASCADE,
   CONSTRAINT `historial_eventos_ibfk_2` FOREIGN KEY (`usuario_id`) REFERENCES `usuarios` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table: espacios
--- Spaces/rooms available for reservation
+-- Table structure for table `recursos`
 --
-DROP TABLE IF EXISTS `espacios`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `espacios` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `nombre` varchar(150) NOT NULL,
-  `descripcion` text,
-  `capacidad` int DEFAULT NULL,
-  `ubicacion` varchar(255) DEFAULT NULL,
-  `estado` enum('disponible','en_mantenimiento','clausurado') DEFAULT 'disponible',
-  `secretaria_id` int DEFAULT NULL,
-  `requiere_aprobacion` tinyint(1) DEFAULT '1',
-  `max_horas_por_reserva` int DEFAULT '8',
-  `imagen_url` varchar(500) DEFAULT NULL,
-  `activo` tinyint(1) DEFAULT '1',
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `nombre` (`nombre`),
-  KEY `secretaria_id` (`secretaria_id`),
-  KEY `idx_estado` (`estado`),
-  KEY `idx_activo` (`activo`),
-  CONSTRAINT `espacios_ibfk_1` FOREIGN KEY (`secretaria_id`) REFERENCES `secretarias` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table: recursos
--- Resources that can be requested for reservations
---
 DROP TABLE IF EXISTS `recursos`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -195,35 +167,13 @@ CREATE TABLE `recursos` (
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `unique_nombre` (`nombre`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table: espacios_recursos
--- Junction table: which resources are available in each space
+-- Table structure for table `reservas`
 --
-DROP TABLE IF EXISTS `espacios_recursos`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `espacios_recursos` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `espacio_id` int NOT NULL,
-  `recurso_id` int NOT NULL,
-  `cantidad_maxima` int NOT NULL DEFAULT '1',
-  `disponible` tinyint(1) DEFAULT '1',
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `unique_espacio_recurso` (`espacio_id`,`recurso_id`),
-  KEY `recurso_id` (`recurso_id`),
-  CONSTRAINT `espacios_recursos_ibfk_1` FOREIGN KEY (`espacio_id`) REFERENCES `espacios` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `espacios_recursos_ibfk_2` FOREIGN KEY (`recurso_id`) REFERENCES `recursos` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table: reservas
--- Space reservations by users
---
 DROP TABLE IF EXISTS `reservas`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -249,7 +199,6 @@ CREATE TABLE `reservas` (
   `notificar_participantes` tinyint(1) DEFAULT '0',
   `participantes_email` text,
   `observaciones` text,
-  `fecha_eliminacion` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `numero_reserva` (`numero_reserva`),
   KEY `aprobador_id` (`aprobador_id`),
@@ -258,18 +207,17 @@ CREATE TABLE `reservas` (
   KEY `idx_usuario` (`usuario_id`),
   KEY `idx_creador` (`creador_id`),
   KEY `idx_fecha_solicitud` (`fecha_solicitud`),
-  KEY `idx_fecha_eliminacion` (`fecha_eliminacion`),
   CONSTRAINT `reservas_ibfk_1` FOREIGN KEY (`usuario_id`) REFERENCES `usuarios` (`id`),
   CONSTRAINT `reservas_ibfk_2` FOREIGN KEY (`espacio_id`) REFERENCES `espacios` (`id`),
   CONSTRAINT `reservas_ibfk_3` FOREIGN KEY (`creador_id`) REFERENCES `usuarios` (`id`),
   CONSTRAINT `reservas_ibfk_4` FOREIGN KEY (`aprobador_id`) REFERENCES `usuarios` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=17 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table: reservas_recursos
--- Junction table: which resources are requested in each reservation
+-- Table structure for table `reservas_recursos`
 --
+
 DROP TABLE IF EXISTS `reservas_recursos`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -286,9 +234,55 @@ CREATE TABLE `reservas_recursos` (
   KEY `recurso_id` (`recurso_id`),
   CONSTRAINT `reservas_recursos_ibfk_1` FOREIGN KEY (`reserva_id`) REFERENCES `reservas` (`id`) ON DELETE CASCADE,
   CONSTRAINT `reservas_recursos_ibfk_2` FOREIGN KEY (`recurso_id`) REFERENCES `recursos` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
+--
+-- Table structure for table `secretarias`
+--
+
+DROP TABLE IF EXISTS `secretarias`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `secretarias` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `nombre` varchar(100) NOT NULL,
+  `descripcion` text,
+  `activa` tinyint(1) DEFAULT '1',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `nombre` (`nombre`)
+) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `usuarios`
+--
+
+DROP TABLE IF EXISTS `usuarios`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `usuarios` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `username` varchar(100) NOT NULL,
+  `nombre_completo` varchar(200) DEFAULT NULL,
+  `password_hash` varchar(255) NOT NULL,
+  `email` varchar(255) DEFAULT NULL,
+  `telefono` varchar(20) DEFAULT NULL,
+  `role` enum('secretaria','admin','usuario') DEFAULT 'secretaria',
+  `secretaria_id` int DEFAULT NULL,
+  `activo` tinyint(1) DEFAULT '1',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `fecha_ultimo_login` timestamp NULL DEFAULT NULL,
+  `reset_token` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `username` (`username`),
+  KEY `fk_usuario_secretaria` (`secretaria_id`),
+  CONSTRAINT `fk_usuario_secretaria` FOREIGN KEY (`secretaria_id`) REFERENCES `secretarias` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
@@ -297,42 +291,6 @@ CREATE TABLE `reservas_recursos` (
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
-/*!40111 SET @OLD_SQL_NOTES=@OLD_SQL_NOTES */;
+/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
---
--- Table: reservas_historial
--- Audit trail for reservation changes
---
-DROP TABLE IF EXISTS `reservas_historial`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `reservas_historial` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `reserva_id` int NOT NULL,
-  `datos_anteriores` json NOT NULL,
-  `tipo_cambio` enum('creacion','edicion','aprobacion','rechazo','cancelacion','eliminacion') DEFAULT 'edicion',
-  `realizado_por` int NOT NULL,
-  `observaciones` text,
-  `fecha_cambio` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  KEY `reserva_id` (`reserva_id`),
-  KEY `realizado_por` (`realizado_por`),
-  CONSTRAINT `reservas_historial_ibfk_1` FOREIGN KEY (`reserva_id`) REFERENCES `reservas` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `reservas_historial_ibfk_2` FOREIGN KEY (`realizado_por`) REFERENCES `usuarios` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
--- ========================================
--- INSTRUCTIONS FOR VPS DEPLOYMENT
--- ========================================
--- 
--- 1. Create the database:
---    mysql -u root -p -e "CREATE DATABASE db_sre CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
---
--- 2. Load the schema:
---    mysql -u root -p db_sre < schema.sql
---
--- 3. After loading, create an initial admin user in the application
---    or insert directly via SQL if needed.
---
--- ========================================
+-- Dump completed on 2025-12-23 13:32:17

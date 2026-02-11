@@ -325,4 +325,24 @@ CREATE TABLE reservas_recursos (
 8)
 
 screen -dmS sre bash -c 'cd ~/SRE/backend && npm start'
+# 1. Instalar PM2 globalmente (una sola vez)
+npm install -g pm2
+
+# 2. Instalar dependencias del proyecto
+npm install
+
+# 3. Ejecutar el servidor con PM2
+pm2 start npm --name "sre" -- start
+
+# 4. Configurar que se inicie automáticamente al reiniciar
+pm2 startup
+
+# 5. Guardar la configuración
+pm2 save
+
+pm2 list              # Ver estado
+pm2 logs sre          # Ver logs en tiempo real
+pm2 restart sre       # Reiniciar manualmente
+pm2 stop sre          # Parar
 ## Frontend: cd frontend -> npm run build -> sudo cp -r build/* /var/www/html/sre
+TAREA: Botón de editar en gestión de reservas, y ver detalles. Poder eliminar pero solo la persona o el admin

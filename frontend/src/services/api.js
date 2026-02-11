@@ -75,8 +75,10 @@ export const eventosAPI = {
   obtenerArchivos: (id) => api.get(`/eventos/${id}/archivos`),
   eliminarArchivo: (id, archivoId) =>
     api.delete(`/eventos/${id}/archivos/${archivoId}`),
-  descargarArchivo: (filename) =>
-    api.get(`/eventos/archivo/${filename}/download`, { responseType: "blob" }),
+  descargarArchivo: (eventoId, archivoId) =>
+    api.get(`/eventos/${eventoId}/archivos/${archivoId}/download`, { 
+      responseType: "blob" 
+    }),
   enviarPDFCorreo: (id, tipoAccion = "creado") => {
     return api.post(`/eventos/${id}/enviar-pdf`, { tipoAccion });
   },

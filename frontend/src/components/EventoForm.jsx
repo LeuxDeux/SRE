@@ -274,15 +274,10 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
   // Función para descargar un archivo existente
   const descargarArchivo = async (archivo) => {
     try {
-      const response = await eventosAPI.descargarArchivo(archivo.archivo_path);
-      // Crear blob y descargar
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', archivo.nombre_archivo);
-      document.body.appendChild(link);
-      link.click();
-      link.parentChild.removeChild(link);
+      // Llamar al endpoint con eventoId y archivoId
+      const response = await eventosAPI.descargarArchivo(evento.id, archivo.id);
+      // El backend devuelve el archivo directamente en res.download()
+      // No necesitamos hacer nada más, el navegador lo maneja
     } catch (error) {
       console.error('Error descargando archivo:', error);
       setError('Error al descargar el archivo');

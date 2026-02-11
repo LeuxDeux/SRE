@@ -109,7 +109,7 @@ const EventosTable = ({ onEditEvento, onViewDetails, onNuevoEvento }) => {
         document.body.removeChild(link);
       } else {
         // Descargar archivo nuevo
-        const response = await eventosAPI.descargarArchivo(archivo.archivo_path || archivo.nombre_archivo);
+        const response = await eventosAPI.descargarArchivo(eventoSeleccionado.id, archivo.id);
         const url = window.URL.createObjectURL(new Blob([response.data]));
         const link = document.createElement('a');
         link.href = url;

@@ -485,7 +485,7 @@ const eventosController = {
             .toLowerCase();
           await pool.query(
             `
-            INSERT INTO eventos_archivos (evento_id, nombre_archivo, archivo_path, tamaño, tipo_archivo)
+            INSERT INTO eventos_archivos (evento_id, nombre_archivo, archivo_path, tamao, tipo_archivo)
             VALUES (?, ?, ?, ?, ?)
           `,
             [eventoId, file.originalname, file.filename, file.size, extension],
@@ -533,7 +533,7 @@ const eventosController = {
       // Obtener archivos del evento
       const [archivos] = await pool.query(
         `
-        SELECT id, nombre_archivo, archivo_path, tamaño, tipo_archivo, fecha_carga
+        SELECT id, nombre_archivo, archivo_path, tamao, tipo_archivo, fecha_carga
         FROM eventos_archivos
         WHERE evento_id = ?
         ORDER BY fecha_carga DESC
@@ -650,7 +650,7 @@ const eventosController = {
         // Si hay archivos a eliminar, sumar solo los que NO se eliminarán
         const placeholders = archivos_a_eliminar.map(() => "?").join(",");
         const query = `
-          SELECT SUM(tamaño) as total FROM eventos_archivos 
+          SELECT SUM(tamao) as total FROM eventos_archivos 
           WHERE evento_id = ? AND id NOT IN (${placeholders})
         `;
         const params = [id, ...archivos_a_eliminar];
@@ -663,7 +663,7 @@ const eventosController = {
       } else {
         // Si no hay archivos a eliminar, contar todos
         const [result] = await pool.query(
-          `SELECT SUM(tamaño) as total FROM eventos_archivos WHERE evento_id = ?`,
+          `SELECT SUM(tamao) as total FROM eventos_archivos WHERE evento_id = ?`,
           [id],
         );
         totalSizeExisting = result[0]?.total || 0;
@@ -761,7 +761,7 @@ const eventosController = {
             .toLowerCase();
           await pool.query(
             `
-            INSERT INTO eventos_archivos (evento_id, nombre_archivo, archivo_path, tamaño, tipo_archivo)
+            INSERT INTO eventos_archivos (evento_id, nombre_archivo, archivo_path, tamao, tipo_archivo)
             VALUES (?, ?, ?, ?, ?)
           `,
             [id, file.originalname, file.filename, file.size, extension],
@@ -848,7 +848,7 @@ const eventosController = {
       // Obtener archivos actualizados del evento
       const [archivos] = await pool.query(
         `
-        SELECT id, nombre_archivo, archivo_path, tamaño, tipo_archivo, fecha_carga
+        SELECT id, nombre_archivo, archivo_path, tamao, tipo_archivo, fecha_carga
         FROM eventos_archivos
         WHERE evento_id = ?
         ORDER BY fecha_carga DESC
@@ -939,7 +939,7 @@ const eventosController = {
       // Obtener todos los archivos del evento
       const [archivos] = await pool.query(
         `
-        SELECT id, nombre_archivo, archivo_path, tamaño, tipo_archivo, fecha_carga
+        SELECT id, nombre_archivo, archivo_path, tamao, tipo_archivo, fecha_carga
         FROM eventos_archivos
         WHERE evento_id = ?
         ORDER BY fecha_carga DESC
@@ -951,7 +951,7 @@ const eventosController = {
         success: true,
         archivos: archivos,
         total: archivos.length,
-        tamañoTotal: archivos.reduce((sum, file) => sum + file.tamaño, 0),
+        tamañoTotal: archivos.reduce((sum, file) => sum + file.tamao, 0),
       });
     } catch (error) {
       console.error("Error obteniendo archivos:", error);
@@ -1039,27 +1039,47 @@ const eventosController = {
   /**
    * CONTROLADOR: descargarArchivo
    * Permite descargar un archivo adjunto de un evento
-   * Ruta: GET /api/eventos/archivo/:filename/download
+   * Ruta: GET /api/eventos/:eventoId/archivos/:archivoId/download
    */
   descargarArchivo: async (req, res) => {
     try {
-      const { filename } = req.params;
+      const { eventoId, archivoId } = req.params;
+
+      // Verificar que el archivo existe en BD y pertenece al evento
+      const [archivos] = await pool.query(
+        `SELECT archivo_path, nombre_archivo, tipo_archivo FROM eventos_archivos 
+         WHERE id = ? AND evento_id = ?`,
+        [archivoId, eventoId]
+      );
+
+      if (archivos.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: 'Archivo no encontrado'
+        });
+      }
+
+      const archivo = archivos[0];
       const path = require("path");
       const fs = require("fs");
 
       // Construir la ruta completa del archivo
-      const filePath = path.join(__dirname, "../uploads", filename);
+      const filePath = path.join(__dirname, "../uploads", archivo.archivo_path);
 
       // Verificar que el archivo existe físicamente en el servidor
       if (!fs.existsSync(filePath)) {
         return res.status(404).json({
           success: false,
-          error: "Archivo no encontrado",
+          error: 'Archivo no encontrado en el servidor'
         });
       }
 
-      // Enviar el archivo para descarga
-      res.download(filePath);
+      // Descargar con el nombre original
+      res.download(filePath, archivo.nombre_archivo, (err) => {
+        if (err) {
+          console.error('Error en descarga:', err);
+        }
+      });
     } catch (error) {
       console.error("Error descargando archivo:", error);
       res.status(500).json({
@@ -1070,11 +1090,11 @@ const eventosController = {
   },
 
   /**
-   * CONTROLADOR: obtenerHistorialEvento
-   * Obtiene el historial completo de cambios de un evento específico
+   * CONTROLADOR: obtenerHistorial
+   * Obtiene el historial de cambios de un evento
    * Ruta: GET /api/eventos/:id/historial
    */
-  obtenerHistorialEvento: async (req, res) => {
+  obtenerHistorial: async (req, res) => {
     try {
       const { id } = req.params;
 
@@ -1102,39 +1122,6 @@ const eventosController = {
       });
     } catch (error) {
       console.error("Error obteniendo historial:", error);
-      res.status(500).json({
-        success: false,
-        error: "Error interno del servidor",
-      });
-    }
-  },
-
-  /**
-   * CONTROLADOR: descargarArchivo
-   * Permite descargar archivos adjuntos de eventos
-   * Ruta: GET /api/eventos/archivo/:filename
-   */
-  descargarArchivo: async (req, res) => {
-    try {
-      const { filename } = req.params;
-      const path = require("path");
-      const fs = require("fs");
-
-      // Construir la ruta completa del archivo
-      const filePath = path.join(__dirname, "../uploads", filename);
-
-      // Verificar que el archivo existe físicamente en el servidor
-      if (!fs.existsSync(filePath)) {
-        return res.status(404).json({
-          success: false,
-          error: "Archivo no encontrado",
-        });
-      }
-
-      // Enviar el archivo para descarga
-      res.download(filePath);
-    } catch (error) {
-      console.error("Error descargando archivo:", error);
       res.status(500).json({
         success: false,
         error: "Error interno del servidor",
