@@ -34,6 +34,7 @@ const EventosTable = ({ onEditEvento, onViewDetails, onNuevoEvento }) => {
       return;
     }
 
+
     if (!window.confirm(`¿Estás seguro de eliminar el evento "${nombre}"?`)) {
       return;
     }
@@ -143,16 +144,10 @@ const EventosTable = ({ onEditEvento, onViewDetails, onNuevoEvento }) => {
                     {evento.descripcion || '-'}
                   </td>
                   <td className="evento-archivo">
-                    {evento.archivo_adjunto ? (
-                      <a 
-                        href={`http://localhost:5000/api/eventos/archivo/${evento.archivo_adjunto}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="archivo-link"
-                        title="Descargar archivo"
-                      >
-                        📎 Descargar
-                      </a>
+                    {evento.total_archivos > 0 ? (
+                      <span className="archivo-badge">
+                        📎 {evento.total_archivos} {evento.total_archivos === 1 ? 'archivo' : 'archivos'}
+                      </span>
                     ) : (
                       <span className="sin-archivo">-</span>
                     )}

@@ -234,6 +234,21 @@
   font-style: italic;
 }
 
+.archivo-badge {
+  display: inline-block;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.archivo-badge:hover {
+  opacity: 0.9;
+}
+
 /* ===== ESTADOS DE CARGA Y ERROR ===== */
 .loading-container,
 .error-container,

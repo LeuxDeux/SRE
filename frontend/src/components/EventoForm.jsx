@@ -22,12 +22,15 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
   });
 
   const [categorias, setCategorias] = useState([]);
-  const [archivo, setArchivo] = useState(null);
+  const [archivos, setArchivos] = useState([]); // Array de archivos nuevos a subir
+  const [archivosExistentes, setArchivosExistentes] = useState([]); // Archivos ya guardados en BD
+  const [archivosAEliminar, setArchivosAEliminar] = useState([]); // IDs de archivos a eliminar
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false); // ← NUEVO: modal
   const [fieldErrors, setFieldErrors] = useState({});
+  const [erroresArchivos, setErroresArchivos] = useState({});
 
   const validateField = (name, value) => {
     const errors = { ...fieldErrors };
@@ -130,8 +133,23 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
         const cat = categorias.find(c => c.id === parseInt(evento.categoria_id));
         setCategoriaSeleccionada(cat);
       }
+
+      // Cargar archivos existentes del evento
+      cargarArchivosExistentes(evento.id);
     }
   }, [evento, categorias]);
+
+  // Nueva función para cargar archivos existentes
+  const cargarArchivosExistentes = async (eventoId) => {
+    try {
+      const response = await eventosAPI.obtenerArchivos(eventoId);
+      if (response.data.success) {
+        setArchivosExistentes(response.data.archivos || []);
+      }
+    } catch (error) {
+      console.error('Error cargando archivos:', error);
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -173,25 +191,101 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
   };
 
   const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      if (file.size > 10 * 1024 * 1024) {
-        setError('El archivo es demasiado grande. Máximo 10MB.');
-        e.target.value = '';
-        return;
-      }
+    const files = Array.from(e.target.files);
+    const maxFileSize = 50 * 1024 * 1024; // 50MB por archivo
+    const maxTotalSize = 250 * 1024 * 1024; // 250MB total
+    const maxFiles = 5;
+    const allowedTypes = ['.pdf', '.jpg', '.jpeg', '.png', '.doc', '.docx', '.rar', '.zip'];
+    
+    const nuevosErrores = {};
+    const archivosValidos = [];
+    
+    // Validar cantidad total de archivos
+    const totalArchivos = archivos.length + archivosExistentes.filter(a => !archivosAEliminar.includes(a.id)).length + files.length;
+    if (totalArchivos > maxFiles) {
+      setError(`No puedes subir más de ${maxFiles} archivos en total (ya tienes ${archivos.length + archivosExistentes.filter(a => !archivosAEliminar.includes(a.id)).length})`);
+      e.target.value = '';
+      return;
+    }
 
-      const allowedTypes = ['.pdf', '.jpg', '.jpeg', '.png', '.doc', '.docx'];
+    // Validar cada archivo
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      
+      // Validar tamaño individual
+      if (file.size > maxFileSize) {
+        nuevosErrores[i] = `"${file.name}" es demasiado grande (${(file.size / 1024 / 1024).toFixed(2)}MB). Máximo ${maxFileSize / 1024 / 1024}MB.`;
+        continue;
+      }
+      
+      // Validar tipo de archivo
       const fileExt = '.' + file.name.split('.').pop().toLowerCase();
-
       if (!allowedTypes.includes(fileExt)) {
-        setError('Tipo de archivo no permitido. Solo PDF, imágenes y documentos.');
-        e.target.value = '';
-        return;
+        nuevosErrores[i] = `"${file.name}" tiene formato no permitido. Solo ${allowedTypes.join(', ')}.`;
+        continue;
       }
+      
+      archivosValidos.push(file);
+    }
 
-      setArchivo(file);
+    // Validar tamaño total
+    const tamañoNuevos = archivosValidos.reduce((sum, f) => sum + f.size, 0);
+    const tamañoExistentes = archivosExistentes
+      .filter(a => !archivosAEliminar.includes(a.id))
+      .reduce((sum, a) => sum + a.tamaño, 0);
+    const tamañoTotal = tamañoNuevos + tamañoExistentes;
+
+    if (tamañoTotal > maxTotalSize) {
+      setError(`El tamaño total (${(tamañoTotal / 1024 / 1024).toFixed(2)}MB) excede el límite de ${maxTotalSize / 1024 / 1024}MB`);
+      e.target.value = '';
+      return;
+    }
+
+    if (Object.keys(nuevosErrores).length > 0) {
+      setErroresArchivos(nuevosErrores);
+      // Aún agregar los archivos válidos
+    } else {
+      setErroresArchivos({});
       setError('');
+    }
+
+    // Agregar archivos válidos al estado
+    setArchivos([...archivos, ...archivosValidos]);
+    e.target.value = ''; // Resetear input
+  };
+
+  // Función para eliminar archivo nuevo (no guardado aún)
+  const eliminarArchivoNuevo = (index) => {
+    setArchivos(archivos.filter((_, i) => i !== index));
+    const nuevoErrores = { ...erroresArchivos };
+    delete nuevoErrores[index];
+    setErroresArchivos(nuevoErrores);
+  };
+
+  // Función para marcar archivo existente para eliminar
+  const marcarArchivoParaEliminar = (archivoId) => {
+    if (archivosAEliminar.includes(archivoId)) {
+      setArchivosAEliminar(archivosAEliminar.filter(id => id !== archivoId));
+    } else {
+      setArchivosAEliminar([...archivosAEliminar, archivoId]);
+    }
+  };
+
+  // Función para descargar un archivo existente
+  const descargarArchivo = async (archivo) => {
+    try {
+      const response = await eventosAPI.descargarArchivo(archivo.archivo_path);
+      // Crear blob y descargar
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', archivo.nombre_archivo);
+      document.body.appendChild(link);
+      link.click();
+      link.parentChild.removeChild(link);
+    } catch (error) {
+      console.error('Error descargando archivo:', error);
+      setError('Error al descargar el archivo');
     }
   };
 
@@ -267,8 +361,16 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
       formDataToSend.append('links', formData.links);
       formDataToSend.append('observaciones', formData.observaciones);
 
-      if (archivo) {
-        formDataToSend.append('archivo_adjunto', archivo);
+      // Agregar archivos nuevos
+      if (archivos.length > 0) {
+        for (let i = 0; i < archivos.length; i++) {
+          formDataToSend.append('archivos_adjuntos', archivos[i]);
+        }
+      }
+
+      // Agregar IDs de archivos a eliminar (si es edición)
+      if (archivosAEliminar.length > 0) {
+        formDataToSend.append('archivos_a_eliminar', JSON.stringify(archivosAEliminar));
       }
 
       let response;
@@ -632,28 +734,116 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
           <h3>📎 Material Complementario</h3>
 
           <div className="form-group">
-            <label htmlFor="archivo_adjunto">Archivos Adjuntos (Opcional)</label>
+            <label htmlFor="archivos_adjuntos">Archivos Adjuntos (Opcional - Máximo 5 archivos, 50MB cada uno, 250MB total)</label>
             <input
               type="file"
-              id="archivo_adjunto"
+              id="archivos_adjuntos"
               onChange={handleFileChange}
               disabled={loading}
-              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.rar,.zip"
+              multiple
             />
             <small className="file-hint">
-              Formatos permitidos: PDF, JPG, PNG, DOC, DOCX (Máximo 10MB)
+              Formatos permitidos: PDF, JPG, PNG, DOC, DOCX, RAR, ZIP (Máximo 50MB cada uno)
             </small>
-            {archivo && (
-              <div className="file-info">
-                📎 Archivo seleccionado: {archivo.name} ({(archivo.size / 1024 / 1024).toFixed(2)} MB)
-              </div>
-            )}
-            {evento?.archivo_adjunto && !archivo && (
-              <div className="file-info">
-                📎 Archivo actual: {evento.archivo_adjunto}
-              </div>
-            )}
           </div>
+
+          {/* Mostrar errores de validación de archivos */}
+          {Object.values(erroresArchivos).length > 0 && (
+            <div className="files-errors">
+              {Object.values(erroresArchivos).map((err, idx) => (
+                <div key={idx} className="file-error-item">
+                  ⚠️ {err}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Mostrar archivos existentes (en edición) */}
+          {archivosExistentes.length > 0 && (
+            <div className="files-section">
+              <h4>📂 Archivos Guardados ({archivosExistentes.filter(a => !archivosAEliminar.includes(a.id)).length})</h4>
+              <div className="files-list">
+                {archivosExistentes.map((archivo) => (
+                  <div 
+                    key={archivo.id} 
+                    className={`file-item ${archivosAEliminar.includes(archivo.id) ? 'markedForDelete' : ''}`}
+                  >
+                    <div className="file-info-exist">
+                      <div className="file-name">📄 {archivo.nombre_archivo}</div>
+                      <div className="file-size">
+                        {(archivo.tamaño / 1024 / 1024).toFixed(2)} MB • {new Date(archivo.fecha_carga).toLocaleDateString('es-ES')}
+                      </div>
+                    </div>
+                    <div className="file-actions">
+                      <button
+                        type="button"
+                        onClick={() => descargarArchivo(archivo)}
+                        className="btn-download"
+                        disabled={loading}
+                        title="Descargar archivo"
+                      >
+                        ⬇️
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => marcarArchivoParaEliminar(archivo.id)}
+                        className={`btn-delete ${archivosAEliminar.includes(archivo.id) ? 'active' : ''}`}
+                        disabled={loading}
+                        title={archivosAEliminar.includes(archivo.id) ? 'Deshacer eliminación' : 'Marcar para eliminar'}
+                      >
+                        {archivosAEliminar.includes(archivo.id) ? '♻️' : '🗑️'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Mostrar archivos nuevos seleccionados */}
+          {archivos.length > 0 && (
+            <div className="files-section">
+              <h4>✨ Archivos por Subir ({archivos.length})</h4>
+              <div className="files-list">
+                {archivos.map((archivo, idx) => (
+                  <div key={idx} className="file-item new">
+                    <div className="file-info-exist">
+                      <div className="file-name">📄 {archivo.name}</div>
+                      <div className="file-size">
+                        {(archivo.size / 1024 / 1024).toFixed(2)} MB
+                      </div>
+                    </div>
+                    <div className="file-actions">
+                      <button
+                        type="button"
+                        onClick={() => eliminarArchivoNuevo(idx)}
+                        className="btn-delete"
+                        disabled={loading}
+                        title="Eliminar de la selección"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Resumen de tamaño */}
+          {(archivos.length > 0 || archivosExistentes.length > 0) && (
+            <div className="size-summary">
+              <small>
+                Tamaño total: {(
+                  (archivos.reduce((sum, f) => sum + f.size, 0) +
+                   archivosExistentes
+                     .filter(a => !archivosAEliminar.includes(a.id))
+                     .reduce((sum, a) => sum + a.tamaño, 0)) / 1024 / 1024
+                ).toFixed(2)} MB / 250 MB
+              </small>
+            </div>
+          )}
         </div>
 
         <div className="form-actions">

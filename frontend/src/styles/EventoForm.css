@@ -271,3 +271,135 @@ select option[data-prioridad="baja"] {
   border-color: #dc3545;
   box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.1);
 }
+
+/* ======= NUEVOS ESTILOS PARA ARCHIVOS ======= */
+
+.files-errors {
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  padding: 12px;
+  border-radius: 5px;
+  margin: 10px 0;
+}
+
+.file-error-item {
+  color: #856404;
+  margin: 5px 0;
+  font-size: 14px;
+}
+
+.files-section {
+  margin: 20px 0;
+  padding: 15px;
+  background: #f0f8ff;
+  border: 1px solid #b3d9ff;
+  border-radius: 5px;
+}
+
+.files-section h4 {
+  margin: 0 0 10px 0;
+  color: #0066cc;
+  font-size: 14px;
+}
+
+.files-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.file-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: white;
+  border: 1px solid #d1e7f7;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.file-item.new {
+  border-color: #90ee90;
+  background: #f0fff0;
+}
+
+.file-item.markedForDelete {
+  opacity: 0.6;
+  background: #ffe6e6;
+  border-color: #ffcccc;
+  text-decoration: line-through;
+}
+
+.file-info-exist {
+  flex: 1;
+  min-width: 0;
+}
+
+.file-name {
+  font-weight: 500;
+  color: #333;
+  word-wrap: break-word;
+  word-break: break-word;
+}
+
+.file-size {
+  font-size: 12px;
+  color: #666;
+  margin-top: 2px;
+}
+
+.file-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: 10px;
+}
+
+.btn-download,
+.btn-delete {
+  padding: 6px 10px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.2s;
+  background: white;
+  border: 1px solid #ddd;
+  min-width: 36px;
+  text-align: center;
+}
+
+.btn-download:hover {
+  background: #e3f2fd;
+  border-color: #2196f3;
+}
+
+.btn-delete:hover {
+  background: #ffebee;
+  border-color: #f44336;
+}
+
+.btn-delete.active {
+  background: #f44336;
+  color: white;
+  border-color: #d32f2f;
+}
+
+.btn-download:disabled,
+.btn-delete:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.size-summary {
+  margin-top: 15px;
+  padding: 10px;
+  background: #f9f9f9;
+  border-left: 3px solid #3498db;
+  border-radius: 3px;
+}
+
+.size-summary small {
+  color: #666;
+  font-weight: 500;
+}

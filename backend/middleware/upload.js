@@ -1,9 +1,9 @@
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
 
 // Crear directorio de uploads si no existe
-const uploadsDir = path.join(__dirname, '../uploads');
+const uploadsDir = path.join(__dirname, "../uploads");
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
@@ -15,20 +15,38 @@ const storage = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     // Nombre único: timestamp + nombre original
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'evento-' + uniqueSuffix + path.extname(file.originalname));
-  }
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, "evento-" + uniqueSuffix + path.extname(file.originalname));
+  },
 });
 
-// Filtrar tipos de archivo
+// Filtrar tipos de archivo permitidos
 const fileFilter = (req, file, cb) => {
-  const allowedTypes = ['.pdf', '.jpg', '.jpeg', '.png', '.doc', '.docx'];
+  const allowedTypes = [
+    ".pdf",
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".doc",
+    ".docx",
+    ".rar",
+    ".zip",
+  ];
   const fileExt = path.extname(file.originalname).toLowerCase();
-  
+
+  console.log(
+    `📄 Archivo: ${file.originalname}, MIME: ${file.mimetype}, Ext: ${fileExt}`,
+  );
+
   if (allowedTypes.includes(fileExt)) {
     cb(null, true);
   } else {
-    cb(new Error('Tipo de archivo no permitido. Solo PDF, imágenes y documentos.'), false);
+    cb(
+      new Error(
+        `Tipo de archivo no permitido: ${fileExt}. Solo PDF, imágenes, documentos, RAR y ZIP.`,
+      ),
+      false,
+    );
   }
 };
 
@@ -36,8 +54,9 @@ const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
   limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB máximo
-  }
+    fileSize: 50 * 1024 * 1024, // 50MB máximo por archivo
+    files: 5, // Máximo 5 archivos
+  },
 });
 
 module.exports = upload;

@@ -5,19 +5,23 @@ import '../styles/EventoDetail.css';
 
 const EventoDetail = ({ eventoId, onClose }) => {
   const [evento, setEvento] = useState(null);
+  const [archivos, setArchivos] = useState([]);
   const [historial, setHistorial] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [generandoPDF, setGenerandoPDF] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [showFileModal, setShowFileModal] = useState(false);
 
   const cargarDetalles = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
       
-      const [eventoResponse, historialResponse] = await Promise.all([
+      const [eventoResponse, historialResponse, archivosResponse] = await Promise.all([
         eventosAPI.obtenerPorId(eventoId),
-        eventosAPI.obtenerHistorial(eventoId)
+        eventosAPI.obtenerHistorial(eventoId),
+        eventosAPI.obtenerArchivos(eventoId)
       ]);
 
       if (eventoResponse.data.success) {
@@ -30,6 +34,12 @@ const EventoDetail = ({ eventoId, onClose }) => {
         setHistorial(historialResponse.data.historial);
       } else {
         throw new Error('Error al cargar el historial');
+      }
+
+      if (archivosResponse.data.success) {
+        setArchivos(archivosResponse.data.archivos || []);
+      } else {
+        setArchivos([]);
       }
       
     } catch (error) {
@@ -52,6 +62,64 @@ const EventoDetail = ({ eventoId, onClose }) => {
     } finally {
       setGenerandoPDF(false);
     }
+  };
+
+  const descargarArchivo = async (archivo) => {
+    try {
+      const response = await eventosAPI.descargarArchivo(archivo.archivo_path);
+      
+      // Crear blob y descargar
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', archivo.nombre_archivo);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error descargando archivo:', error);
+      alert('Error al descargar el archivo');
+    }
+  };
+
+  const formatearTamano = (bytes) => {
+    if (!bytes) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+  };
+
+  const abrirDetallesArchivo = (archivo) => {
+    setSelectedFile(archivo);
+    setShowFileModal(true);
+  };
+
+  const cerrarModalArchivo = () => {
+    setSelectedFile(null);
+    setShowFileModal(false);
+  };
+
+  const obtenerIconoArchivo = (extension) => {
+    if (!extension) return '📄';
+    const ext = extension.toLowerCase();
+    
+    if (ext === 'pdf') return '📕';
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(ext)) return '🖼️';
+    if (['doc', 'docx', 'txt'].includes(ext)) return '📄';
+    if (['xls', 'xlsx', 'csv'].includes(ext)) return '📊';
+    if (['zip', 'rar', '7z'].includes(ext)) return '📦';
+    if (['mp4', 'avi', 'mov', 'mkv'].includes(ext)) return '🎬';
+    if (['mp3', 'wav', 'flac', 'm4a'].includes(ext)) return '🎵';
+    
+    return '📄';
+  };
+
+  const puedeVistaPreviaImagen = (extension) => {
+    if (!extension) return false;
+    const ext = extension.toLowerCase();
+    return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(ext);
   };
 
   useEffect(() => {
@@ -351,45 +419,96 @@ const EventoDetail = ({ eventoId, onClose }) => {
               </div>
             </div>
 
-            {/* SECCIÓN: ARCHIVOS Y METADATOS */}
-            <div className="info-subsection">
-              <h4>📎 Archivos Adjuntos y Recursos</h4>
-              <div className="info-item">
-                <label>Archivo Adjunto:</label>
-                <span>
-                  {evento.archivo_adjunto ? (
-                    <a 
-                      href={`http://localhost:5000/api/eventos/archivo/${evento.archivo_adjunto}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="archivo-link"
-                    >
-                      📎 {evento.archivo_adjunto}
-                    </a>
-                  ) : (
-                    <span className="texto-vacio">Sin archivo adjunto</span>
-                  )}
-                </span>
+            {/* SECCIÓN: ARCHIVOS ADJUNTOS E INFORMACIÓN DE AUDITORÍA (2 COLUMNAS) */}
+            <div className="archivos-auditoría-row">
+              {/* ARCHIVOS ADJUNTOS */}
+              <div className="info-subsection">
+                <h4>📎 Archivos Adjuntos</h4>
+                {archivos && archivos.length > 0 ? (
+                  <div className="archivos-tabla-container">
+                    <table className="archivos-tabla">
+                      <thead>
+                        <tr>
+                          <th>Nombre del Archivo</th>
+                          <th>Tamaño</th>
+                          <th>Tipo</th>
+                          <th>Fecha de Carga</th>
+                          <th>Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {archivos.map((archivo) => (
+                          <tr key={archivo.id}>
+                            <td>
+                              <span 
+                                className="archivo-nombre-clickable"
+                                onClick={() => descargarArchivo(archivo)}
+                                title="Click para descargar"
+                              >
+                                📄 {archivo.nombre_archivo}
+                              </span>
+                            </td>
+                            <td>{formatearTamano(archivo.tamaño)}</td>
+                            <td>{archivo.tipo_archivo || 'N/A'}</td>
+                            <td>
+                              {new Date(archivo.fecha_carga).toLocaleDateString('es-ES')}
+                            </td>
+                            <td>
+                              <div className="archivo-acciones">
+                                <button 
+                                  onClick={() => descargarArchivo(archivo)} 
+                                  className="btn-archivo btn-descargar"
+                                  title="Descargar archivo"
+                                >
+                                  ⬇️ Descargar
+                                </button>
+                                <button 
+                                  onClick={() => abrirDetallesArchivo(archivo)}
+                                  className="btn-archivo btn-detalles"
+                                  title="Ver detalles del archivo"
+                                >
+                                  ℹ️ Detalles
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <div className="archivos-resumen">
+                      <small>
+                        Total: {archivos.length} archivo(s) - 
+                        Tamaño total: {formatearTamano(archivos.reduce((sum, a) => sum + (a.tamaño || 0), 0))}
+                      </small>
+                    </div>
+                  </div>
+                ) : (
+                  <span className="texto-vacio">No hay archivos adjuntos</span>
+                )}
               </div>
-              
-              <div className="info-item">
-                <label>Creado por:</label>
-                <span>{evento.usuario_nombre || 'Usuario no disponible'}</span>
-              </div>
-              
-              <div className="info-item">
-                <label>Secretaría:</label>
-                <span>{evento.secretaria}</span>
-              </div>
-              
-              <div className="info-item">
-                <label>Fecha de Creación:</label>
-                <span>{formatearFechaHora(evento.fecha_carga)}</span>
-              </div>
-              
-              <div className="info-item">
-                <label>Última Modificación:</label>
-                <span>{formatearFechaHora(evento.ultima_modificacion)}</span>
+
+              {/* INFORMACIÓN DE AUDITORÍA */}
+              <div className="info-subsection">
+                <h4>📋 Información de Auditoría</h4>
+                <div className="info-item">
+                  <label>Creado por:</label>
+                  <span>{evento.usuario_nombre || 'Usuario no disponible'}</span>
+                </div>
+                
+                <div className="info-item">
+                  <label>Secretaría:</label>
+                  <span>{evento.secretaria}</span>
+                </div>
+                
+                <div className="info-item">
+                  <label>Fecha de Creación:</label>
+                  <span>{formatearFechaHora(evento.fecha_carga)}</span>
+                </div>
+                
+                <div className="info-item">
+                  <label>Última Modificación:</label>
+                  <span>{formatearFechaHora(evento.ultima_modificacion)}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -482,6 +601,100 @@ const EventoDetail = ({ eventoId, onClose }) => {
           )}
         </div>
       </div>
+
+      {/* MODAL DE DETALLES DE ARCHIVO */}
+      {showFileModal && selectedFile && (
+        <div className="modal-overlay" onClick={cerrarModalArchivo}>
+          <div className="modal-contenido" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>
+                {obtenerIconoArchivo(selectedFile.tipo_archivo)} Detalles del Archivo
+              </h3>
+              <button 
+                
+                onClick={cerrarModalArchivo}
+                title="Cerrar"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="modal-body">
+              {/* VISTA PREVIA */}
+              {puedeVistaPreviaImagen(selectedFile.tipo_archivo) ? (
+                <div className="archivo-preview">
+                  <img 
+                    src={`/uploads/${selectedFile.archivo_path}`}
+                    alt={selectedFile.nombre_archivo}
+                    className="preview-imagen"
+                  />
+                </div>
+              ) : (
+                <div className="archivo-no-preview">
+                  <div className="icono-grande">
+                    {obtenerIconoArchivo(selectedFile.tipo_archivo)}
+                  </div>
+                  <p className="tipo-archivo">{selectedFile.tipo_archivo || 'Archivo'}</p>
+                </div>
+              )}
+
+              {/* INFORMACIÓN DEL ARCHIVO */}
+              <div className="archivo-info">
+                <div className="info-item">
+                  <label>Nombre del Archivo:</label>
+                  <span className="info-valor">{selectedFile.nombre_archivo}</span>
+                </div>
+
+                <div className="info-item">
+                  <label>Tamaño:</label>
+                  <span className="info-valor">{formatearTamano(selectedFile.tamaño)}</span>
+                </div>
+
+                <div className="info-item">
+                  <label>Tipo de Archivo:</label>
+                  <span className="info-valor">{selectedFile.tipo_archivo || 'No especificado'}</span>
+                </div>
+
+                <div className="info-item">
+                  <label>Fecha de Carga:</label>
+                  <span className="info-valor">
+                    {new Date(selectedFile.fecha_carga).toLocaleDateString('es-ES', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </span>
+                </div>
+
+                <div className="info-item">
+                  <label>Ruta Interna:</label>
+                  <span className="info-valor info-ruta">{selectedFile.archivo_path}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button 
+                className="btn-modal btn-descargar"
+                onClick={() => {
+                  descargarArchivo(selectedFile);
+                  cerrarModalArchivo();
+                }}
+              >
+                ⬇️ Descargar
+              </button>
+              <button 
+                className="btn-modal btn-descargar"
+                onClick={cerrarModalArchivo}
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
