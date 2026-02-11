@@ -78,7 +78,10 @@ const AsignarRecursos = ({ onVolver }) => {
         }
     };
 
-    const handleQuitarRecurso = async (asignacionId, espacioId, recursoId) => {
+    const handleQuitarRecurso = async (e, asignacionId, espacioId, recursoId) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
         if (!window.confirm('¿Estás seguro de quitar este recurso del espacio?')) {
             return;
         }
@@ -253,7 +256,7 @@ const AsignarRecursos = ({ onVolver }) => {
                                                         </div>
                                                     </div>
                                                     <button 
-                                                        onClick={() => handleQuitarRecurso(asignacion.id, espacioSeleccionado.id, asignacion.recurso_id)}
+                                                        onClick={(e) => handleQuitarRecurso(e, asignacion.id, espacioSeleccionado.id, asignacion.recurso_id)}
                                                         className="btn-eliminar"
                                                     >
                                                         🗑️ Quitar

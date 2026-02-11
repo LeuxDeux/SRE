@@ -124,6 +124,7 @@ export const recursosAPI = {
   actualizar: (id, datos) => api.put(`/recursos/${id}`, datos),
   eliminar: (id) => api.delete(`/recursos/${id}`),
   obtenerTodos: () => api.get("/recursos"),
+  obtenerTodosConInactivos: () => api.get("/recursos/todos-admin"),
 };
 
 export const espaciosRecursosAPI = {

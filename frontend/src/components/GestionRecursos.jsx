@@ -8,6 +8,7 @@ const GestionRecursos = ({ onVolver }) => {
     const [error, setError] = useState(null);
     const [mostrarFormulario, setMostrarFormulario] = useState(false);
     const [recursoEditando, setRecursoEditando] = useState(null);
+    const [mostrarInactivos, setMostrarInactivos] = useState(false);
     const [formData, setFormData] = useState({
         nombre: '',
         descripcion: '',
@@ -17,12 +18,14 @@ const GestionRecursos = ({ onVolver }) => {
     // Cargar recursos al montar el componente
     useEffect(() => {
         cargarRecursos();
-    }, []);
+    }, [mostrarInactivos]);
 
     const cargarRecursos = async () => {
         try {
             setLoading(true);
-            const response = await recursosAPI.obtenerTodos();
+            const response = mostrarInactivos 
+                ? await recursosAPI.obtenerTodosConInactivos()
+                : await recursosAPI.obtenerTodos();
             setRecursos(response.data);
             setError(null);
         } catch (err) {
@@ -126,12 +129,21 @@ const GestionRecursos = ({ onVolver }) => {
             
             <div className="header">
                 <h2>🎛️ Gestión de Recursos</h2>
-                <button 
-                    onClick={() => setMostrarFormulario(true)}
-                    className="btn-nuevo"
-                >
-                    ➕ Nuevo Recurso
-                </button>
+                <div className="header-buttons">
+                    <button 
+                        onClick={() => setMostrarInactivos(!mostrarInactivos)}
+                        className={`btn-filtro ${mostrarInactivos ? 'activo' : ''}`}
+                        title={mostrarInactivos ? 'Ocultando inactivos' : 'Mostrando solo activos'}
+                    >
+                        {mostrarInactivos ? '👁️ Mostrando Inactivos' : '🔍 Mostrar Inactivos'}
+                    </button>
+                    <button 
+                        onClick={() => setMostrarFormulario(true)}
+                        className="btn-nuevo"
+                    >
+                        ➕ Nuevo Recurso
+                    </button>
+                </div>
             </div>
 
             {error && (
@@ -214,7 +226,7 @@ const GestionRecursos = ({ onVolver }) => {
                     </thead>
                     <tbody>
                         {recursos.map(recurso => (
-                            <tr key={recurso.id}>
+                            <tr key={recurso.id} className={`recurso-fila ${!recurso.activo ? 'inactivo' : ''}`}>
                                 <td>
                                     <strong>{recurso.nombre}</strong>
                                 </td>
