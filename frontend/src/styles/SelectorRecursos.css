@@ -1,0 +1,247 @@
+/* frontend/src/styles/SelectorRecursos.css */
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-selector-recursos {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  width: 90%;
+  max-width: 600px;
+  max-height: 80vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid #e0e0e0;
+  background-color: #f5f5f5;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.btn-cerrar {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  hover: background-color #f0f0f0;
+}
+
+.modal-content {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.error-message {
+  background-color: #fee;
+  color: #c33;
+  padding: 12px;
+  border-radius: 4px;
+  margin-bottom: 16px;
+}
+
+/* Formulario */
+.formulario-recursos {
+  background-color: #f9f9f9;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 24px;
+  border: 1px solid #ddd;
+}
+
+.formulario-recursos h4 {
+  margin-top: 0;
+  margin-bottom: 12px;
+  color: #333;
+}
+
+.form-group {
+  margin-bottom: 12px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  color: #333;
+  font-size: 14px;
+}
+
+.form-group select,
+.form-group input,
+.form-group textarea {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.form-group select:focus,
+.form-group input:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #4CAF50;
+  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.1);
+}
+
+.btn-agregar {
+  width: 100%;
+  padding: 10px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  margin-top: 8px;
+}
+
+.btn-agregar:hover {
+  background-color: #45a049;
+}
+
+/* Lista de recursos */
+.lista-recursos-reservados h4 {
+  margin-bottom: 12px;
+  color: #333;
+}
+
+.sin-datos {
+  text-align: center;
+  color: #999;
+  padding: 16px;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+}
+
+.recursos-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.recurso-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: #fafafa;
+}
+
+.recurso-info {
+  flex: 1;
+}
+
+.recurso-info strong {
+  display: block;
+  margin-bottom: 6px;
+  color: #333;
+}
+
+.detalles {
+  display: flex;
+  gap: 12px;
+  font-size: 13px;
+  color: #666;
+  flex-wrap: wrap;
+}
+
+.detalles span {
+  background-color: #e8f5e9;
+  padding: 2px 8px;
+  border-radius: 3px;
+}
+
+.confirmado {
+  background-color: #c8e6c9 !important;
+  color: #2e7d32 !important;
+}
+
+.pendiente {
+  background-color: #fff3e0 !important;
+  color: #e65100 !important;
+}
+
+.observaciones {
+  display: block;
+  margin-top: 6px;
+  color: #666;
+  font-style: italic;
+}
+
+.btn-quitar {
+  background: none;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.btn-quitar:hover {
+  background-color: #fee;
+  border-color: #fcc;
+}
+
+.modal-footer {
+  padding: 12px 16px;
+  border-top: 1px solid #e0e0e0;
+  background-color: #f5f5f5;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.btn-cerrar-modal {
+  padding: 8px 16px;
+  background-color: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.btn-cerrar-modal:hover {
+  background-color: #e0e0e0;
+}
+
+@media (max-width: 600px) {
+  .modal-selector-recursos {
+    width: 95%;
+    max-height: 90vh;
+  }
+}

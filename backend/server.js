@@ -39,6 +39,7 @@ app.use("/api/secretarias", require("./routes/secretarias"));
 app.use("/api/espacios", require("./routes/espacios"));
 app.use("/api/recursos", require("./routes/recursos"));
 app.use("/api/reservas", require("./routes/reservas"));
+app.use("/api/reservas", require("./routes/reservasRecursos")); // Recursos en reservas
 app.use("/api/espacios-recursos", require("./routes/espaciosRecursos"));
 
 // Health check

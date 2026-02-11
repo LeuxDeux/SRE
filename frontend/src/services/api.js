@@ -136,6 +136,18 @@ export const espaciosRecursosAPI = {
     api.get(`/espacios-recursos/${espacioId}/recursos`),
   obtenerTodasLasAsignaciones: () => api.get("/espacios-recursos/asignaciones"),
 };
+
+export const reservasRecursosAPI = {
+  obtenerRecursosDeReserva: (reservaId) =>
+    api.get(`/reservas/${reservaId}/recursos`),
+  agregarRecursoAReserva: (reservaId, recursos) =>
+    api.post(`/reservas/${reservaId}/recursos`, { recursos }),
+  confirmarRecurso: (reservaId, recursoId, cantidad_confirmada) =>
+    api.put(`/reservas/${reservaId}/recursos/${recursoId}/confirmar`, { cantidad_confirmada }),
+  quitarRecursoDeReserva: (reservaId, recursoId) =>
+    api.delete(`/reservas/${reservaId}/recursos/${recursoId}`),
+};
+
 export const categoriasAPI = {
   obtenerTodas: () => api.get("/categorias"),
   obtenerTodasAdmin: () => api.get("/categorias/todas"),

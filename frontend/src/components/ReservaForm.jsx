@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { espaciosAPI, recursosAPI, reservasAPI } from '../services/api';
+import { espaciosAPI, espaciosRecursosAPI, reservasAPI, reservasRecursosAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import moment from 'moment';
 import '../styles/ReservaForm.css';
@@ -7,7 +7,7 @@ import '../styles/ReservaForm.css';
 const ReservaForm = ({ slotInicial, onClose, onReservaCreada }) => {
     const { user } = useAuth();
     const [espacios, setEspacios] = useState([]);
-    const [recursos, setRecursos] = useState([]);
+    const [recursosDelEspacio, setRecursosDelEspacio] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [pasoActual, setPasoActual] = useState(1);
@@ -47,15 +47,11 @@ const ReservaForm = ({ slotInicial, onClose, onReservaCreada }) => {
 
     const cargarDatos = async () => {
         try {
-            const [espaciosRes, recursosRes] = await Promise.all([
-                espaciosAPI.obtenerTodos(),
-                recursosAPI.obtenerTodos()
-            ]);
+            const espaciosRes = await espaciosAPI.obtenerTodos();
             setEspacios(espaciosRes.data);
-            setRecursos(recursosRes.data);
         } catch (err) {
             console.error('Error cargando datos:', err);
-            setError('Error al cargar los datos');
+            setError('Error al cargar los espacios');
         }
     };
 
@@ -69,6 +65,46 @@ const ReservaForm = ({ slotInicial, onClose, onReservaCreada }) => {
         // Si cambia espacio o fechas, resetear validación
         if (['espacio_id', 'fecha_inicio', 'hora_inicio', 'fecha_fin', 'hora_fin'].includes(name)) {
             setDisponibilidad(null);
+        }
+    };
+
+    const validarDisponibilidad = async () => {
+        if (!formData.espacio_id || !formData.fecha_inicio || !formData.hora_inicio || 
+            !formData.fecha_fin || !formData.hora_fin) {
+            setError('Completa todos los campos de fecha y espacio para validar disponibilidad');
+            return;
+        }
+
+        try {
+            setValidando(true);
+            
+            // Validar disponibilidad del espacio
+            const response = await reservasAPI.validarDisponibilidad({
+                espacio_id: formData.espacio_id,
+                fecha_inicio: formData.fecha_inicio,
+                hora_inicio: formData.hora_inicio,
+                fecha_fin: formData.fecha_fin,
+                hora_fin: formData.hora_fin
+            });
+
+            setDisponibilidad(response.data);
+            
+            if (response.data.disponible) {
+                // Cargar recursos del espacio seleccionado
+                const recursosRes = await espaciosRecursosAPI.obtenerRecursosDeEspacio(formData.espacio_id);
+                const recursosData = recursosRes.data || recursosRes || [];
+                setRecursosDelEspacio(recursosData);
+                
+                setError(null);
+                setPasoActual(2); // Ir al paso de recursos
+            } else {
+                setError('El espacio no está disponible en ese horario');
+            }
+        } catch (err) {
+            console.error('Error validando disponibilidad:', err);
+            setError('Error al validar disponibilidad');
+        } finally {
+            setValidando(false);
         }
     };
 
@@ -93,49 +129,38 @@ const ReservaForm = ({ slotInicial, onClose, onReservaCreada }) => {
         });
     };
 
-    const validarDisponibilidad = async () => {
-        if (!formData.espacio_id || !formData.fecha_inicio || !formData.hora_inicio || 
-            !formData.fecha_fin || !formData.hora_fin) {
-            setError('Completa todos los campos de fecha y espacio para validar disponibilidad');
-            return;
-        }
-
-        try {
-            setValidando(true);
-            const response = await reservasAPI.validarDisponibilidad({
-                espacio_id: formData.espacio_id,
-                fecha_inicio: formData.fecha_inicio,
-                hora_inicio: formData.hora_inicio,
-                fecha_fin: formData.fecha_fin,
-                hora_fin: formData.hora_fin
-            });
-
-            setDisponibilidad(response.data);
-            if (response.data.disponible) {
-                setError(null);
-                setPasoActual(2); // Avanzar al siguiente paso
-            }
-        } catch (err) {
-            console.error('Error validando disponibilidad:', err);
-            setError('Error al validar disponibilidad');
-        } finally {
-            setValidando(false);
-        }
-    };
-
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
         
         try {
             const reservaData = {
-                ...formData,
+                espacio_id: formData.espacio_id,
+                fecha_inicio: formData.fecha_inicio,
+                hora_inicio: formData.hora_inicio,
+                fecha_fin: formData.fecha_fin,
+                hora_fin: formData.hora_fin,
+                titulo: formData.titulo,
+                descripcion: formData.descripcion,
+                motivo: formData.motivo,
+                cantidad_participantes: formData.cantidad_participantes,
                 usuario_id: user.id
             };
 
+            // Crear la reserva
             const response = await reservasAPI.crear(reservaData);
             
             if (response.data.success) {
+                const reservaId = response.data.reserva.id;
+                
+                // Agregar recursos si hay algunos seleccionados
+                if (formData.recursos_solicitados.length > 0) {
+                    await reservasRecursosAPI.agregarRecursoAReserva(
+                        reservaId, 
+                        formData.recursos_solicitados
+                    );
+                }
+                
                 onReservaCreada(response.data.reserva);
             }
         } catch (err) {
@@ -146,12 +171,7 @@ const ReservaForm = ({ slotInicial, onClose, onReservaCreada }) => {
         }
     };
 
-    const getRecursosDelEspacio = () => {
-        if (!formData.espacio_id) return [];
-        const espacio = espacios.find(e => e.id === parseInt(formData.espacio_id));
-        // Aquí necesito un endpoint para obtener recursos del espacio
-        return recursos; // Por ahora devolver todos
-    };
+
 
     return (
         <div className="modal-overlay" onClick={onClose}>
@@ -352,36 +372,48 @@ const ReservaForm = ({ slotInicial, onClose, onReservaCreada }) => {
                         </div>
                     )}
 
-                    {/* PASO 2: RECURSOS (OPCIONAL) */}
+                    {/* PASO 2: RECURSOS */}
                     {pasoActual === 2 && (
                         <div className="paso-container">
                             <h3>🎛️ Recursos Adicionales (Opcional)</h3>
                             <p className="subtitulo-paso">
-                                Selecciona los recursos que necesitas para tu reserva
+                                Selecciona los recursos disponibles en {espacios.find(e => e.id === parseInt(formData.espacio_id))?.nombre}
                             </p>
 
-                            <div className="recursos-lista">
-                                {recursos.map(recurso => (
-                                    <div key={recurso.id} className="recurso-item">
-                                        <div className="recurso-info">
-                                            <strong>{recurso.nombre}</strong>
-                                            <span>Stock disponible: {recurso.cantidad_total}</span>
-                                            {recurso.descripcion && (
-                                                <small>{recurso.descripcion}</small>
-                                            )}
-                                        </div>
-                                        <div className="recurso-cantidad">
-                                            <input
-                                                type="number"
-                                                min="0"
-                                                max={recurso.cantidad_total}
-                                                value={formData.recursos_solicitados.find(r => r.recurso_id === recurso.id)?.cantidad_solicitada || 0}
-                                                onChange={(e) => handleRecursoChange(recurso.id, parseInt(e.target.value) || 0)}
-                                            />
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
+                            {recursosDelEspacio.length > 0 ? (
+                                <div className="recursos-lista">
+                                    {recursosDelEspacio.map(recurso => {
+                                        const recursoSeleccionado = formData.recursos_solicitados.find(r => r.recurso_id === recurso.recurso_id);
+                                        const cantidadSolicitada = recursoSeleccionado?.cantidad_solicitada || 0;
+
+                                        return (
+                                            <div key={recurso.id} className="recurso-item">
+                                                <div className="recurso-info">
+                                                    <strong>{recurso.nombre}</strong>
+                                                    <span>Máximo disponible: {recurso.cantidad_maxima}</span>
+                                                    {recurso.descripcion && (
+                                                        <small>{recurso.descripcion}</small>
+                                                    )}
+                                                </div>
+                                                <div className="recurso-cantidad">
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        max={recurso.cantidad_maxima}
+                                                        value={cantidadSolicitada}
+                                                        onChange={(e) => handleRecursoChange(recurso.recurso_id, parseInt(e.target.value) || 0)}
+                                                        placeholder="0"
+                                                    />
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <div className="sin-datos">
+                                    Este espacio no tiene recursos asignados.
+                                </div>
+                            )}
 
                             <div className="form-actions">
                                 <button 
@@ -426,12 +458,12 @@ const ReservaForm = ({ slotInicial, onClose, onReservaCreada }) => {
                                 </div>
                                 {formData.recursos_solicitados.length > 0 && (
                                     <div className="resumen-item">
-                                        <strong>Recursos:</strong>
-                                        <div>
-                                            {formData.recursos_solicitados.map((recurso, index) => {
-                                                const recursoInfo = recursos.find(r => r.id === recurso.recurso_id);
+                                        <strong>Recursos Solicitados:</strong>
+                                        <div className="recursos-confirmacion">
+                                            {formData.recursos_solicitados.map((recurso) => {
+                                                const recursoInfo = recursosDelEspacio.find(r => r.recurso_id === recurso.recurso_id);
                                                 return (
-                                                    <div key={index}>
+                                                    <div key={recurso.recurso_id}>
                                                         {recursoInfo?.nombre} - {recurso.cantidad_solicitada} unidades
                                                     </div>
                                                 );
