@@ -73,11 +73,14 @@
 }
 
 .espacio-info span {
+  display: block;
   color: #7f8c8d;
   font-size: 14px;
+  margin-bottom: 4px;
 }
 
 .espacio-info small {
+  display: block;
   color: #3498db;
   font-weight: 600;
 }
