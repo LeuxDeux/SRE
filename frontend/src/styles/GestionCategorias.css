@@ -414,3 +414,110 @@
 [role="tooltip"]::after {
   border-top-color: #2c3e50 !important;
 }
+
+/* Estilos para múltiples emails */
+.emails-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.emails-input-group {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.emails-input-group input {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.emails-input-group input:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 5px rgba(52, 152, 219, 0.3);
+}
+
+.btn-add-email {
+  background: #3498db;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.btn-add-email:hover {
+  background: #2980b9;
+}
+
+.btn-add-email:active {
+  transform: scale(0.98);
+}
+
+.emails-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.email-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #e3f2fd;
+  border: 1px solid #3498db;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  color: #1976d2;
+}
+
+.btn-remove-email {
+  background: none;
+  border: none;
+  color: #d32f2f;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  transition: color 0.2s;
+}
+
+.btn-remove-email:hover {
+  color: #b71c1c;
+}
+
+/* Mostrar emails en tabla */
+.emails-list-display {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.email-badge {
+  display: inline-block;
+  background: #f0f4f8;
+  border: 1px solid #3498db;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  color: #2c3e50;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.email-badge:hover {
+  background: #e3f2fd;
+  border-color: #2980b9;
+  color: #1976d2;
+}
