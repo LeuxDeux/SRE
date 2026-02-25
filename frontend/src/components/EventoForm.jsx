@@ -377,18 +377,8 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
       }
 
       if (response.data.success) {
-        // Enviar PDF por correo (creación o edición)
-        const esEdicion = !!evento;
-
-        try {
-          await eventosAPI.enviarPDFCorreo(
-            response.data.evento.id,
-            esEdicion ? 'actualizado' : 'creado'
-          );
-          console.log(`✅ PDF enviado por correo (${esEdicion ? 'actualizado' : 'creado'})`);
-        } catch (emailError) {
-          console.warn('⚠️ Advertencia: PDF no se envió por correo', emailError);
-        }
+        // Nota: El email se envía automáticamente en el backend al crear/actualizar
+        // No necesitamos llamar a enviarPDFCorreo desde aquí para evitar duplicados
 
         setShowSuccessModal(true);
         setTimeout(() => {
