@@ -517,6 +517,68 @@ const eventosController = {
         },
       );
 
+      // 📧 ENVIO AUTOMÁTICO DE CORREO AL CREAR EVENTO
+      try {
+        // Obtener evento con categoría e emails
+        const [eventoParaEmail] = await pool.query(
+          `
+          SELECT e.*, 
+                 c.nombre as categoria_nombre, 
+                 c.color as categoria_color,
+                 GROUP_CONCAT(ce.email) as categoria_emails,
+                 u.nombre_completo as usuario_nombre
+          FROM eventos e
+          LEFT JOIN categorias c ON e.categoria_id = c.id
+          LEFT JOIN categorias_emails ce ON c.id = ce.categoria_id
+          LEFT JOIN usuarios u ON e.usuario_id = u.id
+          WHERE e.id = ?
+          GROUP BY e.id
+        `,
+          [eventoId],
+        );
+
+        if (eventoParaEmail.length > 0) {
+          const evento = eventoParaEmail[0];
+          const correoSecretaria = process.env.CORREO_SECRETARIA_PRINCIPAL;
+          const correoAdicional = process.env.CORREO_ADICIONAL?.trim();
+
+          // Construir array de correos
+          const correosDestino = [];
+          if (correoSecretaria) correosDestino.push(correoSecretaria);
+          if (correoAdicional && correoAdicional !== correoSecretaria) {
+            correosDestino.push(correoAdicional);
+          }
+
+          // Agregar emails de la categoría
+          if (evento.categoria_emails) {
+            const emailsCategoria = evento.categoria_emails
+              .split(',')
+              .map(e => e.trim())
+              .filter(e => e && !correosDestino.includes(e));
+            correosDestino.push(...emailsCategoria);
+          }
+
+          // Enviar si hay correos de destino
+          if (correosDestino.length > 0) {
+            // Obtener archivos del evento para incluirlos en el email
+            const [archivos] = await pool.query(
+              `SELECT nombre_archivo, archivo_path FROM eventos_archivos WHERE evento_id = ? ORDER BY fecha_carga ASC`,
+              [eventoId]
+            );
+
+            const { enviarPDFPorCorreo } = require("../utils/emailService");
+            await enviarPDFPorCorreo(evento, correosDestino, "creado", archivos);
+            console.log(`✅ Email de evento creado enviado a: ${correosDestino.join(", ")} con ${archivos.length} archivo(s) adjunto(s)`);
+          } else {
+            console.log("⚠️ No hay correos configurados para enviar notificación");
+          }
+        }
+      } catch (emailError) {
+        // No fallar la creación del evento si falla el email
+        console.error("⚠️ Error enviando email automático:", emailError.message);
+      }
+      // FIN ENVIO AUTOMÁTICO
+
       // Obtener el evento recién creado con información completa
       const [eventos] = await pool.query(
         `
@@ -1139,18 +1201,20 @@ const eventosController = {
       const { id } = req.params;
       const { tipoAccion = "creado" } = req.body;
 
-      // Obtener evento con datos completos (incluyendo email de categoría)
+      // Obtener evento con datos completos (incluyendo todos los emails de la categoría)
       const [eventos] = await pool.query(
         `
       SELECT e.*, 
              c.nombre as categoria_nombre, 
-             c.color as categoria_color, 
-             c.email_contacto as categoria_email,
+             c.color as categoria_color,
+             GROUP_CONCAT(ce.email) as categoria_emails,
              u.nombre_completo as usuario_nombre
       FROM eventos e
       LEFT JOIN categorias c ON e.categoria_id = c.id
+      LEFT JOIN categorias_emails ce ON c.id = ce.categoria_id
       LEFT JOIN usuarios u ON e.usuario_id = u.id
       WHERE e.id = ?
+      GROUP BY e.id
     `,
         [id],
       );
@@ -1175,24 +1239,34 @@ const eventosController = {
         correosDestino.push(correoAdicional);
       }
 
-      // Agregar email de la categoría si existe
-      if (
-        evento.categoria_email &&
-        !correosDestino.includes(evento.categoria_email)
-      ) {
-        correosDestino.push(evento.categoria_email);
-        console.log(
-          `✅ Email de categoría agregado: ${evento.categoria_email}`,
-        );
+      // Agregar TODOS los emails de la categoría (de la tabla categorias_emails)
+      if (evento.categoria_emails) {
+        const emailsCategoria = evento.categoria_emails
+          .split(',')
+          .map(email => email.trim())
+          .filter(email => email && !correosDestino.includes(email));
+        
+        correosDestino.push(...emailsCategoria);
+        if (emailsCategoria.length > 0) {
+          console.log(
+            `✅ Emails de categoría agregados: ${emailsCategoria.join(", ")}`
+          );
+        }
       }
 
       console.log(`📧 Enviando PDF a: ${correosDestino.join(", ")}`);
 
-      // Enviar UN SOLO EMAIL a todos los destinatarios
+      // Obtener archivos del evento adjuntos
+      const [archivos] = await pool.query(
+        `SELECT nombre_archivo, archivo_path FROM eventos_archivos WHERE evento_id = ? ORDER BY fecha_carga ASC`,
+        [id]
+      );
+
+      // Enviar UN SOLO EMAIL a todos los destinatarios con archivos adjuntos
       const { enviarPDFPorCorreo } = require("../utils/emailService");
 
       try {
-        await enviarPDFPorCorreo(evento, correosDestino, tipoAccion);
+        await enviarPDFPorCorreo(evento, correosDestino, "creado", archivos);
       } catch (emailError) {
         console.error(`❌ Error enviando email:`, emailError);
         throw emailError;
@@ -1200,7 +1274,7 @@ const eventosController = {
 
       res.json({
         success: true,
-        message: `PDF enviado exitosamente a ${correosDestino.length} destinatario(s)`,
+        message: `PDF enviado exitosamente a ${correosDestino.length} destinatario(s) con ${archivos.length} archivo(s)`,
         destinatarios: correosDestino,
       });
     } catch (error) {
