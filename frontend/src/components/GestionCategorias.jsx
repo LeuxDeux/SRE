@@ -14,7 +14,8 @@ const GestionCategorias = ({ onClose }) => {
     color: '#3498db',
     prioridad: 'media',
     dias_antelacion: 15,
-    email_contacto: '',
+    emails: [],
+    nuevoEmail: '',
     descripcion: '',
     activa: true
   });
@@ -50,15 +51,25 @@ const GestionCategorias = ({ onClose }) => {
     e.preventDefault();
 
     try {
+      const datosEnvio = {
+        nombre: formData.nombre,
+        color: formData.color,
+        prioridad: formData.prioridad,
+        dias_antelacion: formData.dias_antelacion,
+        emails: formData.emails,
+        descripcion: formData.descripcion,
+        activa: formData.activa
+      };
+
       if (editando) {
-        await categoriasAPI.actualizar(editando.id, formData);
+        await categoriasAPI.actualizar(editando.id, datosEnvio);
       } else {
-        await categoriasAPI.crear(formData);
+        await categoriasAPI.crear(datosEnvio);
       }
 
       setShowForm(false);
       setEditando(null);
-      setFormData({ nombre: '', color: '#3498db', dias_antelacion: 15, email_contacto: '', descripcion: '', activa: true });
+      setFormData({ nombre: '', color: '#3498db', prioridad: 'media', dias_antelacion: 15, emails: [], nuevoEmail: '', descripcion: '', activa: true });
       cargarCategorias();
 
     } catch (error) {
@@ -74,7 +85,8 @@ const GestionCategorias = ({ onClose }) => {
       color: categoria.color,
       prioridad: categoria.prioridad,
       dias_antelacion: categoria.dias_antelacion,
-      email_contacto: categoria.email_contacto || '',
+      emails: categoria.emails || [],
+      nuevoEmail: '',
       descripcion: categoria.descripcion || '',
       activa: categoria.activa
     });
@@ -111,7 +123,31 @@ const GestionCategorias = ({ onClose }) => {
   const cancelarForm = () => {
     setShowForm(false);
     setEditando(null);
-    setFormData({ nombre: '', color: '#3498db', dias_antelacion: 15, email_contacto: '', descripcion: '', activa: true });
+    setFormData({ nombre: '', color: '#3498db', prioridad: 'media', dias_antelacion: 15, emails: [], nuevoEmail: '', descripcion: '', activa: true });
+  };
+
+  const agregarEmail = () => {
+    const email = formData.nuevoEmail.trim();
+    if (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      if (!formData.emails.includes(email)) {
+        setFormData({
+          ...formData,
+          emails: [...formData.emails, email],
+          nuevoEmail: ''
+        });
+      } else {
+        alert('Este email ya está agregado');
+      }
+    } else {
+      alert('Por favor, ingresa un email válido');
+    }
+  };
+
+  const quitarEmail = (index) => {
+    setFormData({
+      ...formData,
+      emails: formData.emails.filter((_, i) => i !== index)
+    });
   };
 
   if (loading) {
@@ -182,7 +218,6 @@ const GestionCategorias = ({ onClose }) => {
               <select
                 value={formData.prioridad}
                 onChange={(e) => setFormData({ ...formData, prioridad: e.target.value })}
-                required
               >
                 <option value="baja">Baja ✅</option>
                 <option value="media">Media ⚠️</option>
@@ -198,20 +233,51 @@ const GestionCategorias = ({ onClose }) => {
                 max="365"
                 value={formData.dias_antelacion}
                 onChange={(e) => setFormData({ ...formData, dias_antelacion: parseInt(e.target.value) })}
-                required
               />
               <small className="field-hint">Días mínimos de anticipación para eventos de esta categoría</small>
             </div>
 
             <div className="form-group">
-              <label>Email de contacto (opcional):</label>
-              <input
-                type="email"
-                value={formData.email_contacto}
-                onChange={(e) => setFormData({ ...formData, email_contacto: e.target.value })}
-                placeholder="correo@dominio.com"
-              />
-              <small className="field-hint">Se enviará copia de eventos de esta categoría a este email</small>
+              <label>Correos de notificación (opcional):</label>
+              <div className="emails-container">
+                <div className="emails-input-group">
+                  <input
+                    type="email"
+                    value={formData.nuevoEmail}
+                    onChange={(e) => setFormData({ ...formData, nuevoEmail: e.target.value })}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        agregarEmail();
+                      }
+                    }}
+                    placeholder="correo@dominio.com"
+                  />
+                  <button
+                    type="button"
+                    onClick={agregarEmail}
+                    className="btn-add-email"
+                  >
+                    ➕ Agregar
+                  </button>
+                </div>
+                <div className="emails-list">
+                  {formData.emails.map((email, index) => (
+                    <div key={index} className="email-chip">
+                      <span>{email}</span>
+                      <button
+                        type="button"
+                        onClick={() => quitarEmail(index)}
+                        className="btn-remove-email"
+                        title="Eliminar email"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <small className="field-hint">Se enviará información de eventos de esta categoría a estos correos</small>
             </div>
 
             <div className="form-group">
@@ -298,10 +364,14 @@ const GestionCategorias = ({ onClose }) => {
                   </span>
                 </td>
                 <td className="categoria-email">
-                  {categoria.email_contacto ? (
-                    <a href={`mailto:${categoria.email_contacto}`} className="email-link">
-                      {categoria.email_contacto}
-                    </a>
+                  {categoria.emails && categoria.emails.length > 0 ? (
+                    <div className="emails-list-display">
+                      {categoria.emails.map((email, idx) => (
+                        <a key={idx} href={`mailto:${email}`} className="email-badge">
+                          {email}
+                        </a>
+                      ))}
+                    </div>
                   ) : (
                     <span className="sin-email">—</span>
                   )}
