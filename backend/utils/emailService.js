@@ -327,9 +327,10 @@ const formatearFecha = (fechaInicio, fechaFin) => {
  * @param {Array|String} correosDestino - Email(s) del destinatario(s)
  * @returns {Promise}
  */
-const enviarPDFPorCorreo = async (evento, correosDestino, tipoAccion = 'creado') => {
+const enviarPDFPorCorreo = async (evento, correosDestino, tipoAccion = 'creado', archivosAdjuntos = []) => {
   try {
-    // Convertir a array si viene string
+    const fs = require('fs');
+    const path = require('path');
     const listaCorreos = Array.isArray(correosDestino) 
       ? correosDestino.filter(c => c && c.length > 0) 
       : [correosDestino];
@@ -339,7 +340,40 @@ const enviarPDFPorCorreo = async (evento, correosDestino, tipoAccion = 'creado')
     const pdfBuffer = await generarPDFBuffer(evento);
     const nombreArchivo = `Formulario_${evento.nombre.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
 
-    // ← Usar tipoAccion para mensajes dinámicos, SI ES ACTUALIZADO 1 SI ES CREADO 2
+    // CONSTRUIR ARRAY DE ADJUNTOS ANTES de enviar
+    const adjuntos = [
+      {
+        filename: nombreArchivo,
+        content: pdfBuffer, // pdfBuffer ya es un Buffer, no necesita Buffer.from()
+        contentType: 'application/pdf'
+      }
+    ];
+
+    // Agregar archivos del evento si existen
+    if (archivosAdjuntos && archivosAdjuntos.length > 0) {
+      for (const archivo of archivosAdjuntos) {
+        try {
+          // Ruta al archivo en el servidor
+          const rutaArchivo = path.join(__dirname, '../uploads', archivo.archivo_path);
+          
+          // Verificar que el archivo existe
+          if (fs.existsSync(rutaArchivo)) {
+            const contenidoArchivo = fs.readFileSync(rutaArchivo);
+            adjuntos.push({
+              filename: archivo.nombre_archivo,
+              content: contenidoArchivo
+            });
+            console.log(`  ✅ Archivo adjuntado: ${archivo.nombre_archivo}`);
+          } else {
+            console.warn(`  ⚠️ Archivo no encontrado: ${rutaArchivo}`);
+          }
+        } catch (error) {
+          console.warn(`  ⚠️ Error leyendo archivo ${archivo.nombre_archivo}: ${error.message}`);
+        }
+      }
+    }
+
+    // ← Usar tipoAccion para mensajes dinámicos
     const asuntoTexto = tipoAccion === 'actualizado' 
       ? `${evento.categoria_nombre}`
       : `${evento.categoria_nombre}`;
@@ -373,6 +407,15 @@ const enviarPDFPorCorreo = async (evento, correosDestino, tipoAccion = 'creado')
 
             ${mensajeTexto}
 
+            ${archivosAdjuntos && archivosAdjuntos.length > 0 ? `
+            <div style="background-color: #fff3cd; padding: 10px; border-radius: 4px; margin-top: 15px;">
+              <p style="margin-top: 0; color: #856404;"><strong>📎 Archivos adjuntos:</strong></p>
+              <ul style="margin-bottom: 0; color: #856404; font-size: 13px;">
+                ${archivosAdjuntos.map(a => `<li>${a.nombre_archivo}</li>`).join('')}
+              </ul>
+            </div>
+            ` : ''}
+
             <div style="background-color: #e7f3ff; padding: 10px; border-radius: 4px; margin-top: 20px;">
               <p style="margin: 0; color: #004085; font-size: 12px;">
                 Este es un correo automático del Sistema de Registro de Eventos (SRE).
@@ -382,16 +425,10 @@ const enviarPDFPorCorreo = async (evento, correosDestino, tipoAccion = 'creado')
           </div>
         </div>
       `,
-      attachments: [
-        {
-          filename: nombreArchivo,
-          content: Buffer.from(pdfBuffer),
-          contentType: 'application/pdf'
-        }
-      ]
+      attachments: adjuntos
     });
 
-    console.log(`✅ PDF enviado a ${listaCorreos.join(', ')}`);
+    console.log(`✅ PDF y ${adjuntos.length - 1} archivo(s) enviados a ${listaCorreos.join(', ')}`);
     return info;
 
   } catch (error) {
