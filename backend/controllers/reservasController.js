@@ -144,15 +144,17 @@ crearReserva: async (req, res) => {
 
         const espacio = espacios[0];
 
-        // Validar disponibilidad
+        // Validar disponibilidad - Considerando FECHAS y HORAS
         const [conflictos] = await db.execute(
             `SELECT id FROM reservas 
              WHERE espacio_id = ? 
-             AND estado NOT IN ('cancelada', 'rechazada')
+             AND estado IN ('pendiente', 'confirmada')
              AND (
-                (fecha_inicio <= ? AND fecha_fin >= ?)
+                (DATE(fecha_inicio) < ? OR (DATE(fecha_inicio) = ? AND TIME(hora_inicio) < ?))
+                AND
+                (DATE(fecha_fin) > ? OR (DATE(fecha_fin) = ? AND TIME(hora_fin) > ?))
              )`,
-            [espacio_id, fecha_fin, fecha_inicio]
+            [espacio_id, fecha_fin, fecha_fin, hora_fin, fecha_inicio, fecha_inicio, hora_inicio]
         );
 
         if (conflictos.length > 0) {
