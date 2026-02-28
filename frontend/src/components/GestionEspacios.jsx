@@ -23,8 +23,11 @@ const GestionEspacios = ({ onVolver }) => {
         estado: 'disponible',
         requiere_aprobacion: true,
         max_horas_por_reserva: 8,
-        imagen_url: ''
+        imagen_url: '',
+        emails: []
     });
+
+    const [nuevoEmail, setNuevoEmail] = useState('');
 
     const [recursoAsignacion, setRecursoAsignacion] = useState({
         recurso_id: '',
@@ -68,6 +71,37 @@ const GestionEspacios = ({ onVolver }) => {
         setFormData(prev => ({
             ...prev,
             [name]: type === 'checkbox' ? checked : value
+        }));
+    };
+
+    const handleAgregarEmail = () => {
+        const emailTrimmed = nuevoEmail.trim();
+        
+        // Validar email
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(emailTrimmed)) {
+            setError('Por favor ingresa un email válido');
+            return;
+        }
+
+        // Verificar si el email ya existe
+        if (formData.emails.includes(emailTrimmed)) {
+            setError('Este email ya fue agregado');
+            return;
+        }
+
+        setFormData(prev => ({
+            ...prev,
+            emails: [...prev.emails, emailTrimmed]
+        }));
+        setNuevoEmail('');
+        setError(null);
+    };
+
+    const handleEliminarEmail = (index) => {
+        setFormData(prev => ({
+            ...prev,
+            emails: prev.emails.filter((_, i) => i !== index)
         }));
     };
 
@@ -130,8 +164,10 @@ const GestionEspacios = ({ onVolver }) => {
             estado: 'disponible',
             requiere_aprobacion: true,
             max_horas_por_reserva: 8,
-            imagen_url: ''
+            imagen_url: '',
+            emails: []
         });
+        setNuevoEmail('');
         setEspacioEditando(null);
         setMostrarFormulario(false);
         setMostrarRecursos(null);
@@ -149,7 +185,8 @@ const GestionEspacios = ({ onVolver }) => {
             estado: espacio.estado,
             requiere_aprobacion: espacio.requiere_aprobacion,
             max_horas_por_reserva: espacio.max_horas_por_reserva || 8,
-            imagen_url: espacio.imagen_url || ''
+            imagen_url: espacio.imagen_url || '',
+            emails: espacio.emails || []
         });
         setMostrarFormulario(true);
     };
@@ -306,6 +343,54 @@ const GestionEspacios = ({ onVolver }) => {
                                 </label>
                             </div>
                         </div>
+
+                        {/* SECCIÓN DE EMAILS */}
+                        <div className="emails-section">
+                            <h4>📧 Correos de Notificación</h4>
+                            <p className="section-hint">Agrega correos que serán notificados cuando se realicen reservas en este espacio</p>
+                            
+                            <div className="form-group email-input-group">
+                                <label>Agregar Correo</label>
+                                <div className="email-input-container">
+                                    <input
+                                        type="email"
+                                        value={nuevoEmail}
+                                        onChange={(e) => setNuevoEmail(e.target.value)}
+                                        onKeyPress={(e) => e.key === 'Enter' && handleAgregarEmail()}
+                                        placeholder="ejemplo@universidad.edu"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={handleAgregarEmail}
+                                        className="btn-agregar-email"
+                                    >
+                                        + Agregar
+                                    </button>
+                                </div>
+                            </div>
+
+                            {formData.emails.length > 0 && (
+                                <div className="emails-list">
+                                    <h5>Correos Agregados ({formData.emails.length})</h5>
+                                    <div className="email-items">
+                                        {formData.emails.map((email, index) => (
+                                            <div key={index} className="email-item">
+                                                <span className="email-text">📌 {email}</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleEliminarEmail(index)}
+                                                    className="btn-eliminar-email"
+                                                    title="Eliminar correo"
+                                                >
+                                                    ✕
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
                         <div className="form-actions">
                             <button type="submit" className="btn-guardar">
                                 {espacioEditando ? 'Actualizar' : 'Crear'} Espacio

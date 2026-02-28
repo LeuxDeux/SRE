@@ -167,6 +167,22 @@ const EspacioDetail = ({ espacioId, onClose }) => {
           )}
         </div>
 
+        {/* CORREOS ASOCIADOS */}
+        {espacio.emails && espacio.emails.length > 0 && (
+          <div className="detail-section">
+            <h3>📧 Correos de Notificación</h3>
+            <div className="emails-detail-list">
+              {espacio.emails.map((email, index) => (
+                <div key={index} className="email-detail-item">
+                  <span className="email-icon">📌</span>
+                  <span className="email-address">{email}</span>
+                </div>
+              ))}
+              <p className="email-hint">Estos correos recibirán notificaciones cuando se realicen reservas en este espacio</p>
+            </div>
+          </div>
+        )}
+
         {/* RECURSOS DISPONIBLES */}
         {recursos.length > 0 && (
           <div className="detail-section">
