@@ -5,13 +5,23 @@ const espaciosController = {
   obtenerEspacios: async (req, res) => {
     try {
       const [espacios] = await db.execute(
-        `SELECT e.*, s.nombre as secretaria_nombre 
+        `SELECT e.*, s.nombre as secretaria_nombre,
+                COALESCE(GROUP_CONCAT(ee.email), '') as emails_list
          FROM espacios e 
          LEFT JOIN secretarias s ON e.secretaria_id = s.id 
+         LEFT JOIN espacios_emails ee ON e.id = ee.espacio_id
          WHERE e.activo = TRUE 
+         GROUP BY e.id
          ORDER BY e.nombre`
       );
-      res.json(espacios);
+
+      // Transformar emails_list a array
+      const espaciosFormateados = espacios.map(esp => ({
+        ...esp,
+        emails: esp.emails_list ? esp.emails_list.split(',').filter(e => e) : []
+      }));
+
+      res.json(espaciosFormateados);
     } catch (error) {
       console.error('Error obteniendo espacios:', error);
       res.status(500).json({ error: 'Error interno del servidor' });
@@ -23,18 +33,26 @@ const espaciosController = {
     try {
       const { id } = req.params;
       const [espacios] = await db.execute(
-        `SELECT e.*, s.nombre as secretaria_nombre 
+        `SELECT e.*, s.nombre as secretaria_nombre,
+                COALESCE(GROUP_CONCAT(ee.email), '') as emails_list
          FROM espacios e 
          LEFT JOIN secretarias s ON e.secretaria_id = s.id 
-         WHERE e.id = ? AND e.activo = TRUE`,
+         LEFT JOIN espacios_emails ee ON e.id = ee.espacio_id
+         WHERE e.id = ? AND e.activo = TRUE
+         GROUP BY e.id`,
         [id]
       );
       
       if (espacios.length === 0) {
         return res.status(404).json({ error: 'Espacio no encontrado' });
       }
+
+      const espacio = {
+        ...espacios[0],
+        emails: espacios[0].emails_list ? espacios[0].emails_list.split(',').filter(e => e) : []
+      };
       
-      res.json(espacios[0]);
+      res.json(espacio);
     } catch (error) {
       console.error('Error obteniendo espacio:', error);
       res.status(500).json({ error: 'Error interno del servidor' });
@@ -70,7 +88,8 @@ const espaciosController = {
       estado, 
       requiere_aprobacion, 
       max_horas_por_reserva, 
-      imagen_url 
+      imagen_url,
+      emails = [] 
     } = req.body;
 
     // Validar campos requeridos
@@ -97,10 +116,32 @@ const espaciosController = {
       ]
     );
 
+    const espacioId = result.insertId;
+
+    // Insertar los emails (si hay)
+    if (emails && Array.isArray(emails) && emails.length > 0) {
+      const emailsFiltrados = emails.filter(email => email && email.trim()); // Filtrar vacíos
+      if (emailsFiltrados.length > 0) {
+        for (const email of emailsFiltrados) {
+          try {
+            await db.execute(
+              `INSERT INTO espacios_emails (espacio_id, email) VALUES (?, ?)`,
+              [espacioId, email.trim()]
+            );
+          } catch (emailError) {
+            // Si el email ya existe (por UNIQUE constraint), ignore el error
+            if (emailError.code !== 'ER_DUP_ENTRY') {
+              throw emailError;
+            }
+          }
+        }
+      }
+    }
+
     res.json({
       success: true,
       espacio: {
-        id: result.insertId,
+        id: espacioId,
         nombre: nombre,
         mensaje: 'Espacio creado exitosamente'
       }
@@ -122,7 +163,7 @@ actualizarEspacio: async (req, res) => {
     const { id } = req.params;
     const { 
       nombre, descripcion, capacidad, ubicacion, estado, 
-      requiere_aprobacion, max_horas_por_reserva, imagen_url, activo 
+      requiere_aprobacion, max_horas_por_reserva, imagen_url, activo, emails = [] 
     } = req.body;
 
     const [result] = await db.execute(
@@ -147,6 +188,31 @@ actualizarEspacio: async (req, res) => {
 
     if (result.affectedRows === 0) {
       return res.status(404).json({ error: 'Espacio no encontrado' });
+    }
+
+    // Eliminar todos los emails viejos
+    await db.execute(`
+      DELETE FROM espacios_emails WHERE espacio_id = ?
+    `, [id]);
+
+    // Insertar los nuevos emails (si hay)
+    if (emails && Array.isArray(emails) && emails.length > 0) {
+      const emailsFiltrados = emails.filter(email => email && email.trim()); // Filtrar vacíos
+      if (emailsFiltrados.length > 0) {
+        for (const email of emailsFiltrados) {
+          try {
+            await db.execute(
+              `INSERT INTO espacios_emails (espacio_id, email) VALUES (?, ?)`,
+              [id, email.trim()]
+            );
+          } catch (emailError) {
+            // Si el email ya existe (por UNIQUE constraint), ignore el error
+            if (emailError.code !== 'ER_DUP_ENTRY') {
+              throw emailError;
+            }
+          }
+        }
+      }
     }
 
     res.json({

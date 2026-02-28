@@ -247,7 +247,7 @@ crearReserva: async (req, res) => {
             // 📨 CONDICIÓN: Solo enviar correo si la reserva está CONFIRMADA
             // (es decir, no requería aprobación o ya fue aprobada)
             if (reservaCreada.estado === 'confirmada') {
-                // ⚙️ Construir lista de destinatarios desde .env
+                // ⚙️ Construir lista de destinatarios desde .env y espacios
                 let emailDestinos = [];
                 
                 // Agregar correos del .env (departamentos, mantenimiento, etc.)
@@ -258,6 +258,23 @@ crearReserva: async (req, res) => {
                         .filter(e => e.length > 0);
                     emailDestinos = [...emailDestinos, ...correosEnv];
                 }
+
+                // Agregar emails del espacio
+                try {
+                    const [emailsEspacio] = await db.execute(
+                        `SELECT email FROM espacios_emails WHERE espacio_id = ?`,
+                        [reservaCreada.espacio_id]
+                    );
+                    
+                    if (emailsEspacio && emailsEspacio.length > 0) {
+                        const correosEspacio = emailsEspacio
+                            .map(e => e.email.trim())
+                            .filter(e => e.length > 0);
+                        emailDestinos = [...emailDestinos, ...correosEspacio];
+                    }
+                } catch (emailEspacioError) {
+                    console.warn('⚠️ Error obteniendo emails del espacio:', emailEspacioError.message);
+                }
                 
                 // Agregar email del usuario solicitante (si está habilitado y existe)
                 if (process.env.INCLUIR_EMAIL_USUARIO_EN_NOTIFICACION === 'true' && reservaCreada.usuario_email) {
@@ -266,6 +283,9 @@ crearReserva: async (req, res) => {
                         emailDestinos.push(reservaCreada.usuario_email);
                     }
                 }
+
+                // Eliminar duplicados
+                emailDestinos = [...new Set(emailDestinos)];
                 
                 // Enviar solo si hay destinatarios
                 if (emailDestinos.length > 0) {
@@ -368,6 +388,23 @@ crearReserva: async (req, res) => {
                         .map(e => e.trim())
                         .filter(e => e.length > 0);
                     emailDestinos = [...emailDestinos, ...participantes];
+                }
+
+                // Agregar emails del espacio
+                try {
+                    const [emailsEspacio] = await db.execute(
+                        `SELECT email FROM espacios_emails WHERE espacio_id = ?`,
+                        [reserva.espacio_id]
+                    );
+                    
+                    if (emailsEspacio && emailsEspacio.length > 0) {
+                        const correosEspacio = emailsEspacio
+                            .map(e => e.email.trim())
+                            .filter(e => e.length > 0);
+                        emailDestinos = [...emailDestinos, ...correosEspacio];
+                    }
+                } catch (emailEspacioError) {
+                    console.warn('⚠️ Error obteniendo emails del espacio:', emailEspacioError.message);
                 }
 
                 // Agregar emails del .env (departamentos, administración)
@@ -559,7 +596,7 @@ crearReserva: async (req, res) => {
                 // Agregar recursos al objeto de la reserva
                 reservaAprobada.recursos = recursos || [];
                 
-                // ⚙️ Construir lista de destinatarios desde .env
+                // ⚙️ Construir lista de destinatarios desde .env y espacios
                 let emailDestinos = [];
                 
                 // Agregar correos del .env (departamentos, mantenimiento, etc.)
@@ -570,6 +607,23 @@ crearReserva: async (req, res) => {
                         .filter(e => e.length > 0);
                     emailDestinos = [...emailDestinos, ...correosEnv];
                 }
+
+                // Agregar emails del espacio
+                try {
+                    const [emailsEspacio] = await db.execute(
+                        `SELECT email FROM espacios_emails WHERE espacio_id = ?`,
+                        [reservaAprobada.espacio_id]
+                    );
+                    
+                    if (emailsEspacio && emailsEspacio.length > 0) {
+                        const correosEspacio = emailsEspacio
+                            .map(e => e.email.trim())
+                            .filter(e => e.length > 0);
+                        emailDestinos = [...emailDestinos, ...correosEspacio];
+                    }
+                } catch (emailEspacioError) {
+                    console.warn('⚠️ Error obteniendo emails del espacio:', emailEspacioError.message);
+                }
                 
                 // Agregar email del usuario solicitante (si está habilitado y existe)
                 if (process.env.INCLUIR_EMAIL_USUARIO_EN_NOTIFICACION === 'true' && reservaAprobada.usuario_email) {
@@ -578,6 +632,9 @@ crearReserva: async (req, res) => {
                         emailDestinos.push(reservaAprobada.usuario_email);
                     }
                 }
+
+                // Eliminar duplicados
+                emailDestinos = [...new Set(emailDestinos)];
                 
                 // Enviar solo si hay destinatarios
                 if (emailDestinos.length > 0) {
@@ -929,10 +986,30 @@ crearReserva: async (req, res) => {
                     .filter(e => e.length > 0);
                 emailDestinos = [...emailDestinos, ...correosEnv];
             }
+
+            // Agregar emails del espacio
+            try {
+                const [emailsEspacio] = await db.execute(
+                    `SELECT email FROM espacios_emails WHERE espacio_id = ?`,
+                    [reserva.espacio_id]
+                );
+                
+                if (emailsEspacio && emailsEspacio.length > 0) {
+                    const correosEspacio = emailsEspacio
+                        .map(e => e.email.trim())
+                        .filter(e => e.length > 0);
+                    emailDestinos = [...emailDestinos, ...correosEspacio];
+                }
+            } catch (emailEspacioError) {
+                console.warn('⚠️ Error obteniendo emails del espacio:', emailEspacioError.message);
+            }
             
             if (reservaActualizada.usuario_email && !emailDestinos.includes(reservaActualizada.usuario_email)) {
                 emailDestinos.push(reservaActualizada.usuario_email);
             }
+
+            // Eliminar duplicados
+            emailDestinos = [...new Set(emailDestinos)];
 
             // Enviar correo sin bloquear la respuesta
             if (emailDestinos.length > 0) {
