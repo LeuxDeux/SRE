@@ -114,13 +114,16 @@ const usersController = {
 
       // ... verificaciones ...
 
+      // Convertir activo a número (0 o 1)
+      const activoNum = activo ? 1 : 0;
+
       // Actualizar con secretaria_id
       await pool.query(`
       UPDATE usuarios 
       SET username = ?, nombre_completo = ?, email = ?, telefono = ?, role = ?, 
           secretaria_id = ?, activo = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `, [username, nombre_completo, email, telefono, role, secretaria_id, activo, id]);
+    `, [username, nombre_completo, email, telefono, role, secretaria_id, activoNum, id]);
 
       // Obtener usuario actualizado con JOIN
       const [usuariosActualizados] = await pool.query(`
