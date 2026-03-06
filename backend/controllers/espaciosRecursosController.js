@@ -55,6 +55,29 @@ const espaciosRecursosController = {
         try {
             const { espacioId, recursoId } = req.params;
             
+            // Verificar si hay reservas activas que usen este recurso en este espacio
+            const [reservasConRecurso] = await db.execute(
+                `SELECT COUNT(*) as total
+                 FROM reservas_recursos rr
+                 JOIN reservas r ON rr.reserva_id = r.id
+                 WHERE rr.recurso_id = ? 
+                   AND r.espacio_id = ? 
+                   AND r.estado IN ('confirmada', 'pendiente')
+                   AND r.fecha_eliminacion IS NULL`,
+                [recursoId, espacioId]
+            );
+
+            // Si hay reservas usando este recurso, advertir al usuario
+            if (reservasConRecurso[0].total > 0) {
+                const sustancia = reservasConRecurso[0].total === 1 ? 'reserva' : 'reservas';
+                return res.status(400).json({
+                    success: false,
+                    warning: true,
+                    error: `Este recurso está asignado a ${reservasConRecurso[0].total} ${sustancia} activas en este espacio. Quítalo de esas reservas antes de eliminarlo de este espacio.`,
+                    reservasCount: reservasConRecurso[0].total
+                });
+            }
+            
             const [result] = await db.execute(
                 'DELETE FROM espacios_recursos WHERE espacio_id = ? AND recurso_id = ?',
                 [espacioId, recursoId]

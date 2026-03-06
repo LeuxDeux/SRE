@@ -520,3 +520,136 @@
 .gestion-espacios * {
   transition: all 0.2s ease-in-out;
 }
+
+/* MODAL ADVERTENCIA - RECURSO EN USO */
+.modal-advertencia {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  max-width: 500px;
+  width: 90%;
+  animation: slideInUp 0.3s ease-out;
+  border-left: 5px solid #f39c12;
+}
+
+.advertencia-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #ecf0f1;
+  background: linear-gradient(135deg, #fff5e6, #fffaf0);
+}
+
+.advertencia-header h3 {
+  margin: 0;
+  color: #d68910;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.btn-cerrar-modal {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #95a5a6;
+  transition: color 0.2s ease;
+}
+
+.btn-cerrar-modal:hover {
+  color: #e74c3c;
+}
+
+.advertencia-body {
+  padding: 24px;
+  background: #fafafa;
+}
+
+.advertencia-mensaje {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  line-height: 1.5;
+  color: #2c3e50;
+  font-weight: 500;
+}
+
+.advertencia-detalle {
+  background: white;
+  border-radius: 8px;
+  padding: 16px;
+  border: 1px solid #e0dde9;
+  margin-bottom: 16px;
+}
+
+.advertencia-detalle strong {
+  display: block;
+  margin-bottom: 8px;
+  color: #2c3e50;
+  font-size: 15px;
+}
+
+.advertencia-detalle p {
+  margin: 8px 0;
+  color: #555;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.advertencia-detalle ul {
+  margin: 8px 0 0 0;
+  padding-left: 20px;
+  list-style: none;
+}
+
+.advertencia-detalle li {
+  color: #555;
+  font-size: 14px;
+  margin: 6px 0;
+  padding-left: 20px;
+  position: relative;
+}
+
+.advertencia-detalle li:before {
+  content: "→";
+  position: absolute;
+  left: 0;
+  color: #f39c12;
+  font-weight: bold;
+}
+
+.advertencia-footer {
+  padding: 16px 24px;
+  border-top: 1px solid #ecf0f1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.btn-entendido {
+  background: #f39c12;
+  color: white;
+  border: none;
+  padding: 10px 24px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-entendido:hover {
+  background: #d68910;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(243, 156, 18, 0.3);
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

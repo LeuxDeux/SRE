@@ -34,6 +34,8 @@ const GestionEspacios = ({ onVolver }) => {
         cantidad_maxima: 1
     });
 
+    const [advertenciaRecurso, setAdvertenciaRecurso] = useState(null); // Para mostrar warning de recurso en uso
+
     // Cargar espacios y recursos al montar el componente
     useEffect(() => {
         cargarDatos();
@@ -146,12 +148,24 @@ const GestionEspacios = ({ onVolver }) => {
 
     const handleQuitarRecurso = async (espacioId, recursoId) => {
         try {
-            // Necesitarás crear este endpoint en el backend
             await espaciosRecursosAPI.quitar(espacioId, recursoId);
             await cargarRecursosDelEspacio(espacioId);
+            setError(null);
         } catch (err) {
             console.error('Error quitando recurso:', err);
-            setError('Error al quitar el recurso del espacio');
+            
+            // Si es un warning (recurso en reservas activas)
+            if (err.response?.data?.warning) {
+                setAdvertenciaRecurso({
+                    recursoId: recursoId,
+                    espacioId: espacioId,
+                    mensaje: err.response.data.error,
+                    reservasCount: err.response.data.reservasCount
+                });
+                setError(null);
+            } else {
+                setError('Error al quitar el recurso del espacio');
+            }
         }
     };
 
@@ -203,12 +217,6 @@ const GestionEspacios = ({ onVolver }) => {
             console.error('Error eliminando espacio:', err);
             setError(err.response?.data?.error || 'Error al eliminar el espacio');
         }
-    };
-
-    const handleVerRecursos = async (espacio) => {
-        setMostrarRecursos(espacio.id);
-        setAsignandoRecursos(null);
-        await cargarRecursosDelEspacio(espacio.id);
     };
 
     const handleAsignarRecursos = (espacio) => {
@@ -566,6 +574,50 @@ const GestionEspacios = ({ onVolver }) => {
                 </table>
             </div>
         </div>
+
+        {/* MODAL ADVERTENCIA - RECURSO EN USO */}
+        {advertenciaRecurso && (
+            <div className="modal-overlay" onClick={() => setAdvertenciaRecurso(null)}>
+                <div className="modal-advertencia" onClick={e => e.stopPropagation()}>
+                    <div className="advertencia-header">
+                        <h3>⚠️ No se puede eliminar el recurso</h3>
+                        <button 
+                            onClick={() => setAdvertenciaRecurso(null)}
+                            className="btn-cerrar-modal"
+                        >
+                            ✕
+                        </button>
+                    </div>
+                    <div className="advertencia-body">
+                        <p className="advertencia-mensaje">
+                            {advertenciaRecurso.mensaje}
+                        </p>
+                        <div className="advertencia-detalle">
+                            <strong>📌 Detalles:</strong>
+                            <p>
+                                Este recurso está siendo utilizado en {advertenciaRecurso.reservasCount} {advertenciaRecurso.reservasCount === 1 ? 'reserva' : 'reservas'} activa{advertenciaRecurso.reservasCount === 1 ? '' : 's'}.
+                            </p>
+                            <p>
+                                Para poder eliminarlo del espacio, debes primero:
+                            </p>
+                            <ul>
+                                <li>Acceder a cada reserva que use este recurso</li>
+                                <li>Editar la reserva y quitar el recurso</li>
+                                <li>Guardar los cambios</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div className="advertencia-footer">
+                        <button 
+                            onClick={() => setAdvertenciaRecurso(null)}
+                            className="btn-entendido"
+                        >
+                            ✓ Entendido
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
         </>
     );
 };
