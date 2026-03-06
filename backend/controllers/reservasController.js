@@ -48,6 +48,7 @@ const reservasController = {
          WHERE espacio_id = ? 
          AND estado IN ('pendiente', 'confirmada')
          AND id != ?
+         AND fecha_eliminacion IS NULL
          AND (
            -- Conversión correcta de fechas/horas considerando zona horaria
            (DATE(fecha_inicio) < ? OR (DATE(fecha_inicio) = ? AND TIME(hora_inicio) < ?))
@@ -95,13 +96,16 @@ const reservasController = {
             const reservasConRecursos = await Promise.all(
                 reservas.map(async (reserva) => {
                     const [recursos] = await db.execute(
-                        `SELECT rr.id, rr.cantidad_solicitada, rr.observaciones,
-                                r.id as recurso_id, r.nombre as nombre
+                        `SELECT rr.id as reserva_recurso_id, 
+                                rr.cantidad_solicitada, rr.observaciones,
+                                r.id, r.nombre, 
+                                COALESCE(er.cantidad_maxima, r.cantidad_total) as cantidad_maxima
                         FROM reservas_recursos rr
                         LEFT JOIN recursos r ON rr.recurso_id = r.id
+                        LEFT JOIN espacios_recursos er ON er.espacio_id = ? AND er.recurso_id = r.id
                         WHERE rr.reserva_id = ?
                         ORDER BY r.nombre ASC`,
-                        [reserva.id]
+                        [reserva.espacio_id, reserva.id]
                     );
                     return {
                         ...reserva,
@@ -149,6 +153,7 @@ crearReserva: async (req, res) => {
             `SELECT id FROM reservas 
              WHERE espacio_id = ? 
              AND estado IN ('pendiente', 'confirmada')
+             AND fecha_eliminacion IS NULL
              AND (
                 (DATE(fecha_inicio) < ? OR (DATE(fecha_inicio) = ? AND TIME(hora_inicio) < ?))
                 AND
@@ -232,13 +237,15 @@ crearReserva: async (req, res) => {
             
             // Obtener recursos asociados a esta reserva
             const [recursos] = await db.execute(
-                `SELECT rr.id, rr.cantidad_solicitada, rr.observaciones,
-                        r.nombre as recurso_nombre
+                `SELECT rr.id as reserva_recurso_id, rr.cantidad_solicitada, rr.observaciones,
+                        r.id, r.nombre, 
+                        COALESCE(er.cantidad_maxima, r.cantidad_total) as cantidad_maxima
                 FROM reservas_recursos rr
                 LEFT JOIN recursos r ON rr.recurso_id = r.id
+                LEFT JOIN espacios_recursos er ON er.espacio_id = ? AND er.recurso_id = r.id
                 WHERE rr.reserva_id = ?
                 ORDER BY r.nombre ASC`,
-                [result.insertId]
+                [reservaCreada.espacio_id, result.insertId]
             );
             
             // Agregar recursos al objeto de la reserva
@@ -584,13 +591,15 @@ crearReserva: async (req, res) => {
                 
                 // Obtener recursos asociados a esta reserva
                 const [recursos] = await db.execute(
-                    `SELECT rr.id, rr.cantidad_solicitada, rr.observaciones,
-                            r.nombre as recurso_nombre
+                    `SELECT rr.id as reserva_recurso_id, rr.cantidad_solicitada, rr.observaciones,
+                            r.id, r.nombre, 
+                            COALESCE(er.cantidad_maxima, r.cantidad_total) as cantidad_maxima
                     FROM reservas_recursos rr
                     LEFT JOIN recursos r ON rr.recurso_id = r.id
+                    LEFT JOIN espacios_recursos er ON er.espacio_id = ? AND er.recurso_id = r.id
                     WHERE rr.reserva_id = ?
                     ORDER BY r.nombre ASC`,
-                    [id]
+                    [reserva.espacio_id, id]
                 );
                 
                 // Agregar recursos al objeto de la reserva
@@ -820,7 +829,7 @@ crearReserva: async (req, res) => {
             const { id } = req.params;
             const { fecha_inicio, fecha_fin, hora_inicio, hora_fin, titulo, descripcion, 
                     motivo, cantidad_participantes, observaciones, participantes_email, 
-                    notificar_participantes } = req.body;
+                    notificar_participantes, recursos_solicitados } = req.body;
             const usuario_id = req.user.id;
 
             // Verificar que la reserva existe y obtener datos
@@ -859,11 +868,11 @@ crearReserva: async (req, res) => {
                 });
             }
 
-            // Solo se pueden editar reservas confirmadas
-            if (reserva.estado !== 'confirmada') {
+            // Solo se pueden editar reservas confirmadas o pendientes
+            if (reserva.estado !== 'confirmada' && reserva.estado !== 'pendiente') {
                 return res.status(400).json({
                     success: false,
-                    error: 'Solo se pueden editar reservas confirmadas'
+                    error: 'Solo se pueden editar reservas confirmadas o pendientes'
                 });
             }
 
@@ -873,6 +882,7 @@ crearReserva: async (req, res) => {
                  WHERE espacio_id = ? 
                  AND estado IN ('pendiente', 'confirmada')
                  AND id != ?
+                 AND fecha_eliminacion IS NULL
                  AND (
                    (DATE(fecha_inicio) < ? OR (DATE(fecha_inicio) = ? AND TIME(hora_inicio) < ?))
                    AND
@@ -946,17 +956,65 @@ crearReserva: async (req, res) => {
             );
 
             // ============================================
-            // 📧 ENVIAR CORREO DE EDICIÓN (asincronamente)
+            // � ACTUALIZAR RECURSOS DE LA RESERVA
+            // ============================================
+            if (recursos_solicitados && Array.isArray(recursos_solicitados)) {
+                let conn;
+                try {
+                    conn = await db.getConnection();
+                    await conn.beginTransaction();
+
+                    // Eliminar recursos anteriores
+                    await conn.execute(
+                        'DELETE FROM reservas_recursos WHERE reserva_id = ?',
+                        [id]
+                    );
+
+                    // Insertar nuevos recursos
+                    for (const recurso of recursos_solicitados) {
+                        if (recurso.recurso_id && recurso.cantidad_solicitada) {
+                            await conn.execute(
+                                `INSERT INTO reservas_recursos (reserva_id, recurso_id, cantidad_solicitada, observaciones)
+                                 VALUES (?, ?, ?, ?)`,
+                                [id, recurso.recurso_id, recurso.cantidad_solicitada, recurso.observaciones || null]
+                            );
+                        }
+                    }
+
+                    await conn.commit();
+                    console.log(`Recursos actualizados para reserva ${id}`);
+                } catch (recursoError) {
+                    if (conn) {
+                        try {
+                            await conn.rollback();
+                            console.log(`Transacción revertida por error en recursos`);
+                        } catch (rollbackErr) {
+                            console.error('Error en rollback:', rollbackErr.message);
+                        }
+                    }
+                    console.error('Error actualizando recursos:', recursoError.message);
+                    // No bloquear la actualización de la reserva si hay error con recursos
+                } finally {
+                    if (conn) {
+                        conn.release();
+                    }
+                }
+            }
+
+            // ============================================
+            // �📧 ENVIAR CORREO DE EDICIÓN (asincronamente)
             // ============================================
             // Obtener recursos de la reserva
             const [recursos] = await db.execute(
-                `SELECT rr.id, rr.cantidad_solicitada, rr.observaciones,
-                        r.id as recurso_id, r.nombre
+                `SELECT rr.id as reserva_recurso_id, rr.cantidad_solicitada, rr.observaciones,
+                        r.id, r.nombre, 
+                        COALESCE(er.cantidad_maxima, r.cantidad_total) as cantidad_maxima
                 FROM reservas_recursos rr
                 LEFT JOIN recursos r ON rr.recurso_id = r.id
+                LEFT JOIN espacios_recursos er ON er.espacio_id = ? AND er.recurso_id = r.id
                 WHERE rr.reserva_id = ?
                 ORDER BY r.nombre ASC`,
-                [id]
+                [reserva.espacio_id, id]
             );
 
             // Preparar objeto de reserva actualizada para envío de correo

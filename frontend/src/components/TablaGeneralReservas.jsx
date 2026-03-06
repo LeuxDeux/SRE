@@ -128,15 +128,36 @@ const TablaGeneralReservas = ({ onVolver, onReservaActualizada }) => {
     const [detalleReserva, setDetalleReserva] = useState(null);
     const [editandoReserva, setEditandoReserva] = useState(null);
     const [formEditada, setFormEditada] = useState({});
+    const [recursosEspacio, setRecursosEspacio] = useState([]);
+    const [recursosSolicitados, setRecursosSolicitados] = useState([]);
 
     const handleVerDetalles = (reserva) => {
         setDetalleReserva(reserva);
     };
 
-    const handleEditarReserva = (reserva) => {
-        if (reserva.estado !== 'confirmada') {
-            alert('Solo se pueden editar reservas confirmadas');
+    const handleEditarReserva = async (reserva) => {
+        if (reserva.estado !== 'confirmada' && reserva.estado !== 'pendiente') {
+            alert('Solo se pueden editar reservas confirmadas o pendientes');
             return;
+        }
+        
+        // Cargar recursos del espacio
+        try {
+            const recursosRes = await reservasAPI.obtenerRecursosEspacio(reserva.espacio_id);
+            const recursosEspacioData = recursosRes.data || [];
+            setRecursosEspacio(recursosEspacioData);
+            
+            // Enriquecer los recursos solicitados con cantidad_maxima
+            const recursosConMaximo = (reserva.recursos || []).map(recursoSolicitado => {
+                const recursoEspacio = recursosEspacioData.find(r => r.id === recursoSolicitado.id);
+                return {
+                    ...recursoSolicitado,
+                    cantidad_maxima: recursoEspacio?.cantidad_maxima || recursoSolicitado.cantidad_maxima || 0
+                };
+            });
+            setRecursosSolicitados(recursosConMaximo);
+        } catch (err) {
+            console.error('Error cargando recursos del espacio:', err);
         }
         setEditandoReserva(reserva);
         // Formatear fechas correctamente para los inputs (YYYY-MM-DD)
@@ -161,10 +182,20 @@ const TablaGeneralReservas = ({ onVolver, onReservaActualizada }) => {
     const handleGuardarEdicion = async () => {
         try {
             setLoading(true);
-            await reservasAPI.actualizar(editandoReserva.id, formEditada);
+            const datosActualizados = {
+                ...formEditada,
+                recursos_solicitados: recursosSolicitados.map(r => ({
+                    recurso_id: r.id,
+                    cantidad_solicitada: r.cantidad_solicitada,
+                    observaciones: null
+                }))
+            };
+            await reservasAPI.actualizar(editandoReserva.id, datosActualizados);
             await cargarReservas();
             setEditandoReserva(null);
             setFormEditada({});
+            setRecursosSolicitados([]);
+            setRecursosEspacio([]);
             if (onReservaActualizada) {
                 onReservaActualizada();
             }
@@ -182,6 +213,28 @@ const TablaGeneralReservas = ({ onVolver, onReservaActualizada }) => {
             ...prev,
             [name]: value
         }));
+    };
+
+    const handleAgregarRecurso = (recursoId) => {
+        const recurso = recursosEspacio.find(r => r.id === parseInt(recursoId));
+        if (recurso && !recursosSolicitados.find(r => r.id === recurso.id)) {
+            setRecursosSolicitados(prev => [...prev, {
+                id: recurso.id,
+                nombre: recurso.nombre,
+                cantidad_solicitada: 1,
+                cantidad_maxima: recurso.cantidad_maxima
+            }]);
+        }
+    };
+
+    const handleQuitarRecurso = (recursoId) => {
+        setRecursosSolicitados(prev => prev.filter(r => r.id !== recursoId));
+    };
+
+    const handleCambiarCantidadRecurso = (recursoId, cantidad) => {
+        setRecursosSolicitados(prev => prev.map(r => 
+            r.id === recursoId ? { ...r, cantidad_solicitada: parseInt(cantidad) } : r
+        ));
     };
 
     if (loading) {
@@ -317,7 +370,7 @@ const TablaGeneralReservas = ({ onVolver, onReservaActualizada }) => {
                                                 👁️
                                             </button>
 
-                                            {(reserva.creador_id === user.id || user.role === 'admin') && reserva.estado === 'confirmada' && !estaEliminada(reserva) && (
+                                            {(reserva.creador_id === user.id || user.role === 'admin') && (reserva.estado === 'confirmada' || reserva.estado === 'pendiente') && !estaEliminada(reserva) && (
                                                 <button 
                                                     className="btn-editar"
                                                     onClick={() => handleEditarReserva(reserva)}
@@ -578,6 +631,73 @@ const TablaGeneralReservas = ({ onVolver, onReservaActualizada }) => {
                                     onChange={handleInputChange}
                                     rows="3"
                                 />
+                            </div>
+
+                            {/* SECCIÓN DE RECURSOS */}
+                            <div className="recursos-edicion-section">
+                                <h4>📦 Recursos del Espacio</h4>
+                                
+                                {recursosEspacio.length > 0 ? (
+                                    <>
+                                        <div className="recursos-disponibles">
+                                            <label>Agregar Recursos</label>
+                                            <select 
+                                                onChange={(e) => {
+                                                    if (e.target.value) {
+                                                        handleAgregarRecurso(e.target.value);
+                                                        e.target.value = '';
+                                                    }
+                                                }}
+                                                defaultValue=""
+                                            >
+                                                <option value="">-- Seleccionar recurso --</option>
+                                                {recursosEspacio.map(recurso => (
+                                                    <option 
+                                                        key={recurso.id} 
+                                                        value={recurso.id}
+                                                        disabled={recursosSolicitados.some(r => r.id === recurso.id)}
+                                                    >
+                                                        {recurso.nombre} (Máx: {recurso.cantidad_maxima})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        {recursosSolicitados.length > 0 && (
+                                            <div className="recursos-seleccionados">
+                                                <h5>Recursos Seleccionados ({recursosSolicitados.length})</h5>
+                                                <div className="recursos-list">
+                                                    {recursosSolicitados.map(recurso => (
+                                                        <div key={recurso.id} className="recurso-item-edicion">
+                                                            <div className="recurso-info">
+                                                                <span className="recurso-nombre">{recurso.nombre}</span>
+                                                                <input
+                                                                    type="number"
+                                                                    min="1"
+                                                                    max={recurso.cantidad_maxima}
+                                                                    value={recurso.cantidad_solicitada}
+                                                                    onChange={(e) => handleCambiarCantidadRecurso(recurso.id, e.target.value)}
+                                                                    className="cantidad-input"
+                                                                />
+                                                                <span className="cantidad-max">/ {recurso.cantidad_maxima}</span>
+                                                            </div>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleQuitarRecurso(recurso.id)}
+                                                                className="btn-quitar-recurso"
+                                                                title="Quitar recurso"
+                                                            >
+                                                                ✕
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </>
+                                ) : (
+                                    <p className="sin-recursos">Este espacio no tiene recursos disponibles</p>
+                                )}
                             </div>
                         </div>
                         <div className="modal-footer">

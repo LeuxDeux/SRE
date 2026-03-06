@@ -511,6 +511,139 @@
     margin: 0;
 }
 
+/* SECCIÓN DE RECURSOS EN EDICIÓN */
+.recursos-edicion-section {
+    background: #f8f9fa;
+    border: 2px solid #e1e8ed;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 20px 0;
+}
+
+.recursos-edicion-section h4 {
+    color: #2c3e50;
+    margin: 0 0 15px 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.recursos-edicion-section h5 {
+    color: #2c3e50;
+    margin: 15px 0 10px 0;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.recursos-disponibles {
+    margin-bottom: 20px;
+}
+
+.recursos-disponibles label {
+    display: block;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 10px;
+    font-size: 14px;
+}
+
+.recursos-disponibles select {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e1e8ed;
+    border-radius: 6px;
+    font-size: 14px;
+    background: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.recursos-disponibles select:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.recursos-seleccionados {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #dee2e6;
+}
+
+.recursos-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.recurso-item-edicion {
+    background: white;
+    padding: 12px;
+    border-radius: 6px;
+    border-left: 4px solid #3498db;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
+.recurso-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+}
+
+.recurso-nombre {
+    color: #2c3e50;
+    font-weight: 600;
+    font-size: 14px;
+    min-width: 150px;
+}
+
+.cantidad-input {
+    width: 80px;
+    padding: 6px 10px;
+    border: 1px solid #e1e8ed;
+    border-radius: 4px;
+    font-size: 14px;
+    text-align: center;
+}
+
+.cantidad-input:focus {
+    outline: none;
+    border-color: #3498db;
+}
+
+.cantidad-max {
+    color: #7f8c8d;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.btn-quitar-recurso {
+    background: #e74c3c;
+    color: white;
+    border: none;
+    padding: 6px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.3s ease;
+    min-width: 32px;
+}
+
+.btn-quitar-recurso:hover {
+    background: #c0392b;
+    transform: scale(1.1);
+}
+
+.sin-recursos {
+    color: #7f8c8d;
+    font-style: italic;
+    font-size: 14px;
+    margin: 10px 0;
+}
+
 .modal-footer {
     padding: 20px;
     background: #f8f9fa;
