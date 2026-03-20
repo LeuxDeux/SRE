@@ -400,6 +400,10 @@ const eventosController = {
       const secretaria = req.user.secretaria; // Del middleware de autenticación
       const fechaFinValue =
         fecha_fin && fecha_fin.toString().trim() ? fecha_fin : null;
+      const horaInicioValue =
+        hora_inicio && hora_inicio.toString().trim() ? hora_inicio : null;
+      const horaFinValue =
+        hora_fin && hora_fin.toString().trim() ? hora_fin : null;
 
       // Validaciones básicas de campos requeridos
       if (!nombre || !fecha_evento) {
@@ -463,8 +467,8 @@ const eventosController = {
           secretaria,
           correo_contacto,
           telefono,
-          hora_inicio,
-          hora_fin,
+          horaInicioValue,
+          horaFinValue,
           lugar,
           publico_destinatario,
           links,
@@ -661,6 +665,10 @@ const eventosController = {
 
       const fechaFinValue =
         fecha_fin && fecha_fin.toString().trim() ? fecha_fin : null;
+      const horaInicioValue =
+        hora_inicio && hora_inicio.toString().trim() ? hora_inicio : null;
+      const horaFinValue =
+        hora_fin && hora_fin.toString().trim() ? hora_fin : null;
 
       // Verificar que el evento existe antes de actualizar
       const [eventos] = await pool.query("SELECT * FROM eventos WHERE id = ?", [
@@ -879,8 +887,8 @@ const eventosController = {
             categoria_id,
             correo_contacto,
             telefono,
-            hora_inicio,
-            hora_fin,
+            horaInicioValue,
+            horaFinValue,
             lugar,
             publico_destinatario,
             links,
