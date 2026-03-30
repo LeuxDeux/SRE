@@ -168,6 +168,11 @@ export const usersAPI = {
 export const secretariasAPI = {
   obtenerTodas: () => api.get("/secretarias"),
 };
+
+export const publicosDestinatariosAPI = {
+  obtenerTodos: () => api.get("/publicos-destinatarios"),
+  crear: (nombre) => api.post("/publicos-destinatarios", { nombre }),
+};
 // Health check (igual que tu app)
 export const checkServerHealth = () => api.get("/health");
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { eventosAPI, categoriasAPI } from '../services/api';
+import { eventosAPI, categoriasAPI, publicosDestinatariosAPI } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import '../styles/EventoForm.css';
 
 const EventoForm = ({ evento, onSave, onCancel }) => {
@@ -31,6 +32,12 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
   const [showSuccessModal, setShowSuccessModal] = useState(false); // ← NUEVO: modal
   const [fieldErrors, setFieldErrors] = useState({});
   const [erroresArchivos, setErroresArchivos] = useState({});
+  const [publicosDestinatarios, setPublicosDestinatarios] = useState([]);
+  const [showNuevoPublicoModal, setShowNuevoPublicoModal] = useState(false);
+  const [nuevoPublicoNombre, setNuevoPublicoNombre] = useState('');
+  const [loadingNuevoPublico, setLoadingNuevoPublico] = useState(false);
+
+  const { user } = useAuth();
 
   const validateField = (name, value) => {
     const errors = { ...fieldErrors };
@@ -104,6 +111,40 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
 
     cargarCategorias();
   }, []);
+
+  // Cargar públicos destinatarios al montar el componente
+  useEffect(() => {
+    const cargarPublicos = async () => {
+      try {
+        const response = await publicosDestinatariosAPI.obtenerTodos();
+        setPublicosDestinatarios(response.data.publicos);
+      } catch (error) {
+        console.error('Error cargando públicos destinatarios:', error);
+      }
+    };
+
+    cargarPublicos();
+  }, []);
+
+  const agregarPublicoDestinatario = async () => {
+    if (!nuevoPublicoNombre.trim()) return;
+    setLoadingNuevoPublico(true);
+    try {
+      const response = await publicosDestinatariosAPI.crear(nuevoPublicoNombre.trim());
+      if (response.data.success) {
+        const nuevo = response.data.publico;
+        setPublicosDestinatarios(prev => [...prev, nuevo].sort((a, b) => a.nombre.localeCompare(b.nombre)));
+        setFormData(prev => ({ ...prev, publico_destinatario: nuevo.nombre }));
+        setNuevoPublicoNombre('');
+        setShowNuevoPublicoModal(false);
+      }
+    } catch (error) {
+      const msg = error.response?.data?.error || 'Error al crear el público destinatario';
+      alert(msg);
+    } finally {
+      setLoadingNuevoPublico(false);
+    }
+  };
 
   // Si estamos editando, cargar los datos del evento
   useEffect(() => {
@@ -395,14 +436,7 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
     }
   };
 
-  const opcionesPublico = [
-    'Estudiantes',
-    'Docentes',
-    'Público General',
-    'Estudiantes y Docentes',
-    'Personal Administrativo',
-    'Egresados'
-  ];
+  const opcionesPublico = publicosDestinatarios.map(p => p.nombre);
   const lugaresPredefinidos = [
     'Auditorio',
     'Salón de Extensión 1',
@@ -647,22 +681,31 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
             <h3>🎯 Información Adicional</h3>
 
             <div className={`form-group ${fieldErrors.publico_destinatario ? 'error' : ''}`}>
-              <label htmlFor="publico_destinatario">Público Destinatario *</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <label htmlFor="publico_destinatario">Público Destinatario *</label>
+                {user?.role === 'admin' && (
+                  <button
+                    type="button"
+                    onClick={() => { setNuevoPublicoNombre(''); setShowNuevoPublicoModal(true); }}
+                    className="btn-agregar-publico"
+                    title="Agregar nuevo público destinatario"
+                  >
+                    + Nuevo
+                  </button>
+                )}
+              </div>
               <select
                 id="publico_destinatario"
                 name="publico_destinatario"
-                value={formData.publico_destinatario === 'otro' || (formData.publico_destinatario !== '' && !['Estudiantes', 'Docentes', 'Público General', 'Estudiantes y Docentes', 'Personal Administrativo', 'Egresados', 'otro'].includes(formData.publico_destinatario)) ? 'otro' : formData.publico_destinatario}
+                value={formData.publico_destinatario === 'otro' || (formData.publico_destinatario !== '' && !opcionesPublico.includes(formData.publico_destinatario)) ? 'otro' : formData.publico_destinatario}
                 onChange={handleChange}
                 disabled={loading}
                 required
               >
                 <option value="">Seleccionar público destinatario</option>
-                <option value="Estudiantes">Estudiantes</option>
-                <option value="Docentes">Docentes</option>
-                <option value="Público General">Público General</option>
-                <option value="Estudiantes y Docentes">Estudiantes y Docentes</option>
-                <option value="Personal Administrativo">Personal Administrativo</option>
-                <option value="Egresados">Egresados</option>
+                {publicosDestinatarios.map(p => (
+                  <option key={p.id} value={p.nombre}>{p.nombre}</option>
+                ))}
                 <option value="otro">Otro...</option>
               </select>
               {fieldErrors.publico_destinatario && <span className="field-error">{fieldErrors.publico_destinatario}</span>}
@@ -670,7 +713,7 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
               {/* Mostrar input personalizado si:
         - Seleccionó "otro" O 
         - El valor actual no está en la lista predefinida (caso edición) */}
-              {(formData.publico_destinatario === 'otro' || (formData.publico_destinatario !== '' && !['Estudiantes', 'Docentes', 'Público General', 'Estudiantes y Docentes', 'Personal Administrativo', 'Egresados', 'otro'].includes(formData.publico_destinatario))) && (
+              {(formData.publico_destinatario === 'otro' || (formData.publico_destinatario !== '' && !opcionesPublico.includes(formData.publico_destinatario) && formData.publico_destinatario !== 'otro')) && (
                 <input
                   type="text"
                   placeholder="Especificar público destinatario personalizado"
@@ -859,6 +902,44 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
             <h3>¡Éxito!</h3>
             <p>Evento {evento ? 'actualizado' : 'creado'} correctamente</p>
             <p className="modal-subtext">Redirigiendo...</p>
+          </div>
+        </div>
+      )}
+
+      {showNuevoPublicoModal && (
+        <div className="modal-overlay" onClick={() => setShowNuevoPublicoModal(false)}>
+          <div className="nuevo-publico-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>➕ Nuevo Público Destinatario</h3>
+            <div className="form-group">
+              <label>Nombre *</label>
+              <input
+                type="text"
+                value={nuevoPublicoNombre}
+                onChange={(e) => setNuevoPublicoNombre(e.target.value)}
+                placeholder="Ej: Investigadores"
+                autoFocus
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); agregarPublicoDestinatario(); } }}
+                disabled={loadingNuevoPublico}
+              />
+            </div>
+            <div className="modal-actions">
+              <button
+                type="button"
+                onClick={() => setShowNuevoPublicoModal(false)}
+                className="btn-cancel"
+                disabled={loadingNuevoPublico}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={agregarPublicoDestinatario}
+                className="btn-submit"
+                disabled={loadingNuevoPublico || !nuevoPublicoNombre.trim()}
+              >
+                {loadingNuevoPublico ? 'Guardando...' : 'Guardar'}
+              </button>
+            </div>
           </div>
         </div>
       )}
