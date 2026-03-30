@@ -402,7 +402,7 @@ const enviarPDFPorCorreo = async (evento, correosDestino, tipoAccion = 'creado',
               <p><strong>Hora Inicio:</strong> ${evento.hora_inicio ? evento.hora_inicio.substring(0, 5) : '--:--'}</p>
               <p><strong>Hora Fin:</strong> ${evento.hora_fin ? evento.hora_fin.substring(0, 5) : '--:--'}</p>
               <p><strong>Lugar:</strong> ${evento.lugar}</p>
-              <p><strong>Público:</strong> ${evento.publico_destinatario}</p>
+              <p><strong>Público:</strong> ${evento.publico_destinatario || '-'}</p>
             </div>
 
             ${mensajeTexto}

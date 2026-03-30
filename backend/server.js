@@ -41,6 +41,7 @@ app.use("/api/recursos", require("./routes/recursos"));
 app.use("/api/reservas", require("./routes/reservas"));
 app.use("/api/reservas", require("./routes/reservasRecursos")); // Recursos en reservas
 app.use("/api/espacios-recursos", require("./routes/espaciosRecursos"));
+app.use("/api/publicos-destinatarios", require("./routes/publicosDestinatarios"));
 
 // Health check
 app.get("/api/health", (req, res) => {
