@@ -188,15 +188,15 @@ const EventosTable = ({ onEditEvento, onViewDetails, onNuevoEvento }) => {
           <table className="eventos-table">
             <thead>
               <tr>
-                <th>Nombre</th>
-                <th>Fecha Evento</th>
-                <th>Categoría</th>
-                <th>Descripción</th>
-                <th>Archivo</th>
-                <th>Fecha Creación</th>
-                <th>Creado por</th>
-                <th>Secretaría</th>
-                <th>Acciones</th>
+                <th style={{ width: '14%' }}>Nombre</th>
+                <th style={{ width: '8%' }}>Fecha Evento</th>
+                <th style={{ width: '10%' }}>Categoría</th>
+                <th style={{ width: '14%' }}>Descripción</th>
+                <th style={{ width: '8%' }}>Archivo</th>
+                <th style={{ width: '11%' }}>Fecha Creación</th>
+                <th style={{ width: '10%' }}>Creado por</th>
+                <th style={{ width: '10%' }}>Secretaría</th>
+                <th style={{ width: '15%' }}>Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -205,7 +205,7 @@ const EventosTable = ({ onEditEvento, onViewDetails, onNuevoEvento }) => {
                   key={evento.id} 
                   className={fueModificado(evento) ? 'fila-modificada' : ''}
                 >
-                  <td className="evento-nombre">
+                  <td className="evento-nombre" title={evento.nombre}>
                     {evento.nombre}
                     {fueModificado(evento) && (
                       <span className="modificado-badge" title="Este evento fue modificado">
@@ -214,7 +214,7 @@ const EventosTable = ({ onEditEvento, onViewDetails, onNuevoEvento }) => {
                     )}
                   </td>
                   <td className="evento-fecha">{formatearFecha(evento.fecha_evento)}</td>
-                  <td>
+                  <td className="evento-categoria" title={evento.categoria_nombre || 'Sin categoría'}>
                     <span
                       className={`badge ${getBadgeColor(evento.categoria_color)}`}
                       style={{
@@ -225,7 +225,7 @@ const EventosTable = ({ onEditEvento, onViewDetails, onNuevoEvento }) => {
                       {evento.categoria_nombre || 'Sin categoría'}
                     </span>
                   </td>
-                  <td className="evento-descripcion">
+                  <td className="evento-descripcion" title={evento.descripcion || ''}>
                     {evento.descripcion || '-'}
                   </td>
                   <td className="evento-archivo">
@@ -252,8 +252,8 @@ const EventosTable = ({ onEditEvento, onViewDetails, onNuevoEvento }) => {
                       </div>
                     )}
                   </td>
-                  <td className="evento-usuario">{evento.usuario_nombre}</td>
-                  <td className="evento-secretaria">{evento.secretaria}</td>
+                  <td className="evento-usuario" title={evento.usuario_nombre}>{evento.usuario_nombre}</td>
+                  <td className="evento-secretaria" title={evento.secretaria}>{evento.secretaria}</td>
                   <td className="evento-acciones">
                     <button 
                       onClick={() => onViewDetails(evento.id)}

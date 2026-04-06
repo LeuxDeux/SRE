@@ -46,9 +46,9 @@
 /* ===== TABLA PRINCIPAL ===== */
 .eventos-table {
   width: 100%;
-  min-width: 1100px; /* ← ANCHO MÍNIMO: Fuerza scroll horizontal si la pantalla es pequeña */
+  table-layout: fixed; /* ← Respeta anchos definidos y activa text-overflow correctamente */
   border-collapse: collapse;
-  font-size: 0.82rem; /* ← TEXTO MÁS PEQUEÑO: Permite más contenido en menos espacio */
+  font-size: 0.82rem;
 }
 
 /* ===== CABECERAS DE COLUMNA ===== */
@@ -74,64 +74,67 @@
   background-color: #f8f9fa;
 }
 
-/* ===== ANCHOS OPTIMIZADOS DE COLUMNAS ===== */
+/* ===== ANCHOS DE COLUMNAS (porcentuales para table-layout: fixed) ===== */
+/* Los anchos se definen en los <th> del JSX con el atributo style */
 
-/* Columna NOMBRE - Prioridad alta */
+/* Columna CATEGORÍA */
+.evento-categoria {
+  vertical-align: middle;
+}
+
+/* Columna NOMBRE */
 .evento-nombre {
-  min-width: 180px;  /* ← ANCHO MÍNIMO REDUCIDO */
-  max-width: 220px;  /* ← ANCHO MÁXIMO REDUCIDO */
   font-weight: 500;
   color: #333;
-  position: relative;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* Columna FECHA EVENTO - Compacta */
+/* Columna FECHA EVENTO */
 .evento-fecha {
-  min-width: 100px;  /* ← ANCHO REDUCIDO */
   white-space: nowrap;
   color: #666;
 }
 
-/* Columna DESCRIPCIÓN - Texto truncado */
+/* Columna DESCRIPCIÓN */
 .evento-descripcion {
-  max-width: 180px;  /* ← ANCHO REDUCIDO */
-  min-width: 140px;  /* ← ANCHO MÍNIMO REDUCIDO */
   color: #666;
   overflow: hidden;
-  text-overflow: ellipsis; /* ← PUNTOS SUSPENSIVOS si texto muy largo */
-  white-space: nowrap;     /* ← UNA SOLA LÍNEA */
-}
-
-/* Columna ARCHIVO - Muy compacta */
-.evento-archivo {
-  min-width: 90px;   /* ← ANCHO MÍNIMO REDUCIDO */
-  max-width: 110px;  /* ← ANCHO MÁXIMO REDUCIDO */
-}
-
-/* Columna FECHA CREACIÓN - Fechas compactas */
-.evento-fecha-creacion {
-  min-width: 130px;  /* ← ANCHO REDUCIDO */
+  text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.75rem; /* ← TEXTO MÁS PEQUEÑO */
+}
+
+/* Columna ARCHIVO */
+.evento-archivo {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Columna FECHA CREACIÓN */
+.evento-fecha-creacion {
+  white-space: nowrap;
+  font-size: 0.75rem;
   color: #666;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Columnas USUARIO y SECRETARÍA */
 .evento-usuario,
 .evento-secretaria {
-  min-width: 110px;  /* ← ANCHO REDUCIDO */
   color: #666;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.8rem; /* ← TEXTO MÁS PEQUEÑO */
+  font-size: 0.8rem;
 }
 
-/* Columna ACCIONES - Botones compactos */
+/* Columna ACCIONES */
 .evento-acciones {
-  min-width: 120px;  /* ← ANCHO REDUCIDO */
   white-space: nowrap;
+  overflow: hidden;
 }
 
 /* ===== INDICADORES DE MODIFICACIÓN ===== */
@@ -163,12 +166,14 @@
 
 /* ===== BADGES DE CATEGORÍAS ===== */
 .badge {
-  padding: 0.2rem 0.4rem;   /* ← PADDING REDUCIDO */
+  padding: 0.2rem 0.4rem;
   border-radius: 10px;
-  font-size: 0.65rem;       /* ← TEXTO MÁS PEQUEÑO */
+  font-size: 0.65rem;
   font-weight: 500;
   text-transform: uppercase;
-  white-space: nowrap;
+  display: inline-block;
+  word-break: break-word;
+  vertical-align: middle;
 }
 /*
 .badge-academico {
