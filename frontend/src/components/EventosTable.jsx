@@ -11,6 +11,8 @@ const EventosTable = ({ onEditEvento, onViewDetails, onNuevoEvento }) => {
   const [eventoSeleccionado, setEventoSeleccionado] = useState(null);
   const [archivosModal, setArchivosModal] = useState([]);
   const [cargandoArchivos, setCargandoArchivos] = useState(false);
+  const [busqueda, setBusqueda] = useState('');
+  const [orden, setOrden] = useState({ columna: null, direccion: null });
   const { user } = useAuth(); // ✅ Agregar useAuth
 
   useEffect(() => {
@@ -150,6 +152,46 @@ const EventosTable = ({ onEditEvento, onViewDetails, onNuevoEvento }) => {
     return evento.ultima_modificacion !== evento.fecha_carga;
   };
 
+  const handleOrden = (columna) => {
+    setOrden(prev => {
+      if (prev.columna !== columna) return { columna, direccion: 'asc' };
+      if (prev.direccion === 'asc') return { columna, direccion: 'desc' };
+      return { columna: null, direccion: null };
+    });
+  };
+
+  const iconoOrden = (columna) => {
+    if (orden.columna !== columna) return <span className="sort-icon sort-none">&#8597;</span>;
+    return orden.direccion === 'asc'
+      ? <span className="sort-icon sort-asc">&#8593;</span>
+      : <span className="sort-icon sort-desc">&#8595;</span>;
+  };
+
+  const eventosFiltradosYOrdenados = eventos
+    .filter(evento => {
+      if (!busqueda.trim()) return true;
+      const q = busqueda.toLowerCase();
+      return (
+        (evento.nombre || '').toLowerCase().includes(q) ||
+        (evento.categoria_nombre || '').toLowerCase().includes(q) ||
+        (evento.descripcion || '').toLowerCase().includes(q) ||
+        (evento.usuario_nombre || '').toLowerCase().includes(q) ||
+        (evento.secretaria || '').toLowerCase().includes(q) ||
+        (evento.lugar || '').toLowerCase().includes(q)
+      );
+    })
+    .sort((a, b) => {
+      if (!orden.columna) return 0;
+      const dir = orden.direccion === 'asc' ? 1 : -1;
+      const col = orden.columna;
+      let valA = a[col] ?? '';
+      let valB = b[col] ?? '';
+      if (col === 'fecha_evento' || col === 'fecha_carga') {
+        return (new Date(valA) - new Date(valB)) * dir;
+      }
+      return valA.toString().localeCompare(valB.toString(), 'es') * dir;
+    });
+
   if (loading) {
     return (
       <div className="loading-container">
@@ -174,33 +216,42 @@ const EventosTable = ({ onEditEvento, onViewDetails, onNuevoEvento }) => {
     <div className="eventos-table-container">
       <div className="table-header">
         <h2>📅 Lista de Eventos</h2>
-        <button onClick={cargarEventos} className="refresh-button">
-          🔄 Actualizar
-        </button>
+        <div className="table-header-actions">
+          <input
+            type="text"
+            className="busqueda-input"
+            placeholder="🔍 Buscar por nombre, categoría, descripción..."
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+          />
+          <button onClick={cargarEventos} className="refresh-button">
+            🔄 Actualizar
+          </button>
+        </div>
       </div>
 
-      {eventos.length === 0 ? (
+      {eventosFiltradosYOrdenados.length === 0 ? (
         <div className="empty-state">
-          <p>No hay eventos registrados</p>
+          <p>{busqueda.trim() ? `Sin resultados para "${busqueda}"` : 'No hay eventos registrados'}</p>
         </div>
       ) : (
         <div className="table-responsive">
           <table className="eventos-table">
             <thead>
               <tr>
-                <th style={{ width: '14%' }}>Nombre</th>
-                <th style={{ width: '8%' }}>Fecha Evento</th>
-                <th style={{ width: '10%' }}>Categoría</th>
+                <th style={{ width: '14%' }} onClick={() => handleOrden('nombre')} className="th-sortable">Nombre {iconoOrden('nombre')}</th>
+                <th style={{ width: '8%' }} onClick={() => handleOrden('fecha_evento')} className="th-sortable">Fecha Evento {iconoOrden('fecha_evento')}</th>
+                <th style={{ width: '10%' }} onClick={() => handleOrden('categoria_nombre')} className="th-sortable">Categoría {iconoOrden('categoria_nombre')}</th>
                 <th style={{ width: '14%' }}>Descripción</th>
                 <th style={{ width: '8%' }}>Archivo</th>
-                <th style={{ width: '11%' }}>Fecha Creación</th>
-                <th style={{ width: '10%' }}>Creado por</th>
-                <th style={{ width: '10%' }}>Secretaría</th>
+                <th style={{ width: '11%' }} onClick={() => handleOrden('fecha_carga')} className="th-sortable">Fecha Creación {iconoOrden('fecha_carga')}</th>
+                <th style={{ width: '10%' }} onClick={() => handleOrden('usuario_nombre')} className="th-sortable">Creado por {iconoOrden('usuario_nombre')}</th>
+                <th style={{ width: '10%' }} onClick={() => handleOrden('secretaria')} className="th-sortable">Secretaría {iconoOrden('secretaria')}</th>
                 <th style={{ width: '15%' }}>Acciones</th>
               </tr>
             </thead>
             <tbody>
-              {eventos.map((evento) => (
+              {eventosFiltradosYOrdenados.map((evento) => (
                 <tr 
                   key={evento.id} 
                   className={fueModificado(evento) ? 'fila-modificada' : ''}
