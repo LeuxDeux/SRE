@@ -9,6 +9,8 @@ const ReservaForm = ({ slotInicial, onClose, onReservaCreada }) => {
     const [espacios, setEspacios] = useState([]);
     const [recursosDelEspacio, setRecursosDelEspacio] = useState([]);
     const [categorias, setCategorias] = useState([]);
+    const [categoriaSeleccionada, setCategoriaSeleccionada] = useState(null);
+    const [categoriaError, setCategoriaError] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [pasoActual, setPasoActual] = useState(1);
@@ -52,6 +54,23 @@ const ReservaForm = ({ slotInicial, onClose, onReservaCreada }) => {
         }
     }, [slotInicial]);
 
+    useEffect(() => {
+        if (formData.categoria_id) {
+            const categoria = categorias.find(c => c.id === Number(formData.categoria_id));
+            setCategoriaSeleccionada(categoria || null);
+        } else {
+            setCategoriaSeleccionada(null);
+        }
+    }, [formData.categoria_id, categorias]);
+
+    useEffect(() => {
+        if (formData.registrar_como_evento && formData.categoria_id) {
+            validarAntelacionCategoria();
+        } else {
+            setCategoriaError(null);
+        }
+    }, [formData.registrar_como_evento, formData.categoria_id, formData.fecha_inicio, categoriaSeleccionada]);
+
     const cargarDatos = async () => {
         try {
             const [espaciosRes, categoriasRes] = await Promise.all([
@@ -75,10 +94,42 @@ const ReservaForm = ({ slotInicial, onClose, onReservaCreada }) => {
             [name]: newValue
         }));
 
-        // Si cambia espacio o fechas, resetear validación
+        if (name === 'categoria_id') {
+            setCategoriaError(null);
+        }
+
         if (['espacio_id', 'fecha_inicio', 'hora_inicio', 'fecha_fin', 'hora_fin'].includes(name)) {
             setDisponibilidad(null);
         }
+    };
+
+    const calcularFechaMinimaCategoria = (categoria) => {
+        if (!categoria || !categoria.dias_antelacion) {
+            return moment().format('YYYY-MM-DD');
+        }
+
+        const diasADelantado = Math.max(0, categoria.dias_antelacion - 1);
+        return moment().add(diasADelantado, 'days').format('YYYY-MM-DD');
+    };
+
+    const validarAntelacionCategoria = () => {
+        if (!formData.registrar_como_evento || !formData.categoria_id || !categoriaSeleccionada) {
+            setCategoriaError(null);
+            return true;
+        }
+
+        const fechaInicio = moment(formData.fecha_inicio, 'YYYY-MM-DD');
+        const fechaMinima = moment(calcularFechaMinimaCategoria(categoriaSeleccionada), 'YYYY-MM-DD');
+
+        if (!fechaInicio.isSameOrAfter(fechaMinima, 'day')) {
+            setCategoriaError(
+                `La categoría "${categoriaSeleccionada.nombre}" requiere al menos ${categoriaSeleccionada.dias_antelacion} días de antelación. Fecha mínima permitida: ${fechaMinima.format('YYYY-MM-DD')}.`
+            );
+            return false;
+        }
+
+        setCategoriaError(null);
+        return true;
     };
 
     const validarDisponibilidad = async () => {
@@ -147,6 +198,11 @@ const ReservaForm = ({ slotInicial, onClose, onReservaCreada }) => {
         setLoading(true);
         
         try {
+            if (!validarAntelacionCategoria()) {
+                setLoading(false);
+                return;
+            }
+
             const reservaData = {
                 espacio_id: formData.espacio_id,
                 fecha_inicio: formData.fecha_inicio,
@@ -525,6 +581,16 @@ const ReservaForm = ({ slotInicial, onClose, onReservaCreada }) => {
                                                 </option>
                                             ))}
                                         </select>
+                                        {categoriaSeleccionada && (
+                                            <small style={{ display: 'block', marginTop: '6px', color: '#333' }}>
+                                                Antelación mínima: {categoriaSeleccionada.dias_antelacion} días. Fecha mínima: {calcularFechaMinimaCategoria(categoriaSeleccionada)}
+                                            </small>
+                                        )}
+                                        {categoriaError && (
+                                            <div className="error-message" style={{ marginTop: '8px' }}>
+                                                {categoriaError}
+                                            </div>
+                                        )}
                                     </div>
 
                                     <div className="form-group">
@@ -583,7 +649,7 @@ const ReservaForm = ({ slotInicial, onClose, onReservaCreada }) => {
                                 </button>
                                 <button 
                                     type="submit"
-                                    disabled={loading}
+                                    disabled={loading || Boolean(categoriaError)}
                                     className="btn-confirmar"
                                 >
                                     {loading ? 'Creando reserva...' : '✅ Confirmar Reserva'}

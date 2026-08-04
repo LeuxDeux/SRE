@@ -1,5 +1,5 @@
 const db = require('../config/database');
-const { enviarCorreoReserva, enviarCorreoEdicionReserva, enviarCorreoCancelacionReserva } = require('../utils/emailService');
+const { enviarCorreoReserva, enviarCorreoEdicionReserva, enviarCorreoCancelacionReserva, enviarPDFPorCorreo } = require('../utils/emailService');
 
 const generarNumeroReserva = async () => {
     const year = new Date().getFullYear();
@@ -220,6 +220,36 @@ crearReserva: async (req, res) => {
         // Determinar estado según si el espacio requiere aprobación
         const estado = espacio.requiere_aprobacion ? 'pendiente' : 'confirmada';
 
+        // Validar antelación de categoría si se va a crear evento
+        if (debeCrearEvento && categoria_id) {
+            const [categorias] = await db.execute(
+                'SELECT id, nombre, dias_antelacion FROM categorias WHERE id = ? AND activa = TRUE',
+                [categoria_id]
+            );
+
+            if (categorias.length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'La categoría seleccionada no existe o no está activa.'
+                });
+            }
+
+            const categoria = categorias[0];
+            const fechaInicio = new Date(fecha_inicio);
+            const hoy = new Date();
+            hoy.setHours(0, 0, 0, 0);
+            const diasNecesarios = Math.max(0, categoria.dias_antelacion - 1);
+            const fechaMinima = new Date(hoy);
+            fechaMinima.setDate(hoy.getDate() + diasNecesarios);
+
+            if (fechaInicio < fechaMinima) {
+                return res.status(400).json({
+                    success: false,
+                    error: `La categoría ${categoria.nombre} requiere al menos ${categoria.dias_antelacion} días de antelación. Fecha mínima permitida: ${fechaMinima.toISOString().split('T')[0]}`
+                });
+            }
+        }
+
         // Usar valores por defecto si vienen undefined
         const motivo_final = motivo || 'reunion';
         const cantidad_final = cantidad_participantes || 1;
@@ -293,6 +323,57 @@ crearReserva: async (req, res) => {
                 if (eventoResult.ok) {
                     eventoCreado = true;
                     eventoId = eventoResult.eventoId;
+
+                    // Enviar correo del evento creado automáticamente
+                    try {
+                        const [eventoParaEmail] = await db.execute(
+                            `
+                            SELECT e.*, c.nombre as categoria_nombre, c.color as categoria_color,
+                                   GROUP_CONCAT(ce.email) as categoria_emails,
+                                   u.nombre_completo as usuario_nombre
+                            FROM eventos e
+                            LEFT JOIN categorias c ON e.categoria_id = c.id
+                            LEFT JOIN categorias_emails ce ON c.id = ce.categoria_id
+                            LEFT JOIN usuarios u ON e.usuario_id = u.id
+                            WHERE e.id = ?
+                            GROUP BY e.id
+                        `,
+                            [eventoId]
+                        );
+
+                        if (eventoParaEmail.length > 0) {
+                            const evento = eventoParaEmail[0];
+                            const correoSecretaria = process.env.CORREO_SECRETARIA_PRINCIPAL;
+                            const correoAdicional = process.env.CORREO_ADICIONAL?.trim();
+
+                            const correosDestino = [];
+                            if (correoSecretaria) correosDestino.push(correoSecretaria);
+                            if (correoAdicional && correoAdicional !== correoSecretaria) {
+                                correosDestino.push(correoAdicional);
+                            }
+
+                            if (evento.categoria_emails) {
+                                const emailsCategoria = evento.categoria_emails
+                                    .split(',')
+                                    .map(e => e.trim())
+                                    .filter(e => e && !correosDestino.includes(e));
+                                correosDestino.push(...emailsCategoria);
+                            }
+
+                            if (correosDestino.length > 0) {
+                                const [archivosEvento] = await db.execute(
+                                    `SELECT nombre_archivo, archivo_path FROM eventos_archivos WHERE evento_id = ? ORDER BY fecha_carga ASC`,
+                                    [eventoId]
+                                );
+                                await enviarPDFPorCorreo(evento, correosDestino, 'creado', archivosEvento);
+                                console.log(`✅ Email de evento creado enviado a: ${correosDestino.join(', ')}`);
+                            } else {
+                                console.log('⚠️ No hay correos configurados para enviar notificación de evento');
+                            }
+                        }
+                    } catch (emailError) {
+                        console.error('⚠️ Error enviando correo automático de evento:', emailError.message);
+                    }
                 } else {
                     eventoError = eventoResult.error;
                     console.warn('⚠️ No se pudo crear el evento desde la reserva:', eventoError);
