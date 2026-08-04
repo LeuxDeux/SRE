@@ -27,6 +27,50 @@ const guardarHistorialReserva = async (reservaId, datosAnteriores, tipoChangio =
     }
 };
 
+const crearEventoDesdeReserva = async (reservaCreada, usuario, datosEventoExtra = {}) => {
+    try {
+        const nombreEvento = reservaCreada.titulo?.trim() || `Evento generado desde ${reservaCreada.numero_reserva}`;
+        const descripcionEvento = reservaCreada.descripcion?.trim()
+            ? `${reservaCreada.descripcion}\n\nCreado automáticamente desde la reserva ${reservaCreada.numero_reserva}`
+            : `Creado automáticamente desde la reserva ${reservaCreada.numero_reserva}`;
+
+        const secretariaValor = usuario?.secretaria || 'Secretaria Administrativa';
+        const lugarEvento = reservaCreada.espacio_nombre || null;
+        const observacionesBase = `Creado automáticamente desde la reserva ${reservaCreada.numero_reserva}. Motivo: ${reservaCreada.motivo || 'sin especificar'}.`;
+        const observacionesEvento = [observacionesBase, datosEventoExtra.observaciones_evento].filter(Boolean).join('\n');
+
+        const categoriaIdNumerico = datosEventoExtra.categoria_id ? Number(datosEventoExtra.categoria_id) : null;
+
+        const [result] = await db.execute(
+            `INSERT INTO eventos (
+                nombre, fecha_evento, fecha_fin, descripcion, categoria_id, usuario_id, secretaria,
+                correo_contacto, telefono, hora_inicio, hora_fin, lugar, publico_destinatario, observaciones
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
+            [
+                nombreEvento,
+                reservaCreada.fecha_inicio,
+                reservaCreada.fecha_fin || reservaCreada.fecha_inicio,
+                descripcionEvento,
+                categoriaIdNumerico,
+                reservaCreada.usuario_id,
+                secretariaValor,
+                datosEventoExtra.correo_contacto || null,
+                datosEventoExtra.telefono || null,
+                reservaCreada.hora_inicio || null,
+                reservaCreada.hora_fin || null,
+                lugarEvento,
+                datosEventoExtra.publico_destinatario || null,
+                observacionesEvento || null
+            ]
+        );
+
+        return { ok: true, eventoId: result.insertId };
+    } catch (error) {
+        console.error('⚠️ Error creando evento desde reserva:', error.message);
+        return { ok: false, error: error.message };
+    }
+};
+
 const reservasController = {
     // Validar disponibilidad de un espacio en una franja horaria
     validarDisponibilidad: async (req, res) => {
@@ -122,8 +166,9 @@ const reservasController = {
     },
 crearReserva: async (req, res) => {
     try {
-        const { espacio_id, fecha_inicio, hora_inicio, fecha_fin, hora_fin, titulo, descripcion, motivo, cantidad_participantes, participantes_email, observaciones } = req.body;
+        const { espacio_id, fecha_inicio, hora_inicio, fecha_fin, hora_fin, titulo, descripcion, motivo, cantidad_participantes, participantes_email, observaciones, registrar_como_evento, crear_evento, categoria_id, correo_contacto, telefono, publico_destinatario, observaciones_evento } = req.body;
         const usuario_id = req.user.id;
+        const debeCrearEvento = Boolean(registrar_como_evento || crear_evento);
 
         // Validaciones básicas
         if (!espacio_id || !fecha_inicio || !hora_inicio || !fecha_fin || !hora_fin || !titulo) {
@@ -215,10 +260,8 @@ crearReserva: async (req, res) => {
         }
 
         // ============================================
-        // 📧 BLOQUE DE ENVÍO DE CORREOS - CREACIÓN
+        // � OBTENER DATOS COMPLETOS DE LA RESERVA
         // ============================================
-        
-        // Obtener datos completos de la reserva para enviar el correo
         const [reservasCreadas] = await db.execute(
             `SELECT r.*, 
                     e.nombre as espacio_nombre, 
@@ -232,8 +275,29 @@ crearReserva: async (req, res) => {
             [result.insertId]
         );
 
+        let eventoCreado = false;
+        let eventoId = null;
+        let eventoError = null;
+
         if (reservasCreadas.length > 0) {
             const reservaCreada = reservasCreadas[0];
+
+            if (debeCrearEvento) {
+                const eventoResult = await crearEventoDesdeReserva(reservaCreada, req.user, {
+                    categoria_id,
+                    correo_contacto,
+                    telefono,
+                    publico_destinatario,
+                    observaciones_evento
+                });
+                if (eventoResult.ok) {
+                    eventoCreado = true;
+                    eventoId = eventoResult.eventoId;
+                } else {
+                    eventoError = eventoResult.error;
+                    console.warn('⚠️ No se pudo crear el evento desde la reserva:', eventoError);
+                }
+            }
             
             // Obtener recursos asociados a esta reserva
             const [recursos] = await db.execute(
@@ -312,13 +376,20 @@ crearReserva: async (req, res) => {
             }
         }
 
+        const mensajeReserva = debeCrearEvento
+            ? (eventoCreado ? 'Reserva creada exitosamente y registrada como evento a comunicar' : 'Reserva creada exitosamente, pero no se pudo registrar como evento a comunicar')
+            : `Reserva creada exitosamente${espacio.requiere_aprobacion ? ' (pendiente de aprobación)' : ' (confirmada automáticamente)'}`;
+
         res.status(201).json({
             success: true,
-            message: `Reserva creada exitosamente${espacio.requiere_aprobacion ? ' (pendiente de aprobación)' : ' (confirmada automáticamente)'}`,
+            message: mensajeReserva,
             reserva: {
                 id: result.insertId,
                 numero_reserva,
-                estado
+                estado,
+                evento_creado: eventoCreado,
+                evento_id: eventoId,
+                evento_error: eventoError
             }
         });
 

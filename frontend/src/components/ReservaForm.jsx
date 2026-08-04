@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { espaciosAPI, espaciosRecursosAPI, reservasAPI, reservasRecursosAPI } from '../services/api';
+import { espaciosAPI, espaciosRecursosAPI, reservasAPI, reservasRecursosAPI, categoriasAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import moment from 'moment';
 import '../styles/ReservaForm.css';
@@ -8,6 +8,7 @@ const ReservaForm = ({ slotInicial, onClose, onReservaCreada }) => {
     const { user } = useAuth();
     const [espacios, setEspacios] = useState([]);
     const [recursosDelEspacio, setRecursosDelEspacio] = useState([]);
+    const [categorias, setCategorias] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [pasoActual, setPasoActual] = useState(1);
@@ -24,6 +25,12 @@ const ReservaForm = ({ slotInicial, onClose, onReservaCreada }) => {
         descripcion: '',
         motivo: 'reunion',
         cantidad_participantes: 1,
+        registrar_como_evento: false,
+        categoria_id: '',
+        correo_contacto: '',
+        telefono: '',
+        publico_destinatario: '',
+        observaciones_evento: '',
         recursos_solicitados: []
     });
 
@@ -47,19 +54,25 @@ const ReservaForm = ({ slotInicial, onClose, onReservaCreada }) => {
 
     const cargarDatos = async () => {
         try {
-            const espaciosRes = await espaciosAPI.obtenerTodos();
+            const [espaciosRes, categoriasRes] = await Promise.all([
+                espaciosAPI.obtenerTodos(),
+                categoriasAPI.obtenerTodas()
+            ]);
             setEspacios(espaciosRes.data);
+            setCategorias(categoriasRes.data?.categorias || categoriasRes.data || []);
         } catch (err) {
             console.error('Error cargando datos:', err);
-            setError('Error al cargar los espacios');
+            setError('Error al cargar los datos iniciales');
         }
     };
 
     const handleInputChange = (e) => {
-        const { name, value, type } = e.target;
+        const { name, value, type, checked } = e.target;
+        const newValue = type === 'number' ? parseInt(value) || 1 : type === 'checkbox' ? checked : value;
+
         setFormData(prev => ({
             ...prev,
-            [name]: type === 'number' ? parseInt(value) || 1 : value
+            [name]: newValue
         }));
 
         // Si cambia espacio o fechas, resetear validación
@@ -144,6 +157,12 @@ const ReservaForm = ({ slotInicial, onClose, onReservaCreada }) => {
                 descripcion: formData.descripcion,
                 motivo: formData.motivo,
                 cantidad_participantes: formData.cantidad_participantes,
+                registrar_como_evento: formData.registrar_como_evento,
+                categoria_id: formData.registrar_como_evento ? (formData.categoria_id ? Number(formData.categoria_id) : null) : null,
+                correo_contacto: formData.registrar_como_evento ? formData.correo_contacto || null : null,
+                telefono: formData.registrar_como_evento ? formData.telefono || null : null,
+                publico_destinatario: formData.registrar_como_evento ? formData.publico_destinatario || null : null,
+                observaciones_evento: formData.registrar_como_evento ? formData.observaciones_evento || null : null,
                 usuario_id: user.id
             };
 
@@ -472,6 +491,87 @@ const ReservaForm = ({ slotInicial, onClose, onReservaCreada }) => {
                                     </div>
                                 )}
                             </div>
+
+                            <div className="form-group" style={{ marginTop: '16px' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                                    <input
+                                        type="checkbox"
+                                        name="registrar_como_evento"
+                                        checked={formData.registrar_como_evento}
+                                        onChange={handleInputChange}
+                                    />
+                                    <span>Registrar también como evento a comunicar</span>
+                                </label>
+                                <small style={{ display: 'block', marginTop: '6px', color: '#6b7280' }}>
+                                    Se creará un evento con los datos de esta reserva y los campos adicionales que completes.
+                                </small>
+                            </div>
+
+                            {formData.registrar_como_evento && (
+                                <div className="form-group" style={{ marginTop: '12px', padding: '12px', border: '1px solid #d1d5db', borderRadius: '8px', background: '#f9fafb' }}>
+                                    <h4 style={{ margin: '0 0 8px 0' }}>Datos del evento a comunicar</h4>
+
+                                    <div className="form-group">
+                                        <label>Categoría</label>
+                                        <select
+                                            name="categoria_id"
+                                            value={formData.categoria_id}
+                                            onChange={handleInputChange}
+                                        >
+                                            <option value="">Sin categoría</option>
+                                            {categorias.map((categoria) => (
+                                                <option key={categoria.id} value={categoria.id}>
+                                                    {categoria.nombre}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label>Correo de contacto</label>
+                                        <input
+                                            type="email"
+                                            name="correo_contacto"
+                                            value={formData.correo_contacto}
+                                            onChange={handleInputChange}
+                                            placeholder="ejemplo@utn.edu.ar"
+                                        />
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label>Teléfono</label>
+                                        <input
+                                            type="text"
+                                            name="telefono"
+                                            value={formData.telefono}
+                                            onChange={handleInputChange}
+                                            placeholder="Ej: 123456789"
+                                        />
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label>Público destinatario</label>
+                                        <input
+                                            type="text"
+                                            name="publico_destinatario"
+                                            value={formData.publico_destinatario}
+                                            onChange={handleInputChange}
+                                            placeholder="Estudiantes, Docentes, Público general"
+                                        />
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label>Observaciones del evento</label>
+                                        <textarea
+                                            name="observaciones_evento"
+                                            value={formData.observaciones_evento}
+                                            onChange={handleInputChange}
+                                            rows="3"
+                                            placeholder="Información adicional para el evento"
+                                        />
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="form-actions">
                                 <button 
