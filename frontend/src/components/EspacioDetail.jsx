@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { espaciosAPI, reservasAPI } from '../services/api';
 import '../styles/EspacioDetail.css';
 
@@ -11,11 +11,7 @@ const EspacioDetail = ({ espacioId, onClose }) => {
   const [editandoReserva, setEditandoReserva] = useState(null);
   const [formReservaEditada, setFormReservaEditada] = useState({});
 
-  useEffect(() => {
-    cargarDetalles();
-  }, [espacioId]);
-
-  const cargarDetalles = async () => {
+  const cargarDetalles = useCallback(async () => {
     try {
       setLoading(true);
       console.log('📍 Cargando detalles del espacio ID:', espacioId);
@@ -44,7 +40,11 @@ const EspacioDetail = ({ espacioId, onClose }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [espacioId]);
+
+  useEffect(() => {
+    cargarDetalles();
+  }, [cargarDetalles]);
 
   const handleEditarReserva = (reserva) => {
     setEditandoReserva(reserva.id);
