@@ -1,5 +1,6 @@
 // backend/controllers/reservasRecursosController.js
 const pool = require('../config/database');
+const registrarAuditoriaReservas = require('../utils/auditoriaReservas');
 
 const reservasRecursosController = {
   /**
@@ -71,7 +72,10 @@ const reservasRecursosController = {
 
       // Verificar que la reserva existe y obtener espacio_id
       const [reserva] = await pool.query(
-        'SELECT id, espacio_id FROM reservas WHERE id = ?',
+        `SELECT r.id, r.espacio_id, u.secretaria_id
+         FROM reservas r
+         JOIN usuarios u ON u.id = r.usuario_id
+         WHERE r.id = ?`,
         [reservaId]
       );
 
@@ -89,7 +93,7 @@ const reservasRecursosController = {
 
         // Validar que el recurso existe
         const [recursoExistente] = await pool.query(
-          'SELECT id FROM recursos WHERE id = ? AND activo = TRUE',
+          'SELECT id, nombre FROM recursos WHERE id = ? AND activo = TRUE',
           [recurso_id]
         );
 
@@ -121,6 +125,11 @@ const reservasRecursosController = {
           });
         }
 
+        const [solicitudAnterior] = await pool.query(
+          'SELECT cantidad_solicitada, observaciones FROM reservas_recursos WHERE reserva_id = ? AND recurso_id = ?',
+          [reservaId, recurso_id],
+        );
+
         // Insertar o actualizar la solicitud de recurso
         await pool.query(
           `INSERT INTO reservas_recursos (reserva_id, recurso_id, cantidad_solicitada, observaciones)
@@ -130,6 +139,21 @@ const reservasRecursosController = {
              observaciones = ?`,
           [reservaId, recurso_id, cantidad_solicitada, observaciones || null, cantidad_solicitada, observaciones || null]
         );
+        await registrarAuditoriaReservas({
+          req,
+          accion: solicitudAnterior.length ? 'editar_recurso_reserva' : 'agregar_recurso_reserva',
+          entidadTipo: 'recurso_reserva',
+          entidadId: recurso_id,
+          reservaId,
+          secretariaId: reserva[0].secretaria_id,
+          datosAnteriores: solicitudAnterior[0] || null,
+          datosNuevos: {
+            recurso_id,
+            recurso_nombre: recursoExistente[0].nombre,
+            cantidad_solicitada,
+            observaciones: observaciones || null,
+          },
+        });
       }
 
       res.json({
@@ -165,7 +189,13 @@ const reservasRecursosController = {
 
       // Obtener la solicitud
       const [solicitud] = await pool.query(
-        'SELECT cantidad_solicitada FROM reservas_recursos WHERE reserva_id = ? AND recurso_id = ?',
+        `SELECT rr.cantidad_solicitada, rr.cantidad_confirmada, r.espacio_id,
+          u.secretaria_id, rec.nombre AS recurso_nombre
+         FROM reservas_recursos rr
+         JOIN reservas r ON r.id = rr.reserva_id
+         JOIN usuarios u ON u.id = r.usuario_id
+         JOIN recursos rec ON rec.id = rr.recurso_id
+         WHERE rr.reserva_id = ? AND rr.recurso_id = ?`,
         [reservaId, recursoId]
       );
 
@@ -189,6 +219,22 @@ const reservasRecursosController = {
         'UPDATE reservas_recursos SET cantidad_confirmada = ? WHERE reserva_id = ? AND recurso_id = ?',
         [cantidad_confirmada, reservaId, recursoId]
       );
+      await registrarAuditoriaReservas({
+        req,
+        accion: 'confirmar_recurso_reserva',
+        entidadTipo: 'recurso_reserva',
+        entidadId: recursoId,
+        reservaId,
+        secretariaId: solicitud[0].secretaria_id,
+        datosAnteriores: {
+          recurso_nombre: solicitud[0].recurso_nombre,
+          cantidad_confirmada: solicitud[0].cantidad_confirmada,
+        },
+        datosNuevos: {
+          recurso_nombre: solicitud[0].recurso_nombre,
+          cantidad_confirmada,
+        },
+      });
 
       res.json({
         success: true,
@@ -212,6 +258,17 @@ const reservasRecursosController = {
     try {
       const { reservaId, recursoId } = req.params;
 
+      const [solicitudes] = await pool.query(
+        `SELECT rr.cantidad_solicitada, rr.cantidad_confirmada, rr.observaciones,
+          u.secretaria_id, rec.nombre AS recurso_nombre
+         FROM reservas_recursos rr
+         JOIN reservas r ON r.id = rr.reserva_id
+         JOIN usuarios u ON u.id = r.usuario_id
+         JOIN recursos rec ON rec.id = rr.recurso_id
+         WHERE rr.reserva_id = ? AND rr.recurso_id = ?`,
+        [reservaId, recursoId],
+      );
+
       const [result] = await pool.query(
         'DELETE FROM reservas_recursos WHERE reserva_id = ? AND recurso_id = ?',
         [reservaId, recursoId]
@@ -223,6 +280,16 @@ const reservasRecursosController = {
           error: 'Recurso no encontrado en la reserva'
         });
       }
+
+      await registrarAuditoriaReservas({
+        req,
+        accion: 'quitar_recurso_reserva',
+        entidadTipo: 'recurso_reserva',
+        entidadId: recursoId,
+        reservaId,
+        secretariaId: solicitudes[0]?.secretaria_id ?? null,
+        datosAnteriores: solicitudes[0] || null,
+      });
 
       res.json({
         success: true,
