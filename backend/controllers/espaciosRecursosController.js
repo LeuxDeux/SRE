@@ -1,5 +1,6 @@
 // backend/controllers/espaciosRecursosController.js
 const db = require('../config/database');
+const registrarAuditoriaReservas = require('../utils/auditoriaReservas');
 
 const espaciosRecursosController = {
     // Asignar recurso a espacio
@@ -14,9 +15,18 @@ const espaciosRecursosController = {
                 return res.status(404).json({ error: 'Espacio no encontrado' });
             }
 
+            const [asignacionesAnteriores] = await db.execute(
+                `SELECT er.recurso_id, r.nombre AS recurso_nombre, er.cantidad_maxima, er.disponible
+                 FROM espacios_recursos er
+                 JOIN recursos r ON r.id = er.recurso_id
+                 WHERE er.espacio_id = ?`,
+                [espacioId],
+            );
+            const recursosAuditados = [];
+
             for (const recurso of recursos) {
                 // Validar que el recurso existe
-                const [recursoExistente] = await db.execute('SELECT id, cantidad_total FROM recursos WHERE id = ?', [recurso.recurso_id]);
+                const [recursoExistente] = await db.execute('SELECT id, nombre, cantidad_total FROM recursos WHERE id = ?', [recurso.recurso_id]);
                 if (recursoExistente.length === 0) {
                     return res.status(404).json({ error: `Recurso con ID ${recurso.recurso_id} no encontrado` });
                 }
@@ -35,7 +45,22 @@ const espaciosRecursosController = {
                      ON DUPLICATE KEY UPDATE cantidad_maxima = ?`,
                     [espacioId, recurso.recurso_id, recurso.cantidad_maxima, recurso.cantidad_maxima]
                 );
+                recursosAuditados.push({
+                    recurso_id: recurso.recurso_id,
+                    recurso_nombre: recursoExistente[0].nombre,
+                    cantidad_maxima: recurso.cantidad_maxima,
+                });
             }
+
+            await registrarAuditoriaReservas({
+                req,
+                accion: 'asignar_recursos',
+                entidadTipo: 'asignacion_espacio',
+                entidadId: espacioId,
+                secretariaId: req.user.secretaria_id || null,
+                datosAnteriores: asignacionesAnteriores,
+                datosNuevos: recursosAuditados,
+            });
             
             res.json({ 
                 success: true,
@@ -54,6 +79,21 @@ const espaciosRecursosController = {
     quitar: async (req, res) => {
         try {
             const { espacioId, recursoId } = req.params;
+
+            const [espacios] = await db.execute(
+                'SELECT id FROM espacios WHERE id = ?',
+                [espacioId],
+            );
+            if (espacios.length === 0) {
+                return res.status(404).json({ error: 'Espacio no encontrado' });
+            }
+            const [asignaciones] = await db.execute(
+                `SELECT er.recurso_id, r.nombre AS recurso_nombre, er.cantidad_maxima, er.disponible
+                 FROM espacios_recursos er
+                 JOIN recursos r ON r.id = er.recurso_id
+                 WHERE er.espacio_id = ? AND er.recurso_id = ?`,
+                [espacioId, recursoId],
+            );
             
             // Verificar si hay reservas activas que usen este recurso en este espacio
             const [reservasConRecurso] = await db.execute(
@@ -86,6 +126,16 @@ const espaciosRecursosController = {
             if (result.affectedRows === 0) {
                 return res.status(404).json({ error: 'Asignación no encontrada' });
             }
+
+            await registrarAuditoriaReservas({
+                req,
+                accion: 'quitar_recurso_espacio',
+                entidadTipo: 'asignacion_espacio',
+                entidadId: espacioId,
+                secretariaId: req.user.secretaria_id || null,
+                datosAnteriores: asignaciones[0] || { recurso_id: Number(recursoId) },
+                datosNuevos: null,
+            });
 
             res.json({ 
                 success: true,
