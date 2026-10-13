@@ -67,6 +67,12 @@ export const authAPI = {
 export const eventosAPI = {
   crear: (eventoData) => api.post("/eventos", eventoData),
   obtenerTodos: () => api.get("/eventos"),
+  obtenerSolicitudesPendientes: (params = {}) =>
+    api.get("/eventos/solicitudes", { params }),
+  obtenerMisSolicitudes: () => api.get("/eventos/mis-solicitudes"),
+  aprobarSolicitud: (id) => api.patch(`/eventos/${id}/aprobar`),
+  rechazarSolicitud: (id, motivo_rechazo) =>
+    api.patch(`/eventos/${id}/rechazar`, { motivo_rechazo }),
   obtenerPorId: (id) => api.get(`/eventos/${id}`),
   actualizar: (id, eventoData) => api.put(`/eventos/${id}`, eventoData),
   eliminar: (id) => api.delete(`/eventos/${id}`),
@@ -87,6 +93,7 @@ export const eventosAPI = {
 export const reservasAPI = {
   // RESERVAS
   obtenerTodas: () => api.get("/reservas"),
+  obtenerAuditoria: (params = {}) => api.get("/reservas/auditoria", { params }),
   obtenerPorId: (id) => api.get(`/reservas/${id}`),
   crear: (datos) => api.post("/reservas", datos),
   actualizar: (id, datos) => api.put(`/reservas/${id}`, datos),
