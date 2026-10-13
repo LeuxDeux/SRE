@@ -1,5 +1,7 @@
 const db = require('../config/database');
+const registrarAuditoriaReservas = require('../utils/auditoriaReservas');
 const { enviarCorreoReserva, enviarCorreoEdicionReserva, enviarCorreoCancelacionReserva, enviarPDFPorCorreo } = require('../utils/emailService');
+const { notificarEventoAprobado } = require('./eventosController');
 
 const generarNumeroReserva = async () => {
     const year = new Date().getFullYear();
@@ -27,6 +29,14 @@ const guardarHistorialReserva = async (reservaId, datosAnteriores, tipoChangio =
     }
 };
 
+const obtenerUsuarioActivo = async (usuarioId) => {
+    const [usuarios] = await db.execute(
+        'SELECT id, role, secretaria_id FROM usuarios WHERE id = ? AND activo = 1',
+        [usuarioId]
+    );
+    return usuarios[0] || null;
+};
+
 const crearEventoDesdeReserva = async (reservaCreada, usuario, datosEventoExtra = {}) => {
     try {
         const nombreEvento = reservaCreada.titulo?.trim() || `Evento generado desde ${reservaCreada.numero_reserva}`;
@@ -41,11 +51,18 @@ const crearEventoDesdeReserva = async (reservaCreada, usuario, datosEventoExtra 
 
         const categoriaIdNumerico = datosEventoExtra.categoria_id ? Number(datosEventoExtra.categoria_id) : null;
 
+        // Un usuario normal no publica eventos directamente: el evento nace
+        // pendiente y se resuelve junto con la reserva. Admin/secretaria publican directo.
+        const esUsuarioNormal = usuario?.role === 'usuario';
+        const estadoAprobacion = esUsuarioNormal ? 'pendiente' : 'no_requerida';
+        const secretariaResponsable = esUsuarioNormal ? (usuario?.secretaria_id ?? null) : null;
+
         const [result] = await db.execute(
             `INSERT INTO eventos (
                 nombre, fecha_evento, fecha_fin, descripcion, categoria_id, usuario_id, secretaria,
-                correo_contacto, telefono, hora_inicio, hora_fin, lugar, publico_destinatario, observaciones
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
+                correo_contacto, telefono, hora_inicio, hora_fin, lugar, publico_destinatario, observaciones,
+                estado_aprobacion, secretaria_id_responsable, reserva_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
             [
                 nombreEvento,
                 reservaCreada.fecha_inicio,
@@ -60,11 +77,14 @@ const crearEventoDesdeReserva = async (reservaCreada, usuario, datosEventoExtra 
                 reservaCreada.hora_fin || null,
                 lugarEvento,
                 datosEventoExtra.publico_destinatario || null,
-                observacionesEvento || null
+                observacionesEvento || null,
+                estadoAprobacion,
+                secretariaResponsable,
+                reservaCreada.id
             ]
         );
 
-        return { ok: true, eventoId: result.insertId };
+        return { ok: true, eventoId: result.insertId, estadoAprobacion };
     } catch (error) {
         console.error('⚠️ Error creando evento desde reserva:', error.message);
         return { ok: false, error: error.message };
@@ -127,11 +147,20 @@ const reservasController = {
     // Obtener todas las reservas (para admin)
     obtenerReservas: async (req, res) => {
         try {
+            const usuario = await obtenerUsuarioActivo(req.user.id);
+            if (!usuario) {
+                return res.status(401).json({ error: 'Usuario no válido' });
+            }
+
             const [reservas] = await db.execute(
-                `SELECT r.*, e.nombre as espacio_nombre, u.nombre_completo as usuario_nombre 
+                `SELECT r.*, e.nombre as espacio_nombre,
+                    u.secretaria_id AS secretaria_id,
+                        u.nombre_completo as usuario_nombre,
+                        apr.nombre_completo as aprobador_nombre
                 FROM reservas r 
                 JOIN espacios e ON r.espacio_id = e.id 
                 JOIN usuarios u ON r.usuario_id = u.id 
+                LEFT JOIN usuarios apr ON r.aprobador_id = apr.id
                 WHERE r.fecha_eliminacion IS NULL
                 ORDER BY r.fecha_solicitud DESC`
             );
@@ -168,6 +197,10 @@ crearReserva: async (req, res) => {
     try {
         const { espacio_id, fecha_inicio, hora_inicio, fecha_fin, hora_fin, titulo, descripcion, motivo, cantidad_participantes, participantes_email, observaciones, registrar_como_evento, crear_evento, categoria_id, correo_contacto, telefono, publico_destinatario, observaciones_evento } = req.body;
         const usuario_id = req.user.id;
+        const usuarioActual = await obtenerUsuarioActivo(usuario_id);
+        if (!usuarioActual) {
+            return res.status(401).json({ success: false, error: 'Usuario no válido' });
+        }
         const debeCrearEvento = Boolean(registrar_como_evento || crear_evento);
 
         // Validaciones básicas
@@ -218,7 +251,8 @@ crearReserva: async (req, res) => {
         const numero_reserva = await generarNumeroReserva();
 
         // Determinar estado según si el espacio requiere aprobación
-        const estado = espacio.requiere_aprobacion ? 'pendiente' : 'confirmada';
+        const esAprobador = ['admin', 'secretaria'].includes(usuarioActual.role);
+        const estado = esAprobador || !espacio.requiere_aprobacion ? 'confirmada' : 'pendiente';
 
         // Validar antelación de categoría si se va a crear evento
         if (debeCrearEvento && categoria_id) {
@@ -265,6 +299,31 @@ crearReserva: async (req, res) => {
         );
 
         console.log('✅ Reserva creada:', result.insertId);
+        await registrarAuditoriaReservas({
+            req,
+            accion: estado === 'confirmada' && esAprobador ? 'auto_confirmacion_creacion' : 'crear',
+            entidadTipo: 'reserva',
+            entidadId: result.insertId,
+            reservaId: result.insertId,
+            secretariaId: usuarioActual.secretaria_id,
+            datosNuevos: {
+                numero_reserva,
+                estado,
+                espacio_id,
+                fecha_inicio,
+                hora_inicio,
+                fecha_fin,
+                hora_fin,
+                titulo,
+                motivo: motivo_final,
+                cantidad_participantes: cantidad_final,
+                recursos_solicitados: (req.body.recursos_solicitados || []).map((recurso) => ({
+                    recurso_id: recurso.recurso_id,
+                    cantidad_solicitada: recurso.cantidad_solicitada,
+                })),
+                registrar_como_evento: debeCrearEvento,
+            },
+        });
 
         // ============================================
         // 💾 GUARDAR RECURSOS ASOCIADOS A LA RESERVA
@@ -308,6 +367,7 @@ crearReserva: async (req, res) => {
         let eventoCreado = false;
         let eventoId = null;
         let eventoError = null;
+        let eventoPendiente = false;
 
         if (reservasCreadas.length > 0) {
             const reservaCreada = reservasCreadas[0];
@@ -323,9 +383,11 @@ crearReserva: async (req, res) => {
                 if (eventoResult.ok) {
                     eventoCreado = true;
                     eventoId = eventoResult.eventoId;
+                    eventoPendiente = eventoResult.estadoAprobacion === 'pendiente';
 
-                    // Enviar correo del evento creado automáticamente
-                    try {
+                    // Enviar correo del evento solo si quedó publicado.
+                    // Si nace pendiente, el correo se envía al aprobar la reserva.
+                    if (!eventoPendiente) try {
                         const [eventoParaEmail] = await db.execute(
                             `
                             SELECT e.*, c.nombre as categoria_nombre, c.color as categoria_color,
@@ -458,7 +520,11 @@ crearReserva: async (req, res) => {
         }
 
         const mensajeReserva = debeCrearEvento
-            ? (eventoCreado ? 'Reserva creada exitosamente y registrada como evento a comunicar' : 'Reserva creada exitosamente, pero no se pudo registrar como evento a comunicar')
+            ? (eventoCreado
+                ? (eventoPendiente
+                    ? 'Reserva creada (pendiente de aprobación). El evento asociado se publicará al aprobar la reserva'
+                    : 'Reserva creada exitosamente y registrada como evento a comunicar')
+                : 'Reserva creada exitosamente, pero no se pudo registrar como evento a comunicar')
             : `Reserva creada exitosamente${espacio.requiere_aprobacion ? ' (pendiente de aprobación)' : ' (confirmada automáticamente)'}`;
 
         res.status(201).json({
@@ -470,6 +536,7 @@ crearReserva: async (req, res) => {
                 estado,
                 evento_creado: eventoCreado,
                 evento_id: eventoId,
+                evento_pendiente: eventoPendiente,
                 evento_error: eventoError
             }
         });
@@ -490,7 +557,8 @@ crearReserva: async (req, res) => {
 
             // Verificar que la reserva existe
             const [reservas] = await db.execute(
-                `SELECT r.*, e.nombre as espacio_nombre, u.nombre_completo as usuario_nombre, u.email as usuario_email
+                `SELECT r.*, e.nombre as espacio_nombre, u.secretaria_id AS secretaria_id_responsable,
+                        u.nombre_completo as usuario_nombre, u.email as usuario_email
                 FROM reservas r
                 JOIN espacios e ON r.espacio_id = e.id
                 JOIN usuarios u ON r.usuario_id = u.id
@@ -528,6 +596,16 @@ crearReserva: async (req, res) => {
                 `UPDATE reservas SET estado = 'cancelada' WHERE id = ?`,
                 [id]
             );
+            await registrarAuditoriaReservas({
+                req,
+                accion: 'cancelar',
+                entidadTipo: 'reserva',
+                entidadId: reserva.id,
+                reservaId: reserva.id,
+                secretariaId: reserva.secretaria_id_responsable,
+                datosAnteriores: { estado: reserva.estado },
+                datosNuevos: { estado: 'cancelada' },
+            });
 
             // ============================================
             // 📧 ENVIAR CORREO DE CANCELACIÓN
@@ -611,7 +689,10 @@ crearReserva: async (req, res) => {
 
             // Verificar que la reserva existe
             const [reservas] = await db.execute(
-                `SELECT * FROM reservas WHERE id = ? AND fecha_eliminacion IS NULL`,
+                `SELECT r.*, u.secretaria_id AS secretaria_id_responsable
+                 FROM reservas r
+                 JOIN usuarios u ON u.id = r.usuario_id
+                 WHERE r.id = ? AND r.fecha_eliminacion IS NULL`,
                 [id]
             );
 
@@ -663,6 +744,16 @@ crearReserva: async (req, res) => {
                 usuarioId,
                 'Reserva eliminada por el usuario'
             );
+            await registrarAuditoriaReservas({
+                req,
+                accion: 'eliminar_logico',
+                entidadTipo: 'reserva',
+                entidadId: reserva.id,
+                reservaId: reserva.id,
+                secretariaId: reserva.secretaria_id_responsable,
+                datosAnteriores,
+                datosNuevos: { fecha_eliminacion: true },
+            });
 
             res.json({
                 success: true,
@@ -681,18 +772,27 @@ crearReserva: async (req, res) => {
     aprobarReserva: async (req, res) => {
         try {
             const { id } = req.params;
-
-            // Solo admin puede aprobar
-            if (req.user.role !== 'admin') {
+            const usuario = await obtenerUsuarioActivo(req.user.id);
+            if (!usuario) {
+                return res.status(401).json({ success: false, error: 'Usuario no válido' });
+            }
+            if (!['admin', 'secretaria'].includes(usuario.role)) {
                 return res.status(403).json({
                     success: false,
-                    error: 'Solo administradores pueden aprobar reservas'
+                    error: 'No tienes permisos para aprobar reservas'
                 });
+            }
+            if (usuario.role === 'secretaria' && !usuario.secretaria_id) {
+                return res.status(403).json({ success: false, error: 'Tu usuario no tiene una secretaría asignada' });
             }
 
             // Verificar que la reserva existe y está pendiente
             const [reservas] = await db.execute(
-                `SELECT * FROM reservas WHERE id = ?`,
+                `SELECT r.*,
+                    solicitante.secretaria_id AS secretaria_id_responsable
+                 FROM reservas r
+                 JOIN usuarios solicitante ON solicitante.id = r.usuario_id
+                 WHERE r.id = ?`,
                 [id]
             );
 
@@ -705,6 +805,13 @@ crearReserva: async (req, res) => {
 
             const reserva = reservas[0];
 
+            if (
+                usuario.role === 'secretaria' &&
+                Number(usuario.secretaria_id) !== Number(reserva.secretaria_id_responsable)
+            ) {
+                return res.status(403).json({ success: false, error: 'La reserva pertenece a un espacio de otra secretaría' });
+            }
+
             if (reserva.estado !== 'pendiente') {
                 return res.status(400).json({
                     success: false,
@@ -715,8 +822,25 @@ crearReserva: async (req, res) => {
             // Aprobar la reserva
             await db.execute(
                 `UPDATE reservas SET estado = 'confirmada', aprobador_id = ?, fecha_aprobacion = NOW() WHERE id = ?`,
-                [req.user.id, id]
+                [usuario.id, id]
             );
+            await guardarHistorialReserva(
+                id,
+                { estado: reserva.estado, aprobador_id: reserva.aprobador_id },
+                'aprobacion',
+                usuario.id,
+                'Reserva aprobada'
+            );
+            await registrarAuditoriaReservas({
+                req,
+                accion: 'aprobar',
+                entidadTipo: 'reserva',
+                entidadId: reserva.id,
+                reservaId: reserva.id,
+                secretariaId: reserva.secretaria_id_responsable,
+                datosAnteriores: { estado: reserva.estado, aprobador_id: reserva.aprobador_id },
+                datosNuevos: { estado: 'confirmada', aprobador_id: usuario.id, fecha_aprobacion: new Date().toISOString() },
+            });
 
             // ============================================
             // 📧 BLOQUE DE ENVÍO DE CORREOS - APROBACIÓN
@@ -811,6 +935,38 @@ crearReserva: async (req, res) => {
                 }
             }
 
+            // Aprobar el evento vinculado (si la reserva se registró como evento).
+            // La reserva es la fuente de verdad: al confirmarla se publica el evento.
+            try {
+                const [eventosVinculados] = await db.execute(
+                    `SELECT id FROM eventos WHERE reserva_id = ? AND estado_aprobacion = 'pendiente'`,
+                    [id]
+                );
+                if (eventosVinculados.length > 0) {
+                    const eventoVinculadoId = eventosVinculados[0].id;
+                    await db.execute(
+                        `UPDATE eventos
+                         SET estado_aprobacion = 'aprobada', resuelto_por = ?, resuelto_at = CURRENT_TIMESTAMP, motivo_rechazo = NULL
+                         WHERE id = ? AND estado_aprobacion = 'pendiente'`,
+                        [usuario.id, eventoVinculadoId]
+                    );
+                    await db.execute(
+                        `INSERT INTO historial_eventos (evento_id, usuario_id, accion, cambios, valores_viejos, valores_nuevos)
+                         VALUES (?, ?, 'actualizado', ?, ?, ?)`,
+                        [
+                            eventoVinculadoId,
+                            usuario.id,
+                            JSON.stringify(['Evento aprobado automáticamente al aprobar la reserva']),
+                            JSON.stringify({ estado_aprobacion: 'pendiente' }),
+                            JSON.stringify({ estado_aprobacion: 'aprobada' }),
+                        ]
+                    );
+                    await notificarEventoAprobado(eventoVinculadoId);
+                }
+            } catch (eventoError) {
+                console.error('⚠️ Error aprobando evento vinculado a la reserva:', eventoError.message);
+            }
+
             res.json({
                 success: true,
                 mensaje: 'Reserva aprobada exitosamente'
@@ -827,6 +983,10 @@ crearReserva: async (req, res) => {
     obtenerReservaPorId: async (req, res) => {
     try {
         const { id } = req.params;
+        const usuario = await obtenerUsuarioActivo(req.user.id);
+        if (!usuario) {
+            return res.status(401).json({ success: false, error: 'Usuario no válido' });
+        }
 
         // Obtener detalles de la reserva con JOINs
         const [reservas] = await db.execute(
@@ -836,6 +996,7 @@ crearReserva: async (req, res) => {
                 e.ubicacion,
                 e.estado as espacio_estado,
                 e.requiere_aprobacion as espacio_requiere_aprobacion,
+                u.secretaria_id as secretaria_id_responsable,
                 u.nombre_completo as usuario_nombre,
                 u.email as usuario_email,
                 u.telefono as usuario_telefono,
@@ -892,18 +1053,27 @@ crearReserva: async (req, res) => {
     rechazarReserva: async (req, res) => {
     try {
         const { id } = req.params;
-
-        // Solo admin puede rechazar
-        if (req.user.role !== 'admin') {
+        const usuario = await obtenerUsuarioActivo(req.user.id);
+        if (!usuario) {
+            return res.status(401).json({ success: false, error: 'Usuario no válido' });
+        }
+        if (!['admin', 'secretaria'].includes(usuario.role)) {
             return res.status(403).json({
                 success: false,
-                error: 'Solo administradores pueden rechazar reservas'
+                error: 'No tienes permisos para rechazar reservas'
             });
+        }
+        if (usuario.role === 'secretaria' && !usuario.secretaria_id) {
+            return res.status(403).json({ success: false, error: 'Tu usuario no tiene una secretaría asignada' });
         }
 
         // Verificar que la reserva existe y está pendiente
         const [reservas] = await db.execute(
-            `SELECT * FROM reservas WHERE id = ?`,
+                `SELECT r.*,
+                    solicitante.secretaria_id AS secretaria_id_responsable
+             FROM reservas r
+                 JOIN usuarios solicitante ON solicitante.id = r.usuario_id
+             WHERE r.id = ?`,
             [id]
         );
 
@@ -916,6 +1086,13 @@ crearReserva: async (req, res) => {
 
         const reserva = reservas[0];
 
+        if (
+            usuario.role === 'secretaria' &&
+            Number(usuario.secretaria_id) !== Number(reserva.secretaria_id_responsable)
+        ) {
+            return res.status(403).json({ success: false, error: 'La reserva pertenece a un espacio de otra secretaría' });
+        }
+
         if (reserva.estado !== 'pendiente') {
             return res.status(400).json({
                 success: false,
@@ -926,8 +1103,25 @@ crearReserva: async (req, res) => {
         // Rechazar la reserva
         await db.execute(
             `UPDATE reservas SET estado = 'rechazada', aprobador_id = ? WHERE id = ?`,
-            [req.user.id, id]
+            [usuario.id, id]
         );
+        await guardarHistorialReserva(
+            id,
+            { estado: reserva.estado, aprobador_id: reserva.aprobador_id },
+            'rechazo',
+            usuario.id,
+            'Reserva rechazada'
+        );
+        await registrarAuditoriaReservas({
+            req,
+            accion: 'rechazar',
+            entidadTipo: 'reserva',
+            entidadId: reserva.id,
+            reservaId: reserva.id,
+            secretariaId: reserva.secretaria_id_responsable,
+            datosAnteriores: { estado: reserva.estado, aprobador_id: reserva.aprobador_id },
+            datosNuevos: { estado: 'rechazada', aprobador_id: usuario.id },
+        });
 
         // ============================================
         // 📧 BLOQUE DE ENVÍO DE CORREOS - RECHAZO
@@ -961,6 +1155,36 @@ crearReserva: async (req, res) => {
         //     }
         // }
 
+        // Rechazar el evento vinculado (si existe y está pendiente).
+        try {
+            const [eventosVinculados] = await db.execute(
+                `SELECT id FROM eventos WHERE reserva_id = ? AND estado_aprobacion = 'pendiente'`,
+                [id]
+            );
+            if (eventosVinculados.length > 0) {
+                const eventoVinculadoId = eventosVinculados[0].id;
+                await db.execute(
+                    `UPDATE eventos
+                     SET estado_aprobacion = 'rechazada', resuelto_por = ?, resuelto_at = CURRENT_TIMESTAMP, motivo_rechazo = ?
+                     WHERE id = ? AND estado_aprobacion = 'pendiente'`,
+                    [usuario.id, 'Reserva rechazada', eventoVinculadoId]
+                );
+                await db.execute(
+                    `INSERT INTO historial_eventos (evento_id, usuario_id, accion, cambios, valores_viejos, valores_nuevos)
+                     VALUES (?, ?, 'actualizado', ?, ?, ?)`,
+                    [
+                        eventoVinculadoId,
+                        usuario.id,
+                        JSON.stringify(['Evento rechazado automáticamente al rechazar la reserva']),
+                        JSON.stringify({ estado_aprobacion: 'pendiente' }),
+                        JSON.stringify({ estado_aprobacion: 'rechazada', motivo_rechazo: 'Reserva rechazada' }),
+                    ]
+                );
+            }
+        } catch (eventoError) {
+            console.error('⚠️ Error rechazando evento vinculado a la reserva:', eventoError.message);
+        }
+
         res.json({
             success: true,
             mensaje: 'Reserva rechazada exitosamente'
@@ -990,6 +1214,7 @@ crearReserva: async (req, res) => {
                         DATE_FORMAT(r.fecha_inicio, '%Y-%m-%d') as fecha_inicio_fmt,
                         DATE_FORMAT(r.fecha_fin, '%Y-%m-%d') as fecha_fin_fmt,
                         e.nombre as espacio_nombre,
+                        u.secretaria_id as secretaria_id_responsable,
                         u.nombre_completo as usuario_nombre,
                         u.email as usuario_email
                  FROM reservas r
@@ -1055,6 +1280,39 @@ crearReserva: async (req, res) => {
                 });
             }
 
+            let recursosAuditadosAntes = [];
+            let recursosAuditadosDespues = [];
+            if (Array.isArray(recursos_solicitados)) {
+                const [recursosAnteriores] = await db.execute(
+                    `SELECT rr.recurso_id, r.nombre AS recurso_nombre,
+                        rr.cantidad_solicitada
+                     FROM reservas_recursos rr
+                     JOIN recursos r ON r.id = rr.recurso_id
+                     WHERE rr.reserva_id = ?
+                     ORDER BY r.nombre`,
+                    [id],
+                );
+                recursosAuditadosAntes = recursosAnteriores;
+
+                const recursosConCantidad = recursos_solicitados.filter(
+                    (recurso) => recurso.recurso_id && Number(recurso.cantidad_solicitada) > 0,
+                );
+                const idsRecursos = [...new Set(recursosConCantidad.map((recurso) => Number(recurso.recurso_id)))];
+                if (idsRecursos.length > 0) {
+                    const placeholders = idsRecursos.map(() => '?').join(',');
+                    const [nombresRecursos] = await db.execute(
+                        `SELECT id, nombre FROM recursos WHERE id IN (${placeholders})`,
+                        idsRecursos,
+                    );
+                    const nombresPorId = new Map(nombresRecursos.map((recurso) => [Number(recurso.id), recurso.nombre]));
+                    recursosAuditadosDespues = recursosConCantidad.map((recurso) => ({
+                        recurso_id: Number(recurso.recurso_id),
+                        recurso_nombre: nombresPorId.get(Number(recurso.recurso_id)) || `Recurso ${recurso.recurso_id}`,
+                        cantidad_solicitada: Number(recurso.cantidad_solicitada),
+                    }));
+                }
+            }
+
             // ============================================
             // 📝 GUARDAR HISTORIAL ANTES DE ACTUALIZAR
             // ============================================
@@ -1086,6 +1344,9 @@ crearReserva: async (req, res) => {
                 cantidad_participantes: reserva.cantidad_participantes,
                 motivo: reserva.motivo
             };
+            if (Array.isArray(recursos_solicitados)) {
+                datosAnteriores.recursos_solicitados = recursosAuditadosAntes;
+            }
 
             await guardarHistorialReserva(
                 id,
@@ -1106,7 +1367,6 @@ crearReserva: async (req, res) => {
                  motivo, cantidad_participantes, observaciones, participantes_email, 
                  notificar_participantes, id]
             );
-
             // ============================================
             // � ACTUALIZAR RECURSOS DE LA RESERVA
             // ============================================
@@ -1152,6 +1412,42 @@ crearReserva: async (req, res) => {
                     }
                 }
             }
+
+            if (Array.isArray(recursos_solicitados)) {
+                const [recursosPersistidos] = await db.execute(
+                    `SELECT rr.recurso_id, r.nombre AS recurso_nombre, rr.cantidad_solicitada
+                     FROM reservas_recursos rr
+                     JOIN recursos r ON r.id = rr.recurso_id
+                     WHERE rr.reserva_id = ?
+                     ORDER BY r.nombre`,
+                    [id],
+                );
+                recursosAuditadosDespues = recursosPersistidos;
+            }
+
+            await registrarAuditoriaReservas({
+                req,
+                accion: 'editar',
+                entidadTipo: 'reserva',
+                entidadId: reserva.id,
+                reservaId: reserva.id,
+                secretariaId: reserva.secretaria_id_responsable,
+                datosAnteriores,
+                datosNuevos: {
+                    fecha_inicio: normalizarFecha(fecha_inicio),
+                    hora_inicio,
+                    fecha_fin: normalizarFecha(fecha_fin),
+                    hora_fin,
+                    titulo,
+                    descripcion,
+                    motivo,
+                    cantidad_participantes,
+                    notificar_participantes: Boolean(notificar_participantes),
+                    recursos_solicitados: Array.isArray(recursos_solicitados)
+                        ? recursosAuditadosDespues
+                        : undefined,
+                },
+            });
 
             // ============================================
             // �📧 ENVIAR CORREO DE EDICIÓN (asincronamente)
