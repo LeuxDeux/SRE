@@ -4,9 +4,11 @@ import LoginForm from './components/LoginForm';
 import EventosTable from './components/EventosTable';
 import EventoForm from './components/EventoForm';
 import EventoDetail from './components/EventoDetail';
+import MisSolicitudesEventos from './components/MisSolicitudesEventos';
 import GestionCategorias from './components/GestionCategorias';
 import GestionUsuarios from './components/GestionUsuarios';
 import ReservasCalendar from './components/ReservasCalendar';
+import SolicitudesEventos from './components/SolicitudesEventos';
 import './App.css';
 
 // Componente Dashboard con navegación entre módulos
@@ -34,11 +36,21 @@ const Dashboard = () => {
 
   const handleGuardarEvento = (eventoGuardado) => {
     console.log('Evento guardado:', eventoGuardado);
+    if (user.role === 'usuario') {
+      setVistaEventos('lista');
+      setEventoEditando(null);
+      return;
+    }
     setVistaEventos('lista');
     // Aquí podrías recargar la lista de eventos si es necesario
   };
 
   const handleCancelarEvento = () => {
+    if (user.role === 'usuario') {
+      setVistaEventos('lista');
+      setEventoEditando(null);
+      return;
+    }
     setVistaEventos('lista');
     setEventoEditando(null);
   };
@@ -72,6 +84,14 @@ const Dashboard = () => {
           <EventoDetail
             eventoId={eventoDetalleId}
             onClose={handleVolverDetalle}
+            readOnly={user.role === 'usuario'}
+          />
+        );
+
+      case 'mis-solicitudes':
+        return (
+          <MisSolicitudesEventos
+            onVolver={() => setVistaEventos('lista')}
           />
         );
       
@@ -81,6 +101,7 @@ const Dashboard = () => {
             onEditEvento={handleEditarEvento}
             onViewDetails={handleVerDetalles}
             onNuevoEvento={handleNuevoEvento}
+            readOnly={user.role === 'usuario'}
           />
         );
     }
@@ -103,15 +124,26 @@ const Dashboard = () => {
               >
                 ← Volver al Inicio
               </button>
-              <h2>📅 Gestión de Eventos</h2>
-              {vistaEventos === 'lista' && (
+              <h2>{user.role === 'usuario'
+                ? vistaEventos === 'mis-solicitudes' ? '📋 Mis solicitudes' : '📅 Tablero de Eventos'
+                : '📅 Gestión de Eventos'}</h2>
+              {user.role === 'usuario' && vistaEventos === 'lista' ? (
+                <div className="eventos-header-actions">
+                  <button onClick={handleNuevoEvento} className="btn-nuevo-evento">
+                    ➕ Solicitar Evento
+                  </button>
+                  <button onClick={() => setVistaEventos('mis-solicitudes')} className="btn-nuevo-evento">
+                    Mis solicitudes
+                  </button>
+                </div>
+              ) : user.role !== 'usuario' && vistaEventos === 'lista' ? (
                 <button
                   onClick={handleNuevoEvento}
                   className="btn-nuevo-evento"
                 >
-                  ➕ Nuevo Evento
+                  {user.role === 'usuario' ? '➕ Solicitar Evento' : '➕ Nuevo Evento'}
                 </button>
-              )}
+              ) : null}
             </div>
             {renderModuloEventos()}
           </div>
@@ -165,6 +197,19 @@ const Dashboard = () => {
           </div>
         );
 
+      case 'solicitudes-eventos':
+        return (
+          <div className="modulo-container">
+            <div className="modulo-header">
+              <button onClick={() => setModuloActivo(null)} className="btn-volver">
+                ← Volver al Inicio
+              </button>
+              <h2>Solicitudes de eventos</h2>
+            </div>
+            <SolicitudesEventos user={user} />
+          </div>
+        );
+
       default:
         return (
           <div className="welcome-message">
@@ -172,18 +217,20 @@ const Dashboard = () => {
             <p>Selecciona un módulo para comenzar:</p>
 
             <div className="modules-grid">
-              {(user.role === 'admin' || user.role === 'secretaria') && (
-                <div className="module-card">
-                  <h3>📅 Registro de Eventos a Comunicar</h3>
-                  <p>Gestiona los eventos universitarios</p>
-                  <button
-                    onClick={() => setModuloActivo('eventos')}
-                    className="module-button"
-                  >
-                    Acceder
-                  </button>
-                </div>
-              )}
+              <div className="module-card">
+                <h3>📅 Registro de Eventos a Comunicar</h3>
+                <p>{user.role === 'usuario' ? 'Solicita la publicación de un evento' : 'Gestiona los eventos universitarios'}</p>
+                <button
+                  onClick={() => {
+                    setVistaEventos('lista');
+                    setEventoEditando(null);
+                    setModuloActivo('eventos');
+                  }}
+                  className="module-button"
+                >
+                  {user.role === 'usuario' ? 'Ver tablero' : 'Acceder'}
+                </button>
+              </div>
 
               <div className="module-card">
                 <h3>🏢 Reserva de Espacios</h3>
@@ -195,6 +242,22 @@ const Dashboard = () => {
                   Acceder
                 </button>
               </div>
+
+              {user.role === 'usuario' && (
+                <div className="module-card">
+                  <h3>📋 Mis solicitudes</h3>
+                  <p>Consulta el estado de los eventos que solicitaste.</p>
+                  <button
+                    onClick={() => {
+                      setVistaEventos('mis-solicitudes');
+                      setModuloActivo('eventos');
+                    }}
+                    className="module-button"
+                  >
+                    Ver mis solicitudes
+                  </button>
+                </div>
+              )}
 
               {user.role === 'admin' && (
                 <div className="module-card">
@@ -220,6 +283,18 @@ const Dashboard = () => {
                 </button>
               </div>
             )}
+              {(user.role === 'admin' || user.role === 'secretaria') && (
+                <div className="module-card">
+                  <h3>Solicitudes de eventos</h3>
+                  <p>Revisa solicitudes de comunicación de los usuarios de tu área.</p>
+                  <button
+                    onClick={() => setModuloActivo('solicitudes-eventos')}
+                    className="module-button"
+                  >
+                    Ver bandeja
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         );
