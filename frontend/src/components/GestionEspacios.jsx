@@ -21,7 +21,6 @@ const GestionEspacios = ({ onVolver }) => {
         capacidad: '',
         ubicacion: '',
         estado: 'disponible',
-        requiere_aprobacion: true,
         max_horas_por_reserva: 8,
         imagen_url: '',
         emails: []
@@ -164,7 +163,7 @@ const GestionEspacios = ({ onVolver }) => {
                 });
                 setError(null);
             } else {
-                setError('Error al quitar el recurso del espacio');
+                setError(err.response?.data?.error || 'Error al quitar el recurso del espacio');
             }
         }
     };
@@ -176,7 +175,6 @@ const GestionEspacios = ({ onVolver }) => {
             capacidad: '',
             ubicacion: '',
             estado: 'disponible',
-            requiere_aprobacion: true,
             max_horas_por_reserva: 8,
             imagen_url: '',
             emails: []
@@ -197,7 +195,6 @@ const GestionEspacios = ({ onVolver }) => {
             capacidad: espacio.capacidad || '',
             ubicacion: espacio.ubicacion || '',
             estado: espacio.estado,
-            requiere_aprobacion: espacio.requiere_aprobacion,
             max_horas_por_reserva: espacio.max_horas_por_reserva || 8,
             imagen_url: espacio.imagen_url || '',
             emails: espacio.emails || []
@@ -338,18 +335,6 @@ const GestionEspacios = ({ onVolver }) => {
                                     max="24"
                                 />
                             </div>
-
-                            <div className="form-group checkbox-group">
-                                <label>
-                                    <input
-                                        type="checkbox"
-                                        name="requiere_aprobacion"
-                                        checked={formData.requiere_aprobacion}
-                                        onChange={handleInputChange}
-                                    />
-                                    Requiere aprobación
-                                </label>
-                            </div>
                         </div>
 
                         {/* SECCIÓN DE EMAILS */}
@@ -484,7 +469,7 @@ const GestionEspacios = ({ onVolver }) => {
                                         <span>Stock total: {recurso.cantidad_total}</span>
                                     </div>
                                     <button
-                                        onClick={() => handleQuitarRecurso(mostrarRecursos, recurso.id)}
+                                        onClick={() => handleQuitarRecurso(mostrarRecursos, recurso.recurso_id)}
                                         className="btn-eliminar"
                                     >
                                         🗑️ Quitar
