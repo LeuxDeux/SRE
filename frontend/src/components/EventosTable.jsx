@@ -3,7 +3,7 @@ import { eventosAPI } from '../services/api';
 import '../styles/EventosTable.css';
 import { useAuth } from '../context/AuthContext';
 
-const EventosTable = ({ onEditEvento, onViewDetails, onNuevoEvento }) => {
+const EventosTable = ({ onEditEvento, onViewDetails, readOnly = false }) => {
   const [eventos, setEventos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -247,7 +247,7 @@ const EventosTable = ({ onEditEvento, onViewDetails, onNuevoEvento }) => {
                 <th style={{ width: '11%' }} onClick={() => handleOrden('fecha_carga')} className="th-sortable">Fecha Creación {iconoOrden('fecha_carga')}</th>
                 <th style={{ width: '10%' }} onClick={() => handleOrden('usuario_nombre')} className="th-sortable">Creado por {iconoOrden('usuario_nombre')}</th>
                 <th style={{ width: '10%' }} onClick={() => handleOrden('secretaria')} className="th-sortable">Secretaría {iconoOrden('secretaria')}</th>
-                <th style={{ width: '15%' }}>Acciones</th>
+                <th style={{ width: '15%' }}>{readOnly ? 'Detalle' : 'Acciones'}</th>
               </tr>
             </thead>
             <tbody>
@@ -313,15 +313,16 @@ const EventosTable = ({ onEditEvento, onViewDetails, onNuevoEvento }) => {
                     >
                       👁️
                     </button>
-                    <button 
-                      onClick={() => onEditEvento(evento)}
-                      className="btn btn-warning"
-                      title="Editar evento"
-                    >
-                      ✏️
-                    </button>
-                    {/* ✅ Solo mostrar botón eliminar para admins */}
-                    {user.role === 'admin' && (
+                    {!readOnly && (
+                      <button
+                        onClick={() => onEditEvento(evento)}
+                        className="btn btn-warning"
+                        title="Editar evento"
+                      >
+                        ✏️
+                      </button>
+                    )}
+                    {!readOnly && user.role === 'admin' && (
                       <button 
                         onClick={() => handleEliminar(evento.id, evento.nombre)}
                         className="btn btn-danger"
