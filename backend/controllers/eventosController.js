@@ -292,7 +292,321 @@ const registrarEnHistorial = async (
   }
 };
 
+const obtenerUsuarioActivo = async (usuarioId) => {
+  const [usuarios] = await pool.query(
+    `SELECT u.id, u.role, u.secretaria_id, s.nombre AS secretaria_nombre
+     FROM usuarios u
+     LEFT JOIN secretarias s ON s.id = u.secretaria_id
+     WHERE u.id = ? AND u.activo = 1`,
+    [usuarioId],
+  );
+  return usuarios[0] || null;
+};
+
+const validarAntelacionSolicitudEvento = async (categoriaId, fechaEvento) => {
+  if (!categoriaId) {
+    return { error: 'La categoría del evento es obligatoria.' };
+  }
+
+  const [categorias] = await pool.query(
+    'SELECT nombre, dias_antelacion FROM categorias WHERE id = ? AND activa = TRUE',
+    [categoriaId],
+  );
+  if (categorias.length === 0) {
+    return { error: 'La categoría seleccionada no existe o no está activa.' };
+  }
+
+  const diasAntelacion = Number(categorias[0].dias_antelacion);
+  if (!Number.isFinite(diasAntelacion) || diasAntelacion < 0) {
+    return { error: 'La categoría no tiene una regla de antelación válida.' };
+  }
+
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  hoy.setDate(hoy.getDate() + Math.max(0, diasAntelacion - 1));
+  const fechaMinima = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+  const fechaSolicitada = String(fechaEvento).slice(0, 10);
+
+  if (fechaSolicitada < fechaMinima) {
+    return {
+      error: `La categoría ${categorias[0].nombre} requiere ${diasAntelacion} días de antelación. Fecha mínima permitida: ${fechaMinima}.`,
+      fecha_minima: fechaMinima,
+    };
+  }
+
+  return null;
+};
+
+const notificarEventoAprobado = async (eventoId) => {
+  try {
+    const [eventos] = await pool.query(
+      `SELECT e.*, c.nombre AS categoria_nombre, c.color AS categoria_color,
+              GROUP_CONCAT(ce.email) AS categoria_emails,
+              u.nombre_completo AS usuario_nombre
+       FROM eventos e
+       LEFT JOIN categorias c ON e.categoria_id = c.id
+       LEFT JOIN categorias_emails ce ON c.id = ce.categoria_id
+       LEFT JOIN usuarios u ON e.usuario_id = u.id
+       WHERE e.id = ? AND e.estado_aprobacion = 'aprobada'
+       GROUP BY e.id`,
+      [eventoId],
+    );
+
+    if (eventos.length === 0) return false;
+
+    const evento = eventos[0];
+    const correosDestino = [];
+    const correoSecretaria = process.env.CORREO_SECRETARIA_PRINCIPAL;
+    const correoAdicional = process.env.CORREO_ADICIONAL?.trim();
+
+    if (correoSecretaria) correosDestino.push(correoSecretaria);
+    if (correoAdicional && !correosDestino.includes(correoAdicional)) {
+      correosDestino.push(correoAdicional);
+    }
+    if (evento.categoria_emails) {
+      const correosCategoria = evento.categoria_emails
+        .split(',')
+        .map((correo) => correo.trim())
+        .filter((correo) => correo && !correosDestino.includes(correo));
+      correosDestino.push(...correosCategoria);
+    }
+
+    if (correosDestino.length === 0) return false;
+
+    const [archivos] = await pool.query(
+      `SELECT nombre_archivo, archivo_path
+       FROM eventos_archivos WHERE evento_id = ? ORDER BY fecha_carga ASC`,
+      [eventoId],
+    );
+    const { enviarPDFPorCorreo } = require('../utils/emailService');
+    await enviarPDFPorCorreo(evento, correosDestino, 'creado', archivos);
+    return true;
+  } catch (error) {
+    console.error('Error enviando correo del evento aprobado:', error.message);
+    return false;
+  }
+};
+
+const resolverEventoPendiente = async (req, res, estadoFinal, motivoRechazo = null) => {
+  const usuario = await obtenerUsuarioActivo(req.user.id);
+  if (!usuario) {
+    return res.status(401).json({ success: false, error: 'Usuario no válido' });
+  }
+  if (!['admin', 'secretaria'].includes(usuario.role)) {
+    return res.status(403).json({ success: false, error: 'No tienes permisos para resolver solicitudes' });
+  }
+  if (usuario.role === 'secretaria' && !usuario.secretaria_id) {
+    return res.status(403).json({ success: false, error: 'Tu usuario no tiene una secretaría asignada' });
+  }
+
+  const eventoId = Number(req.params.id);
+  if (!Number.isInteger(eventoId) || eventoId < 1) {
+    return res.status(400).json({ success: false, error: 'Identificador de evento inválido' });
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const [eventos] = await connection.execute(
+      'SELECT * FROM eventos WHERE id = ? FOR UPDATE',
+      [eventoId],
+    );
+    if (eventos.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ success: false, error: 'Solicitud no encontrada' });
+    }
+
+    const evento = eventos[0];
+    if (evento.estado_aprobacion !== 'pendiente') {
+      await connection.rollback();
+      return res.status(409).json({ success: false, error: 'La solicitud ya fue resuelta' });
+    }
+    if (
+      usuario.role === 'secretaria' &&
+      Number(usuario.secretaria_id) !== Number(evento.secretaria_id_responsable)
+    ) {
+      await connection.rollback();
+      return res.status(403).json({ success: false, error: 'La solicitud pertenece a otra secretaría' });
+    }
+
+    // Si el evento proviene de una reserva, no se puede aprobar hasta que la
+    // reserva esté confirmada (la reserva es la fuente de verdad).
+    if (estadoFinal === 'aprobada' && evento.reserva_id) {
+      const [reservasVinculadas] = await connection.execute(
+        'SELECT estado FROM reservas WHERE id = ?',
+        [evento.reserva_id],
+      );
+      if (reservasVinculadas.length === 0 || reservasVinculadas[0].estado !== 'confirmada') {
+        await connection.rollback();
+        return res.status(409).json({
+          success: false,
+          error: 'Primero debés aprobar la reserva asociada a este evento',
+        });
+      }
+    }
+
+    const [resultado] = await connection.execute(
+      `UPDATE eventos
+       SET estado_aprobacion = ?, resuelto_por = ?, resuelto_at = CURRENT_TIMESTAMP,
+           motivo_rechazo = ?, ultima_modificacion = ?
+       WHERE id = ? AND estado_aprobacion = 'pendiente'`,
+      [estadoFinal, usuario.id, motivoRechazo, evento.ultima_modificacion, eventoId],
+    );
+    if (resultado.affectedRows !== 1) {
+      await connection.rollback();
+      return res.status(409).json({ success: false, error: 'La solicitud ya fue resuelta' });
+    }
+
+    const cambios = estadoFinal === 'aprobada'
+      ? ['Solicitud aprobada y evento publicado']
+      : ['Solicitud rechazada', `Motivo: ${motivoRechazo}`];
+    await connection.execute(
+      `INSERT INTO historial_eventos
+       (evento_id, usuario_id, accion, cambios, valores_viejos, valores_nuevos)
+       VALUES (?, ?, 'actualizado', ?, ?, ?)`,
+      [
+        eventoId,
+        usuario.id,
+        JSON.stringify(cambios),
+        JSON.stringify({ estado_aprobacion: 'pendiente' }),
+        JSON.stringify({ estado_aprobacion: estadoFinal, motivo_rechazo: motivoRechazo }),
+      ],
+    );
+
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    console.error('Error resolviendo solicitud de evento:', error);
+    return res.status(500).json({ success: false, error: 'Error interno del servidor' });
+  } finally {
+    connection.release();
+  }
+
+  const correoEnviado = estadoFinal === 'aprobada'
+    ? await notificarEventoAprobado(eventoId)
+    : false;
+  const [eventosResueltos] = await pool.query(
+    `SELECT e.*, u.nombre_completo AS usuario_nombre,
+            c.nombre AS categoria_nombre, c.color AS categoria_color
+     FROM eventos e
+     LEFT JOIN usuarios u ON u.id = e.usuario_id
+     LEFT JOIN categorias c ON c.id = e.categoria_id
+     WHERE e.id = ?`,
+    [eventoId],
+  );
+
+  return res.json({
+    success: true,
+    evento: eventosResueltos[0],
+    correo_enviado: correoEnviado,
+    message: estadoFinal === 'aprobada'
+      ? 'Solicitud aprobada y evento publicado'
+      : 'Solicitud rechazada',
+  });
+};
+
 const eventosController = {
+  listarSolicitudesPendientes: async (req, res) => {
+    try {
+      const usuario = await obtenerUsuarioActivo(req.user.id);
+      if (!usuario) {
+        return res.status(401).json({ success: false, error: 'Usuario no válido' });
+      }
+      if (!['admin', 'secretaria'].includes(usuario.role)) {
+        return res.status(403).json({ success: false, error: 'No tienes permisos para ver solicitudes' });
+      }
+      if (usuario.role === 'secretaria' && !usuario.secretaria_id) {
+        return res.status(403).json({ success: false, error: 'Tu usuario no tiene una secretaría asignada' });
+      }
+
+      const estadoSolicitado = req.query.estado || 'pendiente';
+      const estadosPermitidos = ['pendiente', 'aprobada', 'rechazada', 'todas'];
+      if (!estadosPermitidos.includes(estadoSolicitado)) {
+        return res.status(400).json({ success: false, error: 'Filtro de estado inválido' });
+      }
+
+      let consulta = `
+        SELECT e.*, u.nombre_completo AS solicitante_nombre,
+               c.nombre AS categoria_nombre,
+               s.nombre AS secretaria_responsable_nombre,
+               res.nombre_completo AS resuelto_por_nombre,
+               (SELECT COUNT(*) FROM eventos_archivos ea WHERE ea.evento_id = e.id) AS total_archivos,
+               (SELECT r.estado FROM reservas r WHERE r.id = e.reserva_id) AS reserva_estado
+        FROM eventos e
+        LEFT JOIN usuarios u ON u.id = e.usuario_id
+        LEFT JOIN categorias c ON c.id = e.categoria_id
+        LEFT JOIN secretarias s ON s.id = e.secretaria_id_responsable
+        LEFT JOIN usuarios res ON res.id = e.resuelto_por
+      `;
+      const parametros = [];
+      if (estadoSolicitado === 'todas') {
+        consulta += " WHERE e.estado_aprobacion IN ('pendiente', 'aprobada', 'rechazada')";
+      } else {
+        consulta += ' WHERE e.estado_aprobacion = ?';
+        parametros.push(estadoSolicitado);
+      }
+      if (usuario.role === 'secretaria') {
+        consulta += ' AND e.secretaria_id_responsable = ?';
+        parametros.push(usuario.secretaria_id);
+      } else if (req.query.secretaria_id) {
+        const secretariaId = Number(req.query.secretaria_id);
+        if (!Number.isInteger(secretariaId) || secretariaId < 1) {
+          return res.status(400).json({ success: false, error: 'Secretaría inválida' });
+        }
+        consulta += ' AND e.secretaria_id_responsable = ?';
+        parametros.push(secretariaId);
+      }
+      consulta += ' ORDER BY e.fecha_carga ASC';
+
+      const [solicitudes] = await pool.query(consulta, parametros);
+      return res.json({ success: true, solicitudes });
+    } catch (error) {
+      console.error('Error listando solicitudes de eventos:', error);
+      return res.status(500).json({ success: false, error: 'Error interno del servidor' });
+    }
+  },
+
+  obtenerMisSolicitudes: async (req, res) => {
+    try {
+      const usuario = await obtenerUsuarioActivo(req.user.id);
+      if (!usuario) {
+        return res.status(401).json({ success: false, error: 'Usuario no válido' });
+      }
+
+      const [solicitudes] = await pool.query(
+        `SELECT e.*, c.nombre AS categoria_nombre,
+                s.nombre AS secretaria_responsable_nombre,
+                res.nombre_completo AS resuelto_por_nombre,
+                (SELECT COUNT(*) FROM eventos_archivos ea WHERE ea.evento_id = e.id) AS total_archivos
+         FROM eventos e
+         LEFT JOIN categorias c ON c.id = e.categoria_id
+         LEFT JOIN secretarias s ON s.id = e.secretaria_id_responsable
+         LEFT JOIN usuarios res ON res.id = e.resuelto_por
+         WHERE e.usuario_id = ?
+           AND e.estado_aprobacion IN ('pendiente', 'aprobada', 'rechazada')
+         ORDER BY e.fecha_carga DESC`,
+        [usuario.id],
+      );
+
+      return res.json({ success: true, solicitudes });
+    } catch (error) {
+      console.error('Error obteniendo solicitudes propias:', error);
+      return res.status(500).json({ success: false, error: 'Error interno del servidor' });
+    }
+  },
+
+  aprobarEventoPendiente: async (req, res) =>
+    resolverEventoPendiente(req, res, 'aprobada'),
+
+  rechazarEventoPendiente: async (req, res) => {
+    const motivo = req.body?.motivo_rechazo?.trim();
+    if (!motivo) {
+      return res.status(400).json({ success: false, error: 'El motivo de rechazo es obligatorio' });
+    }
+    return resolverEventoPendiente(req, res, 'rechazada', motivo);
+  },
+
   /**
    * CONTROLADOR: obtenerEventos
    * Obtiene todos los eventos de la base de datos con información del usuario creador
@@ -310,6 +624,7 @@ const eventosController = {
         LEFT JOIN usuarios u ON e.usuario_id = u.id 
         LEFT JOIN categorias c ON e.categoria_id = c.id
         LEFT JOIN eventos_archivos ea ON e.id = ea.evento_id
+        WHERE e.estado_aprobacion IN ('no_requerida', 'aprobada')
         GROUP BY e.id
         ORDER BY e.fecha_evento DESC
       `);
@@ -344,6 +659,7 @@ const eventosController = {
         LEFT JOIN usuarios u ON e.usuario_id = u.id 
         LEFT JOIN categorias c ON e.categoria_id = c.id
         WHERE e.id = ?
+          AND e.estado_aprobacion IN ('no_requerida', 'aprobada')
       `,
         [id],
       );
@@ -396,8 +712,31 @@ const eventosController = {
         observaciones,
       } = req.body;
 
-      const usuario_id = req.user.id; // Del middleware de autenticación
-      const secretaria = req.user.secretaria; // Del middleware de autenticación
+      const [usuarios] = await pool.query(
+        `SELECT u.role, u.secretaria_id, s.nombre AS secretaria_nombre
+         FROM usuarios u
+         LEFT JOIN secretarias s ON s.id = u.secretaria_id
+         WHERE u.id = ? AND u.activo = 1`,
+        [req.user.id],
+      );
+      if (usuarios.length === 0) {
+        return res.status(401).json({
+          success: false,
+          error: 'Usuario no válido',
+        });
+      }
+
+      const usuarioActual = usuarios[0];
+      const usuario_id = req.user.id;
+      const secretaria = usuarioActual.secretaria_nombre || req.user.secretaria || 'Administración';
+      const estadoAprobacion = usuarioActual.role === 'usuario' ? 'pendiente' : 'no_requerida';
+
+      if (estadoAprobacion === 'pendiente' && !usuarioActual.secretaria_id) {
+        return res.status(400).json({
+          success: false,
+          error: 'Tu usuario debe tener una secretaría asignada para solicitar la publicación de eventos',
+        });
+      }
       const fechaFinValue =
         fecha_fin && fecha_fin.toString().trim() ? fecha_fin : null;
       const horaInicioValue =
@@ -413,6 +752,16 @@ const eventosController = {
         });
       }
 
+      if (estadoAprobacion === 'pendiente') {
+        const errorAntelacion = await validarAntelacionSolicitudEvento(categoria_id, fecha_evento);
+        if (errorAntelacion) {
+          return res.status(400).json({
+            success: false,
+            ...errorAntelacion,
+          });
+        }
+      }
+
       // Validar límite total de 250MB
       let totalSize = 0;
       if (req.files && req.files.length > 0) {
@@ -426,7 +775,11 @@ const eventosController = {
         }
       }
 
-      const cambiosIniciales = ["Evento creado inicialmente"];
+      const cambiosIniciales = [
+        estadoAprobacion === 'pendiente'
+          ? 'Solicitud de evento creada, pendiente de aprobación'
+          : 'Evento creado inicialmente',
+      ];
 
       // Registrar archivos si se subieron
       if (req.files && req.files.length > 0) {
@@ -454,8 +807,9 @@ const eventosController = {
         `
         INSERT INTO eventos (
           nombre, fecha_evento, fecha_fin, descripcion, categoria_id, usuario_id, secretaria,
-          correo_contacto, telefono, hora_inicio, hora_fin, lugar, publico_destinatario, links, observaciones
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          correo_contacto, telefono, hora_inicio, hora_fin, lugar, publico_destinatario, links, observaciones,
+          estado_aprobacion, secretaria_id_responsable
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
         [
           nombre,
@@ -473,6 +827,8 @@ const eventosController = {
           publico_destinatario,
           links,
           observaciones,
+          estadoAprobacion,
+          estadoAprobacion === 'pendiente' ? usuarioActual.secretaria_id : null,
         ],
       );
 
@@ -521,8 +877,9 @@ const eventosController = {
         },
       );
 
-      // 📧 ENVIO AUTOMÁTICO DE CORREO AL CREAR EVENTO
-      try {
+      // Los eventos pendientes no se publican ni notifican por correo.
+      if (estadoAprobacion !== 'pendiente') {
+        try {
         // Obtener evento con categoría e emails
         const [eventoParaEmail] = await pool.query(
           `
@@ -577,11 +934,11 @@ const eventosController = {
             console.log("⚠️ No hay correos configurados para enviar notificación");
           }
         }
-      } catch (emailError) {
-        // No fallar la creación del evento si falla el email
-        console.error("⚠️ Error enviando email automático:", emailError.message);
+        } catch (emailError) {
+          // No fallar la creación del evento si falla el email
+          console.error("⚠️ Error enviando email automático:", emailError.message);
+        }
       }
-      // FIN ENVIO AUTOMÁTICO
 
       // Obtener el evento recién creado con información completa
       const [eventos] = await pool.query(
@@ -611,7 +968,9 @@ const eventosController = {
         success: true,
         evento: eventos[0],
         archivos: archivos,
-        message: "Evento creado exitosamente",
+        message: estadoAprobacion === 'pendiente'
+          ? 'Solicitud de evento registrada y pendiente de aprobación'
+          : 'Evento creado exitosamente',
       });
     } catch (error) {
       console.error("Error creando evento:", error);
@@ -996,7 +1355,8 @@ const eventosController = {
 
       // Verificar que el evento existe
       const [eventos] = await pool.query(
-        "SELECT id FROM eventos WHERE id = ?",
+        `SELECT id FROM eventos
+         WHERE id = ? AND estado_aprobacion IN ('no_requerida', 'aprobada')`,
         [id],
       );
       if (eventos.length === 0) {
@@ -1117,8 +1477,11 @@ const eventosController = {
 
       // Verificar que el archivo existe en BD y pertenece al evento
       const [archivos] = await pool.query(
-        `SELECT archivo_path, nombre_archivo, tipo_archivo FROM eventos_archivos 
-         WHERE id = ? AND evento_id = ?`,
+        `SELECT ea.archivo_path, ea.nombre_archivo, ea.tipo_archivo
+         FROM eventos_archivos ea
+         INNER JOIN eventos e ON e.id = ea.evento_id
+         WHERE ea.id = ? AND ea.evento_id = ?
+           AND e.estado_aprobacion IN ('no_requerida', 'aprobada')`,
         [archivoId, eventoId]
       );
 
@@ -1177,10 +1540,12 @@ const eventosController = {
         u.role, 
         u.secretaria_id,
         s.nombre as secretaria
-      FROM historial_eventos he 
+      FROM historial_eventos he
+      INNER JOIN eventos e ON e.id = he.evento_id
       LEFT JOIN usuarios u ON he.usuario_id = u.id 
       LEFT JOIN secretarias s ON u.secretaria_id = s.id
-      WHERE he.evento_id = ? 
+      WHERE he.evento_id = ?
+        AND e.estado_aprobacion IN ('no_requerida', 'aprobada')
       ORDER BY he.fecha DESC
       `,
         [id],
@@ -1222,6 +1587,7 @@ const eventosController = {
       LEFT JOIN categorias_emails ce ON c.id = ce.categoria_id
       LEFT JOIN usuarios u ON e.usuario_id = u.id
       WHERE e.id = ?
+        AND e.estado_aprobacion IN ('no_requerida', 'aprobada')
       GROUP BY e.id
     `,
         [id],
@@ -1309,7 +1675,8 @@ const eventosController = {
 
       // Obtener evento
       const [eventos] = await pool.query(
-        "SELECT nombre, fecha_evento, archivo_adjunto FROM eventos WHERE id = ?",
+        `SELECT nombre, fecha_evento, archivo_adjunto FROM eventos
+         WHERE id = ? AND estado_aprobacion IN ('no_requerida', 'aprobada')`,
         [id],
       );
 
@@ -1432,3 +1799,4 @@ const eventosController = {
 };
 
 module.exports = eventosController;
+module.exports.notificarEventoAprobado = notificarEventoAprobado;
