@@ -1,3 +1,23 @@
+.reservas-auditoria-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 18px;
+  padding: 14px 0;
+  border-top: 1px solid #dce3e6;
+}
+
+.reservas-auditoria-footer button {
+  min-height: 40px;
+  padding: 9px 15px;
+  border: 1px solid #24735b;
+  border-radius: 4px;
+  background: #24735b;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+}
+
 /* VISTA MENSUAL - CELDAS MÁS GRANDES Y EVENTOS VISIBLES */
 .rbc-month-view {
   height: 100% !important;
