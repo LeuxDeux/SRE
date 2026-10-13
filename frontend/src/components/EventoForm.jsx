@@ -28,6 +28,7 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
   const [archivosAEliminar, setArchivosAEliminar] = useState([]); // IDs de archivos a eliminar
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false); // ← NUEVO: modal
   const [fieldErrors, setFieldErrors] = useState({});
@@ -315,10 +316,15 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
   // Función para descargar un archivo existente
   const descargarArchivo = async (archivo) => {
     try {
-      // Llamar al endpoint con eventoId y archivoId
       const response = await eventosAPI.descargarArchivo(evento.id, archivo.id);
-      // El backend devuelve el archivo directamente en res.download()
-      // No necesitamos hacer nada más, el navegador lo maneja
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = archivo.nombre_archivo;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Error descargando archivo:', error);
       setError('Error al descargar el archivo');
@@ -418,8 +424,12 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
       }
 
       if (response.data.success) {
-        // Nota: El email se envía automáticamente en el backend al crear/actualizar
-        // No necesitamos llamar a enviarPDFCorreo desde aquí para evitar duplicados
+        const eventoPendiente = response.data.evento?.estado_aprobacion === 'pendiente';
+        setSuccessMessage(
+          eventoPendiente
+            ? 'Tu solicitud fue registrada y está pendiente de aprobación. Todavía no se publicó ni se envió por correo.'
+            : 'El evento se guardó correctamente.'
+        );
 
         setShowSuccessModal(true);
         setTimeout(() => {
@@ -448,8 +458,12 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
   return (
     <div className="evento-form-container">
       <div className="evento-form-header">
-        <h2>{evento ? '✏️ Editar Evento' : '➕ Crear Nuevo Evento'}</h2>
-        <p className="form-subtitle">Complete todos los campos requeridos (*)</p>
+        <h2>{evento ? '✏️ Editar Evento' : user?.role === 'usuario' ? '➕ Solicitar publicación de evento' : '➕ Crear Nuevo Evento'}</h2>
+        <p className="form-subtitle">
+          {user?.role === 'usuario' && !evento
+            ? 'La solicitud será revisada por la secretaría correspondiente antes de publicarse.'
+            : 'Complete todos los campos requeridos (*)'}
+        </p>
       </div>
 
       <form onSubmit={handleSubmit} className="evento-form">
@@ -889,7 +903,7 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
             className="btn-submit"
             disabled={loading}
           >
-            {loading ? '🔄 Guardando...' : (evento ? '💾 Actualizar Evento' : '✅ Crear Evento')}
+            {loading ? '🔄 Guardando...' : (evento ? '💾 Actualizar Evento' : user?.role === 'usuario' ? 'Enviar a aprobación' : '✅ Crear Evento')}
           </button>
         </div>
       </form>
@@ -899,8 +913,8 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
         <div className="modal-overlay">
           <div className="success-modal">
             <div className="modal-icon">✅</div>
-            <h3>¡Éxito!</h3>
-            <p>Evento {evento ? 'actualizado' : 'creado'} correctamente</p>
+            <h3>{successMessage.startsWith('Tu solicitud') ? 'Solicitud registrada' : '¡Éxito!'}</h3>
+            <p>{successMessage || `Evento ${evento ? 'actualizado' : 'creado'} correctamente`}</p>
             <p className="modal-subtext">Redirigiendo...</p>
           </div>
         </div>
