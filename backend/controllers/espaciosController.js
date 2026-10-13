@@ -1,14 +1,14 @@
 const db = require('../config/database');
+const registrarAuditoriaReservas = require('../utils/auditoriaReservas');
 
 const espaciosController = {
   // Obtener todos los espacios activos
   obtenerEspacios: async (req, res) => {
     try {
       const [espacios] = await db.execute(
-        `SELECT e.*, s.nombre as secretaria_nombre,
+        `SELECT e.*,
                 COALESCE(GROUP_CONCAT(ee.email), '') as emails_list
          FROM espacios e 
-         LEFT JOIN secretarias s ON e.secretaria_id = s.id 
          LEFT JOIN espacios_emails ee ON e.id = ee.espacio_id
          WHERE e.activo = TRUE 
          GROUP BY e.id
@@ -33,10 +33,9 @@ const espaciosController = {
     try {
       const { id } = req.params;
       const [espacios] = await db.execute(
-        `SELECT e.*, s.nombre as secretaria_nombre,
+        `SELECT e.*,
                 COALESCE(GROUP_CONCAT(ee.email), '') as emails_list
          FROM espacios e 
-         LEFT JOIN secretarias s ON e.secretaria_id = s.id 
          LEFT JOIN espacios_emails ee ON e.id = ee.espacio_id
          WHERE e.id = ? AND e.activo = TRUE
          GROUP BY e.id`,
@@ -86,7 +85,6 @@ const espaciosController = {
       capacidad, 
       ubicacion, 
       estado, 
-      requiere_aprobacion, 
       max_horas_por_reserva, 
       imagen_url,
       emails = [] 
@@ -101,18 +99,17 @@ const espaciosController = {
     const [result] = await db.execute(
       `INSERT INTO espacios (
         nombre, descripcion, capacidad, ubicacion, estado, 
-        requiere_aprobacion, max_horas_por_reserva, imagen_url, secretaria_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        requiere_aprobacion, max_horas_por_reserva, imagen_url
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         nombre,
         descripcion || '',                    // Si no viene, string vacío
         capacidad ? parseInt(capacidad) : null, // Si no viene, null
         ubicacion || '',                      // Si no viene, string vacío
         estado || 'disponible',               // Si no viene, 'disponible'
-        requiere_aprobacion !== false,        // Default true
+        true,                                 // Todos los espacios requieren aprobación
         max_horas_por_reserva ? parseInt(max_horas_por_reserva) : 8, // Default 8
-        imagen_url || '',                     // Si no viene, string vacío
-        req.user.secretaria_id || null        // Si no tiene secretaria, null
+        imagen_url || ''                      // Si no viene, string vacío
       ]
     );
 
@@ -137,6 +134,23 @@ const espaciosController = {
         }
       }
     }
+
+    await registrarAuditoriaReservas({
+      req,
+      accion: 'crear',
+      entidadTipo: 'espacio',
+      entidadId: espacioId,
+      secretariaId: req.user.secretaria_id || null,
+      datosNuevos: {
+        nombre,
+        capacidad: capacidad ? parseInt(capacidad) : null,
+        ubicacion: ubicacion || '',
+        estado: estado || 'disponible',
+        requiere_aprobacion: true,
+        max_horas_por_reserva: max_horas_por_reserva ? parseInt(max_horas_por_reserva) : 8,
+        cantidad_emails_configurados: Array.isArray(emails) ? emails.filter(Boolean).length : 0,
+      },
+    });
 
     res.json({
       success: true,
@@ -163,8 +177,17 @@ actualizarEspacio: async (req, res) => {
     const { id } = req.params;
     const { 
       nombre, descripcion, capacidad, ubicacion, estado, 
-      requiere_aprobacion, max_horas_por_reserva, imagen_url, activo, emails = [] 
+      max_horas_por_reserva, imagen_url, activo, emails = [] 
     } = req.body;
+
+    const [espaciosAnteriores] = await db.execute(
+      'SELECT * FROM espacios WHERE id = ?',
+      [id],
+    );
+    if (espaciosAnteriores.length === 0) {
+      return res.status(404).json({ error: 'Espacio no encontrado' });
+    }
+    const espacioAnterior = espaciosAnteriores[0];
 
     const [result] = await db.execute(
       `UPDATE espacios 
@@ -178,7 +201,7 @@ actualizarEspacio: async (req, res) => {
         capacidad ? parseInt(capacidad) : null,
         ubicacion || '',
         estado || 'disponible',
-        requiere_aprobacion !== false,
+        true,
         max_horas_por_reserva ? parseInt(max_horas_por_reserva) : 8,
         imagen_url || '',
         activo !== false, // Default true
@@ -215,6 +238,33 @@ actualizarEspacio: async (req, res) => {
       }
     }
 
+    await registrarAuditoriaReservas({
+      req,
+      accion: 'editar',
+      entidadTipo: 'espacio',
+      entidadId: id,
+      secretariaId: req.user.secretaria_id || null,
+      datosAnteriores: {
+        nombre: espacioAnterior.nombre,
+        capacidad: espacioAnterior.capacidad,
+        ubicacion: espacioAnterior.ubicacion,
+        estado: espacioAnterior.estado,
+        requiere_aprobacion: espacioAnterior.requiere_aprobacion,
+        max_horas_por_reserva: espacioAnterior.max_horas_por_reserva,
+        activo: espacioAnterior.activo,
+      },
+      datosNuevos: {
+        nombre,
+        capacidad: capacidad ? parseInt(capacidad) : null,
+        ubicacion: ubicacion || '',
+        estado: estado || 'disponible',
+        requiere_aprobacion: true,
+        max_horas_por_reserva: max_horas_por_reserva ? parseInt(max_horas_por_reserva) : 8,
+        activo: activo !== false,
+        cantidad_emails_configurados: Array.isArray(emails) ? emails.filter(Boolean).length : 0,
+      },
+    });
+
     res.json({
       success: true,
       mensaje: 'Espacio actualizado exitosamente'
@@ -229,6 +279,15 @@ actualizarEspacio: async (req, res) => {
   eliminarEspacio: async (req, res) => {
     try {
       const { id } = req.params;
+
+      const [espacios] = await db.execute(
+        'SELECT id, nombre, estado, activo FROM espacios WHERE id = ?',
+        [id],
+      );
+      if (espacios.length === 0) {
+        return res.status(404).json({ error: 'Espacio no encontrado' });
+      }
+      const espacio = espacios[0];
 
       // Verificar si el espacio tiene reservas futuras
       const [reservas] = await db.execute(
@@ -247,6 +306,15 @@ actualizarEspacio: async (req, res) => {
       if (result.affectedRows === 0) {
         return res.status(404).json({ error: 'Espacio no encontrado' });
       }
+
+      await registrarAuditoriaReservas({
+        req,
+        accion: 'eliminar',
+        entidadTipo: 'espacio',
+        entidadId: espacio.id,
+        secretariaId: req.user.secretaria_id || null,
+        datosAnteriores: espacio,
+      });
 
       res.json({
         success: true,
