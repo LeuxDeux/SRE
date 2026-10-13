@@ -10,6 +10,7 @@ import GestionRecursos from './GestionRecursos';
 import AsignarRecursos from './AsignarRecursos';
 import ReservaForm from './ReservaForm.jsx';
 import TablaGeneralReservas from './TablaGeneralReservas';
+import AuditoriaReservas from './AuditoriaReservas';
 
 // Configurar moment en español
 moment.locale('es');
@@ -208,7 +209,7 @@ const ReservasCalendar = () => {
   const [showMoreEvents, setShowMoreEvents] = useState([]);
   const [currentView, setCurrentView] = useState('week');
   const { user } = useAuth();
-  const [vistaActual, setVistaActual] = useState('calendario'); // 'calendario', 'espacios', 'recursos', 'asignar'
+  const [vistaActual, setVistaActual] = useState('calendario'); // calendario, lista, gestion o auditoria
   const [showReservaForm, setShowReservaForm] = useState(false);
   const [slotSeleccionado, setSlotSeleccionado] = useState(null);
 
@@ -451,6 +452,9 @@ const ReservasCalendar = () => {
       case 'asignar':
         return <AsignarRecursos onVolver={() => setVistaActual('calendario')} />;
 
+      case 'auditoria':
+        return <AuditoriaReservas onVolver={() => setVistaActual('calendario')} />;
+
       default:
         return <div>Vista no encontrada</div>;
     }
@@ -534,11 +538,21 @@ const ReservasCalendar = () => {
                     {vistaActual === 'espacios' && '🏢 Gestión de Espacios'}
                     {vistaActual === 'recursos' && '🎛️ Gestión de Recursos'} 
                     {vistaActual === 'asignar' && '🔗 Asignar Recursos a Espacios'}
+                  {vistaActual === 'auditoria' && '📜 Auditoría del Módulo'}
                 </h2>
             </div>
         )}
 
       {renderVista()}
+
+      {(vistaActual === 'calendario' || vistaActual === 'lista') &&
+        (user.role === 'admin' || user.role === 'secretaria') && (
+          <div className="reservas-auditoria-footer">
+            <button type="button" onClick={() => setVistaActual('auditoria')}>
+              📜 Auditoría del módulo
+            </button>
+          </div>
+        )}
 
       {/* MODALES (solo se muestran en vista calendario) */}
       {(vistaActual === 'calendario' || vistaActual === 'lista') && (
@@ -613,7 +627,13 @@ const ReservasCalendar = () => {
               {selectedReservaDetalles?.aprobador_id && (
                 <div style={{ marginTop: '8px' }}>
                   <p><strong>Aprobador:</strong> {selectedReservaDetalles.aprobador_nombre || selectedReservaDetalles.aprobador_id}</p>
+                  {selectedReservaDetalles.fecha_aprobacion && (
+                    <p><strong>Fecha y hora de aprobación:</strong> {moment(selectedReservaDetalles.fecha_aprobacion).format('DD/MM/YYYY HH:mm')}</p>
+                  )}
                 </div>
+              )}
+              {selectedReservaDetalles?.estado === 'confirmada' && !selectedReservaDetalles?.aprobador_id && (
+                <p><strong>Aprobación:</strong> {Number(selectedReservaDetalles.espacio_requiere_aprobacion) === 1 ? 'Confirmada automáticamente' : 'No requiere aprobación'}</p>
               )}
 
               <button
