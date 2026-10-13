@@ -47,6 +47,7 @@ const authController = {
           id: user.id, 
           username: user.username, 
           role: user.role,
+          secretaria_id: user.secretaria_id,
           secretaria: user.secretaria_nombre || 'Administración' // Usar el nombre de la secretaría
         },
         process.env.JWT_SECRET,
@@ -64,6 +65,7 @@ const authController = {
           username: user.username,
           email: user.email,
           role: user.role,
+          secretaria_id: user.secretaria_id,
           secretaria: user.secretaria_nombre || 'Administración' // Usar el nombre de la secretaría
         }
       });
@@ -135,6 +137,7 @@ const authController = {
           username: user.username,
           email: user.email,
           role: user.role,
+          secretaria_id: user.secretaria_id,
           secretaria: user.secretaria_nombre || 'Administración' // Usar el nombre de la secretaría
         }
       });
