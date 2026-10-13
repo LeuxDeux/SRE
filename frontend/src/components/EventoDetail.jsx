@@ -3,7 +3,7 @@ import { eventosAPI } from '../services/api';
 import { generarPDF } from '../utils/pdfGenerator';
 import '../styles/EventoDetail.css';
 
-const EventoDetail = ({ eventoId, onClose }) => {
+const EventoDetail = ({ eventoId, onClose, readOnly = false }) => {
   const [evento, setEvento] = useState(null);
   const [archivos, setArchivos] = useState([]);
   const [historial, setHistorial] = useState([]);
@@ -264,13 +264,15 @@ const EventoDetail = ({ eventoId, onClose }) => {
           ← Volver a la lista
         </button>
         <h2>📋 Detalles del Evento</h2>
-        <button 
-          onClick={handleGenerarPDF} 
-          className="btn-generar-pdf"
-          disabled={generandoPDF || !evento}
-        >
-          {generandoPDF ? '🔄 Generando PDF...' : '📄 Generar PDF'}
-        </button>
+        {!readOnly && (
+          <button
+            onClick={handleGenerarPDF}
+            className="btn-generar-pdf"
+            disabled={generandoPDF || !evento}
+          >
+            {generandoPDF ? '🔄 Generando PDF...' : '📄 Generar PDF'}
+          </button>
+        )}
       </div>
 
       <div className="detail-content">
