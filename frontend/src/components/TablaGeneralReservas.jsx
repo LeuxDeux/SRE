@@ -43,9 +43,11 @@ const TablaGeneralReservas = ({ onVolver, onReservaActualizada }) => {
     };
 
     const puedeAprobarRechazar = (reserva) => {
-       return user.role === 'admin' && 
-       reserva.estado === 'pendiente' && 
-       (reserva.requiere_aprobacion === 1 || reserva.requiere_aprobacion === true);
+       const puedeAprobar = user.role === 'admin' ||
+           (user.role === 'secretaria' && Number(user.secretaria_id) === Number(reserva.secretaria_id));
+       return puedeAprobar &&
+           reserva.estado === 'pendiente' &&
+           (reserva.requiere_aprobacion === 1 || reserva.requiere_aprobacion === true);
     };
 
     // Verificar si una reserva es futura (puede ser eliminada)
@@ -482,6 +484,28 @@ const TablaGeneralReservas = ({ onVolver, onReservaActualizada }) => {
                                     <strong>Solicitante:</strong>
                                     <span>{detalleReserva.usuario_nombre}</span>
                                 </div>
+                                {detalleReserva.estado === 'confirmada' && detalleReserva.aprobador_nombre && detalleReserva.fecha_aprobacion ? (
+                                    <>
+                                        <div className="detalle-item">
+                                            <strong>Aprobada por:</strong>
+                                            <span>{detalleReserva.aprobador_nombre}</span>
+                                        </div>
+                                        <div className="detalle-item">
+                                            <strong>Fecha y hora de aprobación:</strong>
+                                            <span>{moment(detalleReserva.fecha_aprobacion).format('DD/MM/YYYY HH:mm')}</span>
+                                        </div>
+                                    </>
+                                ) : detalleReserva.estado === 'confirmada' && Number(detalleReserva.requiere_aprobacion) === 1 ? (
+                                    <div className="detalle-item">
+                                        <strong>Estado de aprobación:</strong>
+                                        <span>Confirmada automáticamente por el nivel de acceso</span>
+                                    </div>
+                                ) : detalleReserva.estado === 'confirmada' ? (
+                                    <div className="detalle-item">
+                                        <strong>Estado de aprobación:</strong>
+                                        <span>No requiere aprobación</span>
+                                    </div>
+                                ) : null}
                                 <div className="detalle-item">
                                     <strong>Participantes:</strong>
                                     <span>{detalleReserva.cantidad_participantes || 1}</span>
