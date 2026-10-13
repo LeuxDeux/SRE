@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { recursosAPI } from '../services/api';
 import '../styles/GestionRecursos.css';
 
@@ -16,11 +16,7 @@ const GestionRecursos = ({ onVolver }) => {
     });
 
     // Cargar recursos al montar el componente
-    useEffect(() => {
-        cargarRecursos();
-    }, [mostrarInactivos]);
-
-    const cargarRecursos = async () => {
+    const cargarRecursos = useCallback(async () => {
         try {
             setLoading(true);
             const response = mostrarInactivos 
@@ -34,7 +30,11 @@ const GestionRecursos = ({ onVolver }) => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [mostrarInactivos]);
+
+    useEffect(() => {
+        cargarRecursos();
+    }, [cargarRecursos]);
 
     const handleInputChange = (e) => {
         const { name, value, type } = e.target;
