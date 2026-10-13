@@ -1,5 +1,6 @@
 // backend/controllers/recursosController.js
 const db = require('../config/database');
+const registrarAuditoriaReservas = require('../utils/auditoriaReservas');
 
 const recursosController = {
   // Obtener todos los recursos activos
@@ -83,6 +84,19 @@ const recursosController = {
         };
       }
 
+      await registrarAuditoriaReservas({
+        req,
+        accion: response.recurso.mensaje.includes('reactivado') ? 'reactivar' : 'crear',
+        entidadTipo: 'recurso',
+        entidadId: response.recurso.id,
+        datosNuevos: {
+          nombre,
+          descripcion: descripcion || '',
+          cantidad_total: Number(cantidad_total),
+          activo: true,
+        },
+      });
+
       res.json(response);
 
     } catch (error) {
@@ -103,15 +117,35 @@ const recursosController = {
       const { nombre, descripcion, cantidad_total, activo } = req.body;
 
       // Validar que el recurso existe
-      const [recursos] = await db.execute('SELECT id FROM recursos WHERE id = ?', [id]);
+      const [recursos] = await db.execute('SELECT * FROM recursos WHERE id = ?', [id]);
       if (recursos.length === 0) {
         return res.status(404).json({ error: 'Recurso no encontrado' });
       }
+      const recursoAnterior = recursos[0];
 
       const [result] = await db.execute(
         'UPDATE recursos SET nombre = ?, descripcion = ?, cantidad_total = ?, activo = ? WHERE id = ?',
         [nombre, descripcion || '', cantidad_total, activo !== false, id]
       );
+
+      await registrarAuditoriaReservas({
+        req,
+        accion: 'editar',
+        entidadTipo: 'recurso',
+        entidadId: id,
+        datosAnteriores: {
+          nombre: recursoAnterior.nombre,
+          descripcion: recursoAnterior.descripcion,
+          cantidad_total: recursoAnterior.cantidad_total,
+          activo: recursoAnterior.activo,
+        },
+        datosNuevos: {
+          nombre,
+          descripcion: descripcion || '',
+          cantidad_total: Number(cantidad_total),
+          activo: activo !== false,
+        },
+      });
 
       res.json({
         success: true,
@@ -135,10 +169,11 @@ const recursosController = {
       const { id } = req.params;
 
       // Verificar que el recurso existe
-      const [recursos] = await db.execute('SELECT id FROM recursos WHERE id = ?', [id]);
+      const [recursos] = await db.execute('SELECT * FROM recursos WHERE id = ?', [id]);
       if (recursos.length === 0) {
         return res.status(404).json({ error: 'Recurso no encontrado' });
       }
+      const recursoAnterior = recursos[0];
 
       // Verificar si el recurso está asignado a algún espacio
       const [asignaciones] = await db.execute(
@@ -154,6 +189,19 @@ const recursosController = {
 
       // Eliminar el recurso
       const [result] = await db.execute('DELETE FROM recursos WHERE id = ?', [id]);
+
+      await registrarAuditoriaReservas({
+        req,
+        accion: 'eliminar',
+        entidadTipo: 'recurso',
+        entidadId: id,
+        datosAnteriores: {
+          nombre: recursoAnterior.nombre,
+          descripcion: recursoAnterior.descripcion,
+          cantidad_total: recursoAnterior.cantidad_total,
+          activo: recursoAnterior.activo,
+        },
+      });
 
       res.json({
         success: true,
