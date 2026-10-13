@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { espaciosAPI, espaciosRecursosAPI, reservasAPI, reservasRecursosAPI, categoriasAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import moment from 'moment';
@@ -63,14 +63,6 @@ const ReservaForm = ({ slotInicial, onClose, onReservaCreada }) => {
         }
     }, [formData.categoria_id, categorias]);
 
-    useEffect(() => {
-        if (formData.registrar_como_evento && formData.categoria_id) {
-            validarAntelacionCategoria();
-        } else {
-            setCategoriaError(null);
-        }
-    }, [formData.registrar_como_evento, formData.categoria_id, formData.fecha_inicio, categoriaSeleccionada]);
-
     const cargarDatos = async () => {
         try {
             const [espaciosRes, categoriasRes] = await Promise.all([
@@ -103,16 +95,16 @@ const ReservaForm = ({ slotInicial, onClose, onReservaCreada }) => {
         }
     };
 
-    const calcularFechaMinimaCategoria = (categoria) => {
+    const calcularFechaMinimaCategoria = useCallback((categoria) => {
         if (!categoria || !categoria.dias_antelacion) {
             return moment().format('YYYY-MM-DD');
         }
 
         const diasADelantado = Math.max(0, categoria.dias_antelacion - 1);
         return moment().add(diasADelantado, 'days').format('YYYY-MM-DD');
-    };
+    }, []);
 
-    const validarAntelacionCategoria = () => {
+    const validarAntelacionCategoria = useCallback(() => {
         if (!formData.registrar_como_evento || !formData.categoria_id || !categoriaSeleccionada) {
             setCategoriaError(null);
             return true;
@@ -130,7 +122,11 @@ const ReservaForm = ({ slotInicial, onClose, onReservaCreada }) => {
 
         setCategoriaError(null);
         return true;
-    };
+    }, [formData.registrar_como_evento, formData.categoria_id, formData.fecha_inicio, categoriaSeleccionada, calcularFechaMinimaCategoria]);
+
+    useEffect(() => {
+        validarAntelacionCategoria();
+    }, [validarAntelacionCategoria]);
 
     const validarDisponibilidad = async () => {
         if (!formData.espacio_id || !formData.fecha_inicio || !formData.hora_inicio || 
