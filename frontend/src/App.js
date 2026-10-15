@@ -204,7 +204,7 @@ const Dashboard = () => {
               <button onClick={() => setModuloActivo(null)} className="btn-volver">
                 ← Volver al Inicio
               </button>
-              <h2>Solicitudes de eventos</h2>
+              <h2>Solicitudes de aprobación</h2>
             </div>
             <SolicitudesEventos user={user} />
           </div>
@@ -285,8 +285,8 @@ const Dashboard = () => {
             )}
               {(user.role === 'admin' || user.role === 'secretaria') && (
                 <div className="module-card">
-                  <h3>Solicitudes de eventos</h3>
-                  <p>Revisa solicitudes de comunicación de los usuarios de tu área.</p>
+                  <h3>Solicitudes de aprobación</h3>
+                  <p>Aprobá eventos a comunicar y reservas de espacios de tu área.</p>
                   <button
                     onClick={() => setModuloActivo('solicitudes-eventos')}
                     className="module-button"
