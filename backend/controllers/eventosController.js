@@ -1,4 +1,9 @@
 const pool = require("../config/database");
+const {
+  obtenerReglasAprobacion,
+  areasVisibles,
+  puedeAprobarArea,
+} = require("../utils/aprobaciones");
 
 /**
  * FUNCIÓN AUXILIAR: detectarCambios
@@ -422,12 +427,12 @@ const resolverEventoPendiente = async (req, res, estadoFinal, motivoRechazo = nu
       await connection.rollback();
       return res.status(409).json({ success: false, error: 'La solicitud ya fue resuelta' });
     }
-    if (
-      usuario.role === 'secretaria' &&
-      Number(usuario.secretaria_id) !== Number(evento.secretaria_id_responsable)
-    ) {
-      await connection.rollback();
-      return res.status(403).json({ success: false, error: 'La solicitud pertenece a otra secretaría' });
+    if (usuario.role === 'secretaria') {
+      const reglas = await obtenerReglasAprobacion();
+      if (!puedeAprobarArea(usuario.secretaria_id, evento.secretaria_id_responsable, reglas)) {
+        await connection.rollback();
+        return res.status(403).json({ success: false, error: 'La solicitud pertenece a un área que no podés aprobar' });
+      }
     }
 
     // Si el evento proviene de una reserva, no se puede aprobar hasta que la
@@ -547,8 +552,13 @@ const eventosController = {
         parametros.push(estadoSolicitado);
       }
       if (usuario.role === 'secretaria') {
-        consulta += ' AND e.secretaria_id_responsable = ?';
-        parametros.push(usuario.secretaria_id);
+        const reglas = await obtenerReglasAprobacion();
+        const visibles = areasVisibles(usuario.secretaria_id, reglas);
+        if (visibles !== null) {
+          const ids = visibles.length > 0 ? visibles : [-1];
+          consulta += ` AND e.secretaria_id_responsable IN (${ids.map(() => '?').join(',')})`;
+          parametros.push(...ids);
+        }
       } else if (req.query.secretaria_id) {
         const secretariaId = Number(req.query.secretaria_id);
         if (!Number.isInteger(secretariaId) || secretariaId < 1) {
