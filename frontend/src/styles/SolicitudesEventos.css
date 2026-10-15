@@ -2,6 +2,18 @@
   color: #202a32;
 }
 
+.solicitudes-subtitle {
+  margin: 24px 0 6px;
+  font-size: 1.05rem;
+  color: #202a32;
+}
+
+.solicitudes-reservas {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #dce3e6;
+}
+
 .solicitudes-list {
   display: grid;
   gap: 14px;
@@ -19,6 +31,10 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+
+.solicitud-tabs-tipo {
+  margin-bottom: 10px;
 }
 
 .solicitud-tab {
