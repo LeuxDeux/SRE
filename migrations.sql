@@ -76,6 +76,47 @@ CREATE TABLE IF NOT EXISTS auditoria_modulo_reservas (
 UPDATE espacios SET requiere_aprobacion = 1;
 
 
+-- ---------------------------------------------------------------------
+-- 5) SECRETARÍAS QUE APRUEBAN TODO (Decanato)
+-- ---------------------------------------------------------------------
+ALTER TABLE secretarias
+  ADD COLUMN aprueba_todo TINYINT(1) NOT NULL DEFAULT 0;
+
+-- Decanato (id 11) puede aprobar lo de cualquier secretaría
+UPDATE secretarias SET aprueba_todo = 1 WHERE id = 11;
+
+
+-- ---------------------------------------------------------------------
+-- 6) APROBACIÓN CRUZADA ENTRE SECRETARÍAS
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS secretarias_aprobadoras (
+  id INT NOT NULL AUTO_INCREMENT,
+  secretaria_id INT NOT NULL,               -- quién puede aprobar
+  aprueba_para_secretaria_id INT NOT NULL,  -- para qué secretaría (área responsable)
+  created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY unico_par (secretaria_id, aprueba_para_secretaria_id),
+  KEY idx_sa_secretaria (secretaria_id),
+  KEY idx_sa_para (aprueba_para_secretaria_id),
+  CONSTRAINT fk_sa_secretaria FOREIGN KEY (secretaria_id) REFERENCES secretarias(id) ON DELETE CASCADE,
+  CONSTRAINT fk_sa_para FOREIGN KEY (aprueba_para_secretaria_id) REFERENCES secretarias(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Cruces definidos:
+--   Administrativa (1) <-> General (6)
+--   Administrativa (1) y General (6) aprueban Tesorería (3) y TIC (10)
+--   Extensión (4) aprueba Subsecretaría de Asuntos Estudiantiles (7)
+--   Decanato (11) aprueba todo (por el flag aprueba_todo)
+INSERT INTO secretarias_aprobadoras (secretaria_id, aprueba_para_secretaria_id) VALUES
+  (1, 6),
+  (6, 1),
+  (1, 3),
+  (1, 10),
+  (6, 3),
+  (6, 10),
+  (4, 7);
+
+
 -- =====================================================================
 -- Notas
 -- =====================================================================
