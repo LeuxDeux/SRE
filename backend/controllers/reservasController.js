@@ -2,6 +2,7 @@ const db = require('../config/database');
 const registrarAuditoriaReservas = require('../utils/auditoriaReservas');
 const { enviarCorreoReserva, enviarCorreoEdicionReserva, enviarCorreoCancelacionReserva, enviarPDFPorCorreo } = require('../utils/emailService');
 const { notificarEventoAprobado } = require('./eventosController');
+const { obtenerReglasAprobacion, puedeAprobarArea } = require('../utils/aprobaciones');
 
 const generarNumeroReserva = async () => {
     const year = new Date().getFullYear();
@@ -165,6 +166,9 @@ const reservasController = {
                 ORDER BY r.fecha_solicitud DESC`
             );
 
+            // Reglas de aprobación (área propia + cruces + aprueba todo)
+            const reglas = await obtenerReglasAprobacion();
+
             // Obtener recursos para cada reserva
             const reservasConRecursos = await Promise.all(
                 reservas.map(async (reserva) => {
@@ -180,9 +184,13 @@ const reservasController = {
                         ORDER BY r.nombre ASC`,
                         [reserva.espacio_id, reserva.id]
                     );
+                    const puedeAprobar = usuario.role === 'admin'
+                        || (usuario.role === 'secretaria'
+                            && puedeAprobarArea(usuario.secretaria_id, reserva.secretaria_id, reglas));
                     return {
                         ...reserva,
-                        recursos: recursos || []
+                        recursos: recursos || [],
+                        puede_aprobar: puedeAprobar ? 1 : 0
                     };
                 })
             );
@@ -805,11 +813,11 @@ crearReserva: async (req, res) => {
 
             const reserva = reservas[0];
 
-            if (
-                usuario.role === 'secretaria' &&
-                Number(usuario.secretaria_id) !== Number(reserva.secretaria_id_responsable)
-            ) {
-                return res.status(403).json({ success: false, error: 'La reserva pertenece a un espacio de otra secretaría' });
+            if (usuario.role === 'secretaria') {
+                const reglas = await obtenerReglasAprobacion();
+                if (!puedeAprobarArea(usuario.secretaria_id, reserva.secretaria_id_responsable, reglas)) {
+                    return res.status(403).json({ success: false, error: 'La reserva pertenece a un área que no podés aprobar' });
+                }
             }
 
             if (reserva.estado !== 'pendiente') {
@@ -1086,11 +1094,11 @@ crearReserva: async (req, res) => {
 
         const reserva = reservas[0];
 
-        if (
-            usuario.role === 'secretaria' &&
-            Number(usuario.secretaria_id) !== Number(reserva.secretaria_id_responsable)
-        ) {
-            return res.status(403).json({ success: false, error: 'La reserva pertenece a un espacio de otra secretaría' });
+        if (usuario.role === 'secretaria') {
+            const reglas = await obtenerReglasAprobacion();
+            if (!puedeAprobarArea(usuario.secretaria_id, reserva.secretaria_id_responsable, reglas)) {
+                return res.status(403).json({ success: false, error: 'La reserva pertenece a un área que no podés aprobar' });
+            }
         }
 
         if (reserva.estado !== 'pendiente') {
