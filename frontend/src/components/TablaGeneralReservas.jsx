@@ -44,7 +44,7 @@ const TablaGeneralReservas = ({ onVolver, onReservaActualizada }) => {
 
     const puedeAprobarRechazar = (reserva) => {
        const puedeAprobar = user.role === 'admin' ||
-           (user.role === 'secretaria' && Number(user.secretaria_id) === Number(reserva.secretaria_id));
+           (user.role === 'secretaria' && Number(reserva.puede_aprobar) === 1);
        return puedeAprobar &&
            reserva.estado === 'pendiente' &&
            (reserva.requiere_aprobacion === 1 || reserva.requiere_aprobacion === true);
