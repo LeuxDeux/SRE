@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { eventosAPI, secretariasAPI } from '../services/api';
+import { eventosAPI, secretariasAPI, reservasAPI } from '../services/api';
 import '../styles/SolicitudesEventos.css';
 
 const SolicitudesEventos = ({ user }) => {
@@ -8,12 +8,15 @@ const SolicitudesEventos = ({ user }) => {
   const [error, setError] = useState('');
   const [mensaje, setMensaje] = useState('');
   const [estadoFiltro, setEstadoFiltro] = useState('pendiente');
+  const [tipoFiltro, setTipoFiltro] = useState('todos');
   const [secretariaFiltro, setSecretariaFiltro] = useState('');
   const [secretarias, setSecretarias] = useState([]);
   const [procesandoId, setProcesandoId] = useState(null);
   const [solicitudAprobacion, setSolicitudAprobacion] = useState(null);
   const [solicitudRechazo, setSolicitudRechazo] = useState(null);
   const [motivoRechazo, setMotivoRechazo] = useState('');
+  const [reservasPendientes, setReservasPendientes] = useState([]);
+  const [procesandoReservaId, setProcesandoReservaId] = useState(null);
 
   const cargarSolicitudes = useCallback(async () => {
     setLoading(true);
@@ -42,6 +45,57 @@ const SolicitudesEventos = ({ user }) => {
       .then((response) => setSecretarias(response.data.secretarias || []))
       .catch(() => setSecretarias([]));
   }, [user?.role]);
+
+  const cargarReservasPendientes = useCallback(async () => {
+    try {
+      const response = await reservasAPI.obtenerTodas();
+      const pendientes = (response.data || []).filter(
+        (reserva) => reserva.estado === 'pendiente'
+          && (user?.role === 'admin' || Number(reserva.puede_aprobar) === 1),
+      );
+      setReservasPendientes(pendientes);
+    } catch (requestError) {
+      setReservasPendientes([]);
+    }
+  }, [user?.role]);
+
+  useEffect(() => {
+    cargarReservasPendientes();
+  }, [cargarReservasPendientes]);
+
+  const aprobarReserva = async (reserva) => {
+    if (!window.confirm(`¿Aprobar la reserva ${reserva.numero_reserva}?`)) return;
+    setProcesandoReservaId(reserva.id);
+    setError('');
+    setMensaje('');
+    try {
+      await reservasAPI.aprobar(reserva.id);
+      setMensaje(`Reserva ${reserva.numero_reserva} aprobada.`);
+      await cargarReservasPendientes();
+      await cargarSolicitudes();
+    } catch (requestError) {
+      setError(requestError.response?.data?.error || 'No se pudo aprobar la reserva.');
+    } finally {
+      setProcesandoReservaId(null);
+    }
+  };
+
+  const rechazarReserva = async (reserva) => {
+    if (!window.confirm(`¿Rechazar la reserva ${reserva.numero_reserva}?`)) return;
+    setProcesandoReservaId(reserva.id);
+    setError('');
+    setMensaje('');
+    try {
+      await reservasAPI.rechazar(reserva.id);
+      setMensaje(`Reserva ${reserva.numero_reserva} rechazada.`);
+      await cargarReservasPendientes();
+      await cargarSolicitudes();
+    } catch (requestError) {
+      setError(requestError.response?.data?.error || 'No se pudo rechazar la reserva.');
+    } finally {
+      setProcesandoReservaId(null);
+    }
+  };
 
   const cambiarFiltro = (estado) => {
     setEstadoFiltro(estado);
@@ -110,14 +164,34 @@ const SolicitudesEventos = ({ user }) => {
           <p className="solicitudes-eyebrow">
             Bandeja de revisión · {user?.role === 'admin' ? 'Todas las secretarías' : user?.secretaria || 'Mi secretaría'}
           </p>
-          <h3>Solicitudes para comunicar</h3>
-          <p>Al aprobar, el evento se publica y se intenta enviar el correo correspondiente.</p>
+          <h3>Solicitudes de aprobación</h3>
+          <p>Eventos a comunicar y reservas de espacios que esperan tu aprobación.</p>
         </div>
         <button type="button" className="solicitud-refresh" onClick={cargarSolicitudes} disabled={loading}>
           {loading ? 'Actualizando...' : 'Actualizar'}
         </button>
       </div>
 
+      <div className="solicitud-tabs solicitud-tabs-tipo" role="tablist" aria-label="Filtrar por tipo de solicitud">
+        {[
+          ['todos', 'Todos'],
+          ['eventos', 'Eventos'],
+          ['reservas', 'Reservas'],
+        ].map(([tipo, label]) => (
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tipoFiltro === tipo}
+            className={tipoFiltro === tipo ? 'solicitud-tab solicitud-tab-active' : 'solicitud-tab'}
+            key={tipo}
+            onClick={() => setTipoFiltro(tipo)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {(tipoFiltro === 'todos' || tipoFiltro === 'eventos') && (
       <div className="solicitud-filtros">
         <div className="solicitud-tabs" role="tablist" aria-label="Filtrar solicitudes">
           {[
@@ -151,9 +225,20 @@ const SolicitudesEventos = ({ user }) => {
           </select>
         )}
       </div>
+      )}
 
       <div className="solicitudes-summary" aria-label="Resumen de solicitudes">
-        <div><strong>{solicitudes.length}</strong><span>{estadoFiltro === 'todas' ? 'Solicitudes' : `${estadoFiltro === 'pendiente' ? 'Pendientes' : estadoFiltro === 'aprobada' ? 'Aprobadas' : 'Rechazadas'}`}</span></div>
+        {(tipoFiltro === 'todos' || tipoFiltro === 'eventos') && (
+          <div>
+            <strong>{solicitudes.length}</strong>
+            <span>
+              Eventos {estadoFiltro === 'todas' ? '' : `(${estadoFiltro === 'pendiente' ? 'pendientes' : estadoFiltro === 'aprobada' ? 'aprobados' : 'rechazados'})`}
+            </span>
+          </div>
+        )}
+        {(tipoFiltro === 'todos' || tipoFiltro === 'reservas') && (
+          <div><strong>{reservasPendientes.length}</strong><span>Reservas pendientes</span></div>
+        )}
       </div>
 
       {mensaje && <p className="solicitud-feedback" role="status">{mensaje}</p>}
@@ -163,6 +248,10 @@ const SolicitudesEventos = ({ user }) => {
           <button type="button" onClick={cargarSolicitudes}>Reintentar</button>
         </div>
       )}
+
+      {(tipoFiltro === 'todos' || tipoFiltro === 'eventos') && (
+        <>
+          <h4 className="solicitudes-subtitle">Solicitudes de eventos pendientes</h4>
 
       {loading ? (
         <p className="solicitudes-loading">Cargando solicitudes...</p>
@@ -260,6 +349,59 @@ const SolicitudesEventos = ({ user }) => {
             </article>
           ))}
         </div>
+      )}
+        </>
+      )}
+
+      {(tipoFiltro === 'todos' || tipoFiltro === 'reservas') && (
+      <section className="solicitudes-reservas">
+        <h4 className="solicitudes-subtitle">Solicitudes de reservas pendientes</h4>
+        {reservasPendientes.length === 0 ? (
+          <div className="solicitud-empty">
+            <strong>No hay reservas pendientes</strong>
+            <span>Las reservas de espacios que esperan tu aprobación aparecerán aquí.</span>
+          </div>
+        ) : (
+          <div className="solicitudes-list">
+            {reservasPendientes.map((reserva) => (
+              <article className="solicitud-item solicitud-item-pendiente" key={`reserva-${reserva.id}`}>
+                <div className="solicitud-topline">
+                  <div>
+                    <span className="solicitud-id">Reserva {reserva.numero_reserva}</span>
+                    <span className="solicitud-status solicitud-status-pendiente">Pendiente</span>
+                  </div>
+                  <span className="solicitud-time">Solicitada {formatearFechaHora(reserva.fecha_solicitud)}</span>
+                </div>
+
+                <div className="solicitud-content">
+                  <div className="solicitud-main">
+                    <h4>{reserva.titulo}</h4>
+                    <p>{reserva.descripcion || 'Sin descripción.'}</p>
+                    <div className="solicitud-details">
+                      <div><span>Espacio</span><strong>{reserva.espacio_nombre}</strong></div>
+                      <div><span>Solicitante</span><strong>{reserva.usuario_nombre || 'Usuario'}</strong></div>
+                      <div><span>Fecha</span><strong>{formatearFecha(reserva.fecha_inicio)}</strong></div>
+                      <div><span>Horario</span><strong>{reserva.hora_inicio?.slice(0, 5)} a {reserva.hora_fin?.slice(0, 5)}</strong></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="solicitud-actions">
+                  <span>La resolución quedará registrada con tu usuario y fecha.</span>
+                  <div>
+                    <button type="button" className="solicitud-reject" onClick={() => rechazarReserva(reserva)} disabled={procesandoReservaId === reserva.id}>
+                      Rechazar
+                    </button>
+                    <button type="button" className="solicitud-approve" onClick={() => aprobarReserva(reserva)} disabled={procesandoReservaId === reserva.id}>
+                      Aprobar
+                    </button>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
       )}
 
       {solicitudAprobacion && (
