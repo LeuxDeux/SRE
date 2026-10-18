@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { eventosAPI, categoriasAPI, publicosDestinatariosAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import '../styles/EventoForm.css';
@@ -27,6 +27,7 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
   const [archivosExistentes, setArchivosExistentes] = useState([]); // Archivos ya guardados en BD
   const [archivosAEliminar, setArchivosAEliminar] = useState([]); // IDs de archivos a eliminar
   const [loading, setLoading] = useState(false);
+  const submittingRef = useRef(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState(null);
@@ -365,6 +366,10 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
       return;
     }
 
+    // Evitar envíos duplicados (doble clic) de forma síncrona
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+
     setLoading(true);
     setError('');
 
@@ -443,6 +448,7 @@ const EventoForm = ({ evento, onSave, onCancel }) => {
       setError(error.response?.data?.error || 'Error al guardar el evento');
     } finally {
       setLoading(false);
+      submittingRef.current = false;
     }
   };
 
