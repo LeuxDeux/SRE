@@ -117,6 +117,32 @@ INSERT INTO secretarias_aprobadoras (secretaria_id, aprueba_para_secretaria_id) 
   (4, 7);
 
 
+-- ---------------------------------------------------------------------
+-- 7) AUDITORÍA DEL MÓDULO DE EVENTOS
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS auditoria_modulo_eventos (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  actor_id INT NULL,
+  actor_role VARCHAR(32) NOT NULL,
+  secretaria_id INT NULL,
+  accion VARCHAR(80) NOT NULL,
+  entidad_tipo VARCHAR(50) NOT NULL,
+  entidad_id INT NULL,
+  evento_id INT NULL,
+  reserva_id INT NULL,
+  datos_anteriores JSON NULL,
+  datos_nuevos JSON NULL,
+  observaciones TEXT NULL,
+  fecha_accion TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_auditoria_eventos_fecha (fecha_accion),
+  KEY idx_auditoria_eventos_area_fecha (secretaria_id, fecha_accion),
+  KEY idx_auditoria_eventos_actor_fecha (actor_id, fecha_accion),
+  KEY idx_auditoria_eventos_entidad (entidad_tipo, entidad_id),
+  KEY idx_auditoria_eventos_evento (evento_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
 -- =====================================================================
 -- Notas
 -- =====================================================================
