@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { reservasAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import moment from 'moment';
+import { esReservaVencida } from '../utils/reservas';
 import '../styles/TablaGeneralReservas.css';
 
 const TablaGeneralReservas = ({ onVolver, onReservaActualizada }) => {
@@ -47,6 +48,7 @@ const TablaGeneralReservas = ({ onVolver, onReservaActualizada }) => {
            (user.role === 'secretaria' && Number(reserva.puede_aprobar) === 1);
        return puedeAprobar &&
            reserva.estado === 'pendiente' &&
+           !esReservaVencida(reserva) &&
            (reserva.requiere_aprobacion === 1 || reserva.requiere_aprobacion === true);
     };
 
@@ -349,8 +351,8 @@ const TablaGeneralReservas = ({ onVolver, onReservaActualizada }) => {
                                         )}
                                     </td>
                                     <td>
-                                        <span className={`estado-badge ${estaEliminada(reserva) ? 'eliminada' : reserva.estado}`}>
-                                            {estaEliminada(reserva) ? 'eliminada' : reserva.estado}
+                                        <span className={`estado-badge ${estaEliminada(reserva) ? 'eliminada' : esReservaVencida(reserva) ? 'vencida' : reserva.estado}`}>
+                                            {estaEliminada(reserva) ? 'eliminada' : esReservaVencida(reserva) ? 'vencida' : reserva.estado}
                                         </span>
                                     </td>
                                     <td>
