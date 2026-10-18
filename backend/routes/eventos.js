@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const eventosController = require("../controllers/eventosController");
+const auditoriaEventosController = require("../controllers/auditoriaEventosController");
 const authMiddleware = require("../middleware/auth");
 const upload = require("../middleware/upload");
 const soloGestionEventos = (req, res, next) => {
@@ -17,6 +18,7 @@ const soloGestionEventos = (req, res, next) => {
 router.get("/", eventosController.obtenerEventos);
 router.get("/solicitudes", authMiddleware, eventosController.listarSolicitudesPendientes);
 router.get("/mis-solicitudes", authMiddleware, eventosController.obtenerMisSolicitudes);
+router.get("/auditoria", authMiddleware, auditoriaEventosController.obtenerAuditoriaEventos);
 router.patch("/:id/aprobar", authMiddleware, eventosController.aprobarEventoPendiente);
 router.patch("/:id/rechazar", authMiddleware, eventosController.rechazarEventoPendiente);
 router.get("/:id", eventosController.obtenerEvento);
