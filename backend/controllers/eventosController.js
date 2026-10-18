@@ -4,6 +4,7 @@ const {
   areasVisibles,
   puedeAprobarArea,
 } = require("../utils/aprobaciones");
+const registrarAuditoriaEventos = require("../utils/auditoriaEventos");
 
 /**
  * FUNCIÓN AUXILIAR: detectarCambios
@@ -409,6 +410,8 @@ const resolverEventoPendiente = async (req, res, estadoFinal, motivoRechazo = nu
     return res.status(400).json({ success: false, error: 'Identificador de evento inválido' });
   }
 
+  let secretariaResponsableAuditoria = null;
+
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -423,6 +426,7 @@ const resolverEventoPendiente = async (req, res, estadoFinal, motivoRechazo = nu
     }
 
     const evento = eventos[0];
+    secretariaResponsableAuditoria = evento.secretaria_id_responsable ?? null;
     if (evento.estado_aprobacion !== 'pendiente') {
       await connection.rollback();
       return res.status(409).json({ success: false, error: 'La solicitud ya fue resuelta' });
@@ -487,6 +491,18 @@ const resolverEventoPendiente = async (req, res, estadoFinal, motivoRechazo = nu
   } finally {
     connection.release();
   }
+
+  // Auditoría del módulo de eventos (best-effort, tras el commit)
+  await registrarAuditoriaEventos({
+    req,
+    accion: estadoFinal === 'aprobada' ? 'aprobar' : 'rechazar',
+    entidadTipo: 'evento',
+    entidadId: eventoId,
+    eventoId,
+    secretariaId: secretariaResponsableAuditoria,
+    datosAnteriores: { estado_aprobacion: 'pendiente' },
+    datosNuevos: { estado_aprobacion: estadoFinal, motivo_rechazo: motivoRechazo },
+  });
 
   const correoEnviado = estadoFinal === 'aprobada'
     ? await notificarEventoAprobado(eventoId)
@@ -812,6 +828,51 @@ const eventosController = {
       if (links) cambiosIniciales.push("Con links relevantes");
       if (observaciones) cambiosIniciales.push("Con observaciones adicionales");
 
+      // Evitar duplicados idénticos por doble envío:
+      // mismo usuario + TODOS los campos iguales + creado hace menos de 2 minutos.
+      // Dos eventos "parecidos" (que difieren en algún campo) se permiten.
+      const [duplicados] = await pool.query(
+        `SELECT id FROM eventos
+         WHERE usuario_id = ?
+           AND nombre = ?
+           AND fecha_evento = ?
+           AND IFNULL(fecha_fin, '') = IFNULL(?, '')
+           AND IFNULL(descripcion, '') = IFNULL(?, '')
+           AND IFNULL(categoria_id, 0) = IFNULL(?, 0)
+           AND IFNULL(correo_contacto, '') = IFNULL(?, '')
+           AND IFNULL(telefono, '') = IFNULL(?, '')
+           AND IFNULL(hora_inicio, '') = IFNULL(?, '')
+           AND IFNULL(hora_fin, '') = IFNULL(?, '')
+           AND IFNULL(lugar, '') = IFNULL(?, '')
+           AND IFNULL(publico_destinatario, '') = IFNULL(?, '')
+           AND IFNULL(links, '') = IFNULL(?, '')
+           AND IFNULL(observaciones, '') = IFNULL(?, '')
+           AND fecha_carga >= (NOW() - INTERVAL 120 SECOND)
+         LIMIT 1`,
+        [
+          usuario_id,
+          nombre,
+          fecha_evento,
+          fechaFinValue,
+          descripcion || '',
+          categoria_id || 0,
+          correo_contacto || '',
+          telefono || '',
+          horaInicioValue,
+          horaFinValue,
+          lugar || '',
+          publico_destinatario || '',
+          links || '',
+          observaciones || '',
+        ],
+      );
+      if (duplicados.length > 0) {
+        return res.status(409).json({
+          success: false,
+          error: "Este evento ya fue registrado (envío duplicado).",
+        });
+      }
+
       // Insertar el nuevo evento en la base de datos (sin archivo_adjunto, ahora se usa eventos_archivos)
       const [result] = await pool.query(
         `
@@ -887,6 +948,22 @@ const eventosController = {
         },
       );
 
+      // Auditoría del módulo de eventos
+      await registrarAuditoriaEventos({
+        req,
+        accion: estadoAprobacion === 'pendiente' ? 'solicitar' : 'crear',
+        entidadTipo: 'evento',
+        entidadId: eventoId,
+        eventoId,
+        secretariaId: usuarioActual.secretaria_id || null,
+        datosNuevos: {
+          nombre,
+          fecha_evento,
+          categoria_id,
+          estado_aprobacion: estadoAprobacion,
+        },
+      });
+
       // Los eventos pendientes no se publican ni notifican por correo.
       if (estadoAprobacion !== 'pendiente') {
         try {
@@ -938,8 +1015,10 @@ const eventosController = {
             );
 
             const { enviarPDFPorCorreo } = require("../utils/emailService");
-            await enviarPDFPorCorreo(evento, correosDestino, "creado", archivos);
-            console.log(`✅ Email de evento creado enviado a: ${correosDestino.join(", ")} con ${archivos.length} archivo(s) adjunto(s)`);
+            // No bloqueante: no esperamos el envío para responder al usuario
+            enviarPDFPorCorreo(evento, correosDestino, "creado", archivos)
+              .then(() => console.log(`✅ Email de evento creado enviado a: ${correosDestino.join(", ")} con ${archivos.length} archivo(s) adjunto(s)`))
+              .catch((emailError) => console.error("⚠️ Error enviando email automático:", emailError.message));
           } else {
             console.log("⚠️ No hay correos configurados para enviar notificación");
           }
@@ -1051,6 +1130,14 @@ const eventosController = {
       }
 
       const eventoViejo = eventos[0];
+
+      // Solo admin o el creador del evento pueden editarlo
+      if (req.user.role !== "admin" && Number(eventoViejo.usuario_id) !== Number(req.user.id)) {
+        return res.status(403).json({
+          success: false,
+          error: "No tenés permiso para editar este evento",
+        });
+      }
 
       // Detectar qué campos han cambiado
       const { cambiosDetallados, valoresViejos, valoresNuevos } =
@@ -1266,6 +1353,17 @@ const eventosController = {
           ],
         );
 
+        await registrarAuditoriaEventos({
+          req,
+          accion: "editar",
+          entidadTipo: "evento",
+          entidadId: Number(id),
+          eventoId: Number(id),
+          secretariaId: eventoViejo.secretaria_id_responsable ?? null,
+          datosAnteriores: valoresViejos,
+          datosNuevos: valoresNuevos,
+        });
+
         console.log(`✅ Evento actualizado: ${id}`);
       } else {
         console.log(`⚠️ No hay cambios para registrar en el evento ${id}`);
@@ -1333,6 +1431,15 @@ const eventosController = {
         });
       }
 
+      // Solo admin o el creador del evento pueden eliminarlo
+      const eventoAEliminar = eventos[0];
+      if (req.user.role !== "admin" && Number(eventoAEliminar.usuario_id) !== Number(req.user.id)) {
+        return res.status(403).json({
+          success: false,
+          error: "No tenés permiso para eliminar este evento",
+        });
+      }
+
       // Registrar la eliminación en el historial ANTES de eliminar el evento
       await registrarEnHistorial(id, req.user.id, "eliminado", [
         "Evento eliminado del sistema",
@@ -1340,6 +1447,28 @@ const eventosController = {
 
       // Eliminar el evento de la base de datos
       await pool.query("DELETE FROM eventos WHERE id = ?", [id]);
+
+      // Auditoría del módulo de eventos (sobrevive a la eliminación)
+      await registrarAuditoriaEventos({
+        req,
+        accion: "eliminar",
+        entidadTipo: "evento",
+        entidadId: Number(id),
+        eventoId: Number(id),
+        secretariaId: eventoAEliminar.secretaria_id_responsable ?? null,
+        datosAnteriores: {
+          nombre: eventoAEliminar.nombre,
+          descripcion: eventoAEliminar.descripcion,
+          fecha_evento: eventoAEliminar.fecha_evento,
+          fecha_fin: eventoAEliminar.fecha_fin,
+          hora_inicio: eventoAEliminar.hora_inicio,
+          hora_fin: eventoAEliminar.hora_fin,
+          lugar: eventoAEliminar.lugar,
+          categoria_id: eventoAEliminar.categoria_id,
+          publico_destinatario: eventoAEliminar.publico_destinatario,
+          estado_aprobacion: eventoAEliminar.estado_aprobacion,
+        },
+      });
 
       res.json({
         success: true,
