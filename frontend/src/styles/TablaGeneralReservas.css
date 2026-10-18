@@ -193,6 +193,11 @@
     color: #0c5460;
 }
 
+.estado-badge.vencida {
+    background: #e2e3e5;
+    color: #41464b;
+}
+
 .estado-badge.eliminada {
     background: #e9ecef;
     color: #495057;
