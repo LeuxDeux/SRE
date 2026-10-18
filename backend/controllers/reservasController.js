@@ -3,6 +3,7 @@ const registrarAuditoriaReservas = require('../utils/auditoriaReservas');
 const { enviarCorreoReserva, enviarCorreoEdicionReserva, enviarCorreoCancelacionReserva, enviarPDFPorCorreo } = require('../utils/emailService');
 const { notificarEventoAprobado } = require('./eventosController');
 const { obtenerReglasAprobacion, puedeAprobarArea } = require('../utils/aprobaciones');
+const registrarAuditoriaEventos = require('../utils/auditoriaEventos');
 
 const generarNumeroReserva = async () => {
     const year = new Date().getFullYear();
@@ -827,6 +828,15 @@ crearReserva: async (req, res) => {
                 });
             }
 
+            const hoyAprob = new Date();
+            hoyAprob.setHours(0, 0, 0, 0);
+            if (new Date(reserva.fecha_fin || reserva.fecha_inicio) < hoyAprob) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'La reserva está vencida y ya no puede aprobarse'
+                });
+            }
+
             // Aprobar la reserva
             await db.execute(
                 `UPDATE reservas SET estado = 'confirmada', aprobador_id = ?, fecha_aprobacion = NOW() WHERE id = ?`,
@@ -970,6 +980,16 @@ crearReserva: async (req, res) => {
                         ]
                     );
                     await notificarEventoAprobado(eventoVinculadoId);
+                    await registrarAuditoriaEventos({
+                        req,
+                        accion: 'aprobar',
+                        entidadTipo: 'evento',
+                        entidadId: eventoVinculadoId,
+                        eventoId: eventoVinculadoId,
+                        reservaId: Number(id),
+                        datosAnteriores: { estado_aprobacion: 'pendiente' },
+                        datosNuevos: { estado_aprobacion: 'aprobada' },
+                    });
                 }
             } catch (eventoError) {
                 console.error('⚠️ Error aprobando evento vinculado a la reserva:', eventoError.message);
@@ -1108,6 +1128,15 @@ crearReserva: async (req, res) => {
             });
         }
 
+        const hoyRech = new Date();
+        hoyRech.setHours(0, 0, 0, 0);
+        if (new Date(reserva.fecha_fin || reserva.fecha_inicio) < hoyRech) {
+            return res.status(400).json({
+                success: false,
+                error: 'La reserva está vencida y ya no puede rechazarse'
+            });
+        }
+
         // Rechazar la reserva
         await db.execute(
             `UPDATE reservas SET estado = 'rechazada', aprobador_id = ? WHERE id = ?`,
@@ -1188,6 +1217,16 @@ crearReserva: async (req, res) => {
                         JSON.stringify({ estado_aprobacion: 'rechazada', motivo_rechazo: 'Reserva rechazada' }),
                     ]
                 );
+                await registrarAuditoriaEventos({
+                    req,
+                    accion: 'rechazar',
+                    entidadTipo: 'evento',
+                    entidadId: eventoVinculadoId,
+                    eventoId: eventoVinculadoId,
+                    reservaId: Number(id),
+                    datosAnteriores: { estado_aprobacion: 'pendiente' },
+                    datosNuevos: { estado_aprobacion: 'rechazada', motivo_rechazo: 'Reserva rechazada' },
+                });
             }
         } catch (eventoError) {
             console.error('⚠️ Error rechazando evento vinculado a la reserva:', eventoError.message);
