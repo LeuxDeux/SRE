@@ -15,7 +15,7 @@ const formatearFecha = (fecha) => {
 };
 
 const formatearFechaHora = (fecha) =>
-  fecha ? new Date(fecha).toLocaleString('es-AR') : 'Sin fecha';
+  fecha ? new Date(fecha).toLocaleString('es-AR', { hour12: false }) : 'Sin fecha';
 
 const MisSolicitudesEventos = ({ onVolver }) => {
   const [solicitudes, setSolicitudes] = useState([]);
