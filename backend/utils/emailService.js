@@ -9,7 +9,11 @@ const transporter = nodemailer.createTransport({
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASSWORD
-  }
+  },
+  // Timeouts cortos: si el SMTP no responde, fallar rápido en vez de colgar la request
+  connectionTimeout: 8000,
+  greetingTimeout: 8000,
+  socketTimeout: 12000
 });
 
 /**
