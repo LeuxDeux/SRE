@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { espaciosAPI, espaciosRecursosAPI, reservasAPI, reservasRecursosAPI, categoriasAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import moment from 'moment';
@@ -12,6 +12,7 @@ const ReservaForm = ({ slotInicial, onClose, onReservaCreada }) => {
     const [categoriaSeleccionada, setCategoriaSeleccionada] = useState(null);
     const [categoriaError, setCategoriaError] = useState(null);
     const [loading, setLoading] = useState(false);
+    const submittingRef = useRef(false);
     const [error, setError] = useState(null);
     const [pasoActual, setPasoActual] = useState(1);
     const [disponibilidad, setDisponibilidad] = useState(null);
@@ -191,8 +192,11 @@ const ReservaForm = ({ slotInicial, onClose, onReservaCreada }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        // Evitar envíos duplicados (doble clic) de forma síncrona
+        if (submittingRef.current) return;
+        submittingRef.current = true;
         setLoading(true);
-        
+
         try {
             if (!validarAntelacionCategoria()) {
                 setLoading(false);
@@ -239,6 +243,7 @@ const ReservaForm = ({ slotInicial, onClose, onReservaCreada }) => {
             setError(err.response?.data?.error || 'Error al crear la reserva');
         } finally {
             setLoading(false);
+            submittingRef.current = false;
         }
     };
 
