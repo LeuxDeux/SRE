@@ -70,6 +70,7 @@ export const eventosAPI = {
   obtenerSolicitudesPendientes: (params = {}) =>
     api.get("/eventos/solicitudes", { params }),
   obtenerMisSolicitudes: () => api.get("/eventos/mis-solicitudes"),
+  obtenerAuditoriaEventos: (params = {}) => api.get("/eventos/auditoria", { params }),
   aprobarSolicitud: (id) => api.patch(`/eventos/${id}/aprobar`),
   rechazarSolicitud: (id, motivo_rechazo) =>
     api.patch(`/eventos/${id}/rechazar`, { motivo_rechazo }),
