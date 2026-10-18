@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { eventosAPI, secretariasAPI, reservasAPI } from '../services/api';
+import { esReservaVencida } from '../utils/reservas';
 import '../styles/SolicitudesEventos.css';
 
 const SolicitudesEventos = ({ user }) => {
@@ -17,6 +18,7 @@ const SolicitudesEventos = ({ user }) => {
   const [motivoRechazo, setMotivoRechazo] = useState('');
   const [reservasPendientes, setReservasPendientes] = useState([]);
   const [procesandoReservaId, setProcesandoReservaId] = useState(null);
+  const [mostrarVencidas, setMostrarVencidas] = useState(false);
 
   const cargarSolicitudes = useCallback(async () => {
     setLoading(true);
@@ -110,7 +112,7 @@ const SolicitudesEventos = ({ user }) => {
   };
 
   const formatearFechaHora = (fecha) =>
-    fecha ? new Date(fecha).toLocaleString('es-AR') : 'Sin fecha';
+    fecha ? new Date(fecha).toLocaleString('es-AR', { hour12: false }) : 'Sin fecha';
 
   const aprobarSolicitud = async (solicitud) => {
     setProcesandoId(solicitud.id);
@@ -156,6 +158,12 @@ const SolicitudesEventos = ({ user }) => {
       setProcesandoId(null);
     }
   };
+
+  const reservasVencidas = reservasPendientes.filter(esReservaVencida);
+  const reservasActivas = reservasPendientes.filter((reserva) => !esReservaVencida(reserva));
+  const reservasVisibles = mostrarVencidas
+    ? [...reservasActivas, ...reservasVencidas]
+    : reservasActivas;
 
   return (
     <section className="solicitudes-page" aria-label="Bandeja de solicitudes de eventos">
@@ -237,7 +245,7 @@ const SolicitudesEventos = ({ user }) => {
           </div>
         )}
         {(tipoFiltro === 'todos' || tipoFiltro === 'reservas') && (
-          <div><strong>{reservasPendientes.length}</strong><span>Reservas pendientes</span></div>
+          <div><strong>{reservasActivas.length}</strong><span>Reservas pendientes</span></div>
         )}
       </div>
 
@@ -249,6 +257,7 @@ const SolicitudesEventos = ({ user }) => {
         </div>
       )}
 
+      <div className="solicitudes-cajas">
       {(tipoFiltro === 'todos' || tipoFiltro === 'eventos') && (
         <>
           <h4 className="solicitudes-subtitle">Solicitudes de eventos pendientes</h4>
@@ -355,20 +364,33 @@ const SolicitudesEventos = ({ user }) => {
 
       {(tipoFiltro === 'todos' || tipoFiltro === 'reservas') && (
       <section className="solicitudes-reservas">
-        <h4 className="solicitudes-subtitle">Solicitudes de reservas pendientes</h4>
-        {reservasPendientes.length === 0 ? (
+        <div className="solicitudes-subtitle-row">
+          <h4 className="solicitudes-subtitle">Solicitudes de reservas pendientes</h4>
+          {reservasVencidas.length > 0 && (
+            <button
+              type="button"
+              className={mostrarVencidas ? 'solicitud-tab solicitud-tab-active' : 'solicitud-tab'}
+              onClick={() => setMostrarVencidas((v) => !v)}
+            >
+              {mostrarVencidas ? 'Ocultar vencidas' : `Ver vencidas (${reservasVencidas.length})`}
+            </button>
+          )}
+        </div>
+        {reservasVisibles.length === 0 ? (
           <div className="solicitud-empty">
             <strong>No hay reservas pendientes</strong>
             <span>Las reservas de espacios que esperan tu aprobación aparecerán aquí.</span>
           </div>
         ) : (
           <div className="solicitudes-list">
-            {reservasPendientes.map((reserva) => (
+            {reservasVisibles.map((reserva) => {
+              const vencida = esReservaVencida(reserva);
+              return (
               <article className="solicitud-item solicitud-item-pendiente" key={`reserva-${reserva.id}`}>
                 <div className="solicitud-topline">
                   <div>
                     <span className="solicitud-id">Reserva {reserva.numero_reserva}</span>
-                    <span className="solicitud-status solicitud-status-pendiente">Pendiente</span>
+                    <span className="solicitud-status solicitud-status-pendiente">{vencida ? 'Vencida' : 'Pendiente'}</span>
                   </div>
                   <span className="solicitud-time">Solicitada {formatearFechaHora(reserva.fecha_solicitud)}</span>
                 </div>
@@ -386,23 +408,31 @@ const SolicitudesEventos = ({ user }) => {
                   </div>
                 </div>
 
-                <div className="solicitud-actions">
-                  <span>La resolución quedará registrada con tu usuario y fecha.</span>
-                  <div>
-                    <button type="button" className="solicitud-reject" onClick={() => rechazarReserva(reserva)} disabled={procesandoReservaId === reserva.id}>
-                      Rechazar
-                    </button>
-                    <button type="button" className="solicitud-approve" onClick={() => aprobarReserva(reserva)} disabled={procesandoReservaId === reserva.id}>
-                      Aprobar
-                    </button>
+                {vencida ? (
+                  <div className="solicitud-actions">
+                    <span>Esta reserva está vencida (la fecha ya pasó) y no puede aprobarse ni rechazarse.</span>
                   </div>
-                </div>
+                ) : (
+                  <div className="solicitud-actions">
+                    <span>La resolución quedará registrada con tu usuario y fecha.</span>
+                    <div>
+                      <button type="button" className="solicitud-reject" onClick={() => rechazarReserva(reserva)} disabled={procesandoReservaId === reserva.id}>
+                        Rechazar
+                      </button>
+                      <button type="button" className="solicitud-approve" onClick={() => aprobarReserva(reserva)} disabled={procesandoReservaId === reserva.id}>
+                        Aprobar
+                      </button>
+                    </div>
+                  </div>
+                )}
               </article>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>
       )}
+      </div>
 
       {solicitudAprobacion && (
         <div
