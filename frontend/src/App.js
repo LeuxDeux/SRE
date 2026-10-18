@@ -5,6 +5,7 @@ import EventosTable from './components/EventosTable';
 import EventoForm from './components/EventoForm';
 import EventoDetail from './components/EventoDetail';
 import MisSolicitudesEventos from './components/MisSolicitudesEventos';
+import AuditoriaEventos from './components/AuditoriaEventos';
 import GestionCategorias from './components/GestionCategorias';
 import GestionUsuarios from './components/GestionUsuarios';
 import ReservasCalendar from './components/ReservasCalendar';
@@ -94,6 +95,13 @@ const Dashboard = () => {
             onVolver={() => setVistaEventos('lista')}
           />
         );
+
+      case 'auditoria':
+        return (
+          <AuditoriaEventos
+            onVolver={() => setVistaEventos('lista')}
+          />
+        );
       
       default:
         return (
@@ -137,12 +145,20 @@ const Dashboard = () => {
                   </button>
                 </div>
               ) : user.role !== 'usuario' && vistaEventos === 'lista' ? (
-                <button
-                  onClick={handleNuevoEvento}
-                  className="btn-nuevo-evento"
-                >
-                  {user.role === 'usuario' ? '➕ Solicitar Evento' : '➕ Nuevo Evento'}
-                </button>
+                <div className="eventos-header-actions">
+                  <button
+                    onClick={handleNuevoEvento}
+                    className="btn-nuevo-evento"
+                  >
+                    ➕ Nuevo Evento
+                  </button>
+                  <button
+                    onClick={() => setVistaEventos('auditoria')}
+                    className="btn-nuevo-evento"
+                  >
+                    📜 Auditoría
+                  </button>
+                </div>
               ) : null}
             </div>
             {renderModuloEventos()}
