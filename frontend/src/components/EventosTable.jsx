@@ -313,7 +313,7 @@ const EventosTable = ({ onEditEvento, onViewDetails, readOnly = false }) => {
                     >
                       👁️
                     </button>
-                    {!readOnly && (
+                    {!readOnly && (user.role === 'admin' || evento.usuario_id === user.id) && (
                       <button
                         onClick={() => onEditEvento(evento)}
                         className="btn btn-warning"
