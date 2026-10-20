@@ -6,6 +6,7 @@ import EventoForm from './components/EventoForm';
 import EventoDetail from './components/EventoDetail';
 import MisSolicitudesEventos from './components/MisSolicitudesEventos';
 import AuditoriaEventos from './components/AuditoriaEventos';
+import AyudaVideo from './components/AyudaVideo';
 import GestionCategorias from './components/GestionCategorias';
 import GestionUsuarios from './components/GestionUsuarios';
 import ReservasCalendar from './components/ReservasCalendar';
@@ -335,6 +336,8 @@ const Dashboard = () => {
       <main className="app-main">
         {renderModulo()}
       </main>
+
+      <AyudaVideo />
     </div>
   );
 };
