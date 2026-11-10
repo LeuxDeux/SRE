@@ -415,14 +415,25 @@ const ReservaForm = ({ slotInicial, onClose, onReservaCreada }) => {
                                         </div>
                                     ) : (
                                         <div className="no-disponible-message">
-                                            ❌ El espacio no está disponible. Conflictos encontrados:
+                                            ❌ El espacio no está disponible: se superpone con{' '}
+                                            <strong>{disponibilidad.conflictos.length}</strong>{' '}
+                                            {disponibilidad.conflictos.length === 1 ? 'reserva' : 'reservas'}.
                                             <ul>
-                                                {disponibilidad.conflictos.map((conflicto, index) => (
+                                                {disponibilidad.conflictos.slice(0, 5).map((conflicto, index) => (
                                                     <li key={index}>
-                                                        {conflicto.titulo} - {conflicto.fecha_inicio} {conflicto.hora_inicio}
+                                                        {conflicto.titulo} — {conflicto.fecha_inicio} {String(conflicto.hora_inicio || '').slice(0, 5)}
                                                     </li>
                                                 ))}
                                             </ul>
+                                            {disponibilidad.conflictos.length > 5 && (
+                                                <p>… y {disponibilidad.conflictos.length - 5} más.</p>
+                                            )}
+                                            {formData.fecha_inicio && formData.fecha_fin && formData.fecha_inicio !== formData.fecha_fin && (
+                                                <p className="disponibilidad-hint">
+                                                    Ojo: el rango va del {formData.fecha_inicio} al {formData.fecha_fin} (varios días).
+                                                    Si querés reservar un solo día, usá la misma fecha en “Fecha fin”.
+                                                </p>
+                                            )}
                                         </div>
                                     )}
                                 </div>
