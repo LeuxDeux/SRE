@@ -130,6 +130,11 @@ const reservasController = {
                 ]
             );
 
+            console.log(
+                `🔎 Validar disponibilidad: espacio=${espacio_id} | ${fecha_inicio} ${hora_inicio} -> ${fecha_fin} ${hora_fin} | conflictos=${conflictos.length}` +
+                (conflictos.length ? ` [${conflictos.slice(0, 10).map((c) => c.numero_reserva).join(', ')}]` : '')
+            );
+
             res.json({
                 success: true,
                 disponible: conflictos.length === 0,
@@ -250,6 +255,9 @@ crearReserva: async (req, res) => {
         );
 
         if (conflictos.length > 0) {
+            console.log(
+                `❌ Conflicto al crear reserva: usuario=${req.user.id} espacio=${espacio_id} | ${fecha_inicio} ${hora_inicio} -> ${fecha_fin} ${hora_fin} | conflictos=${conflictos.length} [ids: ${conflictos.map((c) => c.id).join(', ')}]`
+            );
             return res.status(409).json({
                 success: false,
                 error: 'El espacio no está disponible en ese horario'
