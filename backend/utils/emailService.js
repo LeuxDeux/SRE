@@ -13,7 +13,12 @@ const transporter = nodemailer.createTransport({
   // Timeouts cortos: si el SMTP no responde, fallar rápido en vez de colgar la request
   connectionTimeout: 8000,
   greetingTimeout: 8000,
-  socketTimeout: 12000
+  socketTimeout: 12000,
+  // Permite conectar por IP pero validar el certificado con el nombre del servidor
+  // (ej. SMTP_HOST=190.114.205.131 + SMTP_TLS_SERVERNAME=mail.frrq.utn.edu.ar)
+  ...(process.env.SMTP_TLS_SERVERNAME
+    ? { tls: { servername: process.env.SMTP_TLS_SERVERNAME } }
+    : {})
 });
 
 /**
